@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Raymarching in WGSL — a working reference for wgpu + Rust</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --void:#100e19;
+  --panel:#171528;
+  --panel-2:#1e1b31;
+  --code-bg:#0a0812;
+  --rule:#2b2742;
+  --rule-soft:#211e35;
+  --ink:#e4dff3;
+  --ink-2:#a9a2c6;
+  --ink-3:#6f6890;
+
+  /* march ramp — the same colormap you'd use for a step-count debug view */
+  --v0:#472d7b;
+  --v1:#3b528b;
+  --v2:#2c728e;
+  --v3:#21918c;
+  --v4:#27ad81;
+  --v5:#5ec962;
+  --v6:#addc30;
+  --v7:#fde725;
+
+  --cool:#4cc9c0;
+  --hot:#fde725;
+  --warn:#ff8f6b;
+
+  --mono:'JetBrains Mono',ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;
+  --sans:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --disp:'Archivo','Archivo Expanded',var(--sans);
+
+  --rail:88px;
+  --measure:74ch;
+}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:84px}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+body{
+  margin:0;
+  background:var(--void);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:16.5px;
+  line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ── the ray rail: fixed vertical line, ticks light up as you pass ───── */
+.rail{
+  position:fixed; left:36px; top:0; bottom:0; width:2px;
+  background:linear-gradient(to bottom,var(--v0),var(--v2),var(--v4),var(--v7));
+  opacity:.22; z-index:2; pointer-events:none;
+}
+.rail-head{
+  position:fixed; left:29px; width:16px; height:16px; z-index:3;
+  margin-top:-8px; pointer-events:none;
+  border-radius:50%; border:2px solid var(--hot);
+  background:rgba(253,231,37,.14);
+  transition:top .09s linear, border-color .3s;
+}
+@media (max-width:940px){.rail,.rail-head{display:none}}
+
+/* ── top jump bar ───────────────────────────────────────────────────── */
+.jump{
+  position:sticky; top:0; z-index:20;
+  background:rgba(16,14,25,.86);
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--rule-soft);
+}
+.jump-inner{
+  max-width:1180px; margin:0 auto; padding:9px 26px 9px calc(var(--rail) + 26px);
+  display:flex; gap:2px; overflow-x:auto; scrollbar-width:none;
+}
+.jump-inner::-webkit-scrollbar{display:none}
+.jump a{
+  flex:none; font-family:var(--mono); font-size:11px; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--ink-3); text-decoration:none;
+  padding:6px 11px; border-radius:3px; white-space:nowrap;
+  border:1px solid transparent; transition:color .16s,border-color .16s;
+}
+.jump a:hover,.jump a:focus-visible{color:var(--ink);border-color:var(--rule)}
+@media (max-width:940px){.jump-inner{padding-left:20px;padding-right:20px}}
+
+/* ── layout ─────────────────────────────────────────────────────────── */
+.wrap{max-width:1180px;margin:0 auto;padding:0 26px 0 calc(var(--rail) + 26px)}
+@media (max-width:940px){.wrap{padding:0 20px}}
+
+/* ── hero ───────────────────────────────────────────────────────────── */
+.hero{padding:74px 0 30px;border-bottom:1px solid var(--rule-soft)}
+.eyebrow{
+  font-family:var(--mono); font-size:11.5px; letter-spacing:.2em;
+  text-transform:uppercase; color:var(--v3); margin:0 0 20px;
+}
+h1{
+  font-family:var(--disp); font-stretch:120%; font-weight:700;
+  font-size:clamp(2.5rem,6.4vw,4.5rem); line-height:.97;
+  letter-spacing:-.028em; margin:0 0 22px; color:#fff;
+}
+h1 em{font-style:normal;color:var(--v6)}
+.lede{
+  max-width:60ch; font-size:1.1rem; color:var(--ink-2); margin:0 0 12px;
+}
+.lede strong{color:var(--ink);font-weight:500}
+
+.figure{margin:38px 0 8px;border:1px solid var(--rule);border-radius:5px;background:var(--panel);overflow:hidden}
+.figure canvas{display:block;width:100%;height:290px}
+@media (max-width:640px){.figure canvas{height:210px}}
+.figcap{
+  display:flex;gap:16px;align-items:baseline;flex-wrap:wrap;
+  padding:11px 16px;border-top:1px solid var(--rule-soft);
+  font-family:var(--mono);font-size:11.5px;color:var(--ink-3);
+}
+.figcap b{color:var(--ink-2);font-weight:500}
+.figcap .spacer{flex:1}
+.figbtn{
+  font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+  background:transparent;border:1px solid var(--rule);color:var(--ink-2);
+  padding:4px 10px;border-radius:3px;cursor:pointer;transition:border-color .16s,color .16s;
+}
+.figbtn:hover{border-color:var(--v3);color:var(--ink)}
+
+/* ── sections ───────────────────────────────────────────────────────── */
+section{padding:52px 0;border-bottom:1px solid var(--rule-soft)}
+.sechead{display:flex;gap:16px;align-items:flex-start;margin-bottom:8px}
+.tick{
+  flex:none;margin-top:9px;width:26px;height:2px;background:var(--c,var(--v3));
+}
+.sectag{
+  font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--c,var(--v3));margin:0 0 6px;
+}
+h2{
+  font-family:var(--disp);font-stretch:112%;font-weight:600;
+  font-size:clamp(1.55rem,3.1vw,2.1rem);line-height:1.12;letter-spacing:-.018em;
+  margin:0;color:#fff;
+}
+h3{
+  font-family:var(--disp);font-stretch:106%;font-weight:600;font-size:1.02rem;
+  letter-spacing:.005em;margin:34px 0 10px;color:var(--ink);
+}
+h3:first-child{margin-top:0}
+p{max-width:var(--measure);margin:0 0 14px}
+section > p, .sechead + p{color:var(--ink-2)}
+p strong{color:var(--ink);font-weight:600}
+a{color:var(--cool)}
+ul,ol{max-width:var(--measure);margin:0 0 16px;padding-left:20px;color:var(--ink-2)}
+li{margin-bottom:7px}
+li::marker{color:var(--ink-3)}
+code{font-family:var(--mono);font-size:.87em;color:var(--v6);background:rgba(173,220,48,.07);padding:1px 5px;border-radius:3px}
+p code,li code,td code{white-space:nowrap}
+
+/* ── code blocks ────────────────────────────────────────────────────── */
+.code{
+  margin:18px 0 22px;border:1px solid var(--rule);border-radius:5px;
+  background:var(--code-bg);overflow:hidden;
+}
+.code-bar{
+  display:flex;align-items:center;gap:10px;
+  padding:7px 14px;border-bottom:1px solid var(--rule-soft);
+  background:var(--panel);
+  font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ink-3);
+}
+.code-bar .lang{color:var(--v3)}
+.code-bar .file{color:var(--ink-3);text-transform:none;letter-spacing:0}
+.code pre{margin:0;padding:15px 16px;overflow-x:auto;font-size:13.2px;line-height:1.62}
+.code code{background:none;padding:0;color:var(--ink);font-size:inherit;white-space:pre}
+@media (max-width:640px){.code pre{font-size:12px}}
+
+.tok-c{color:#5b5478;font-style:italic}
+.tok-k{color:#c792f0}
+.tok-t{color:var(--cool)}
+.tok-n{color:#f0a878}
+.tok-a{color:#7a89c9}
+.tok-s{color:var(--v6)}
+
+/* ── callouts ───────────────────────────────────────────────────────── */
+.note{
+  max-width:var(--measure);margin:20px 0;padding:13px 16px 13px 15px;
+  border-left:2px solid var(--c,var(--v3));background:var(--panel);
+  border-radius:0 4px 4px 0;color:var(--ink-2);font-size:.95rem;
+}
+.note p{margin:0 0 8px;max-width:none}
+.note p:last-child{margin:0}
+.note .label{
+  display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--c,var(--v3));margin-bottom:5px;
+}
+.note.trap{--c:var(--warn)}
+.note.key{--c:var(--hot)}
+
+/* ── tables ─────────────────────────────────────────────────────────── */
+.tbl{margin:20px 0 24px;overflow-x:auto;border:1px solid var(--rule);border-radius:5px}
+table{border-collapse:collapse;width:100%;min-width:520px;font-size:14px}
+th{
+  text-align:left;font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--ink-3);font-weight:500;
+  padding:10px 14px;background:var(--panel);border-bottom:1px solid var(--rule);
+}
+td{padding:11px 14px;border-bottom:1px solid var(--rule-soft);color:var(--ink-2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td:first-child{color:var(--ink);font-weight:500}
+td code{white-space:normal}
+
+/* ── two-up grid ────────────────────────────────────────────────────── */
+.grid{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));margin:20px 0 4px}
+.card{border:1px solid var(--rule);border-radius:5px;padding:17px 18px;background:var(--panel)}
+.card h4{
+  font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--c,var(--v4));margin:0 0 9px;font-weight:500;
+}
+.card p{margin:0 0 9px;max-width:none;font-size:.93rem;color:var(--ink-2)}
+.card p:last-child{margin:0}
+.card ul{margin:0;font-size:.93rem}
+
+/* ── math line ──────────────────────────────────────────────────────── */
+.math{
+  font-family:var(--mono);font-size:14px;color:var(--v6);
+  background:var(--code-bg);border:1px solid var(--rule);border-radius:4px;
+  padding:12px 16px;margin:16px 0;max-width:var(--measure);overflow-x:auto;
+}
+.math .lbl{color:var(--ink-3);font-size:11px;letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:6px}
+
+/* ── appendix band ──────────────────────────────────────────────────── */
+.appendix{background:var(--panel-2);border-top:1px solid var(--rule)}
+.appendix section{border-bottom-color:var(--rule)}
+.appendix section:last-of-type{border-bottom:none}
+.appendix .code,.appendix .card,.appendix .note{background:var(--code-bg)}
+.appendix .tbl th{background:var(--panel-2)}
+
+footer{padding:44px 0 70px;color:var(--ink-3);font-family:var(--mono);font-size:12px}
+footer a{color:var(--ink-2)}
+
+:focus-visible{outline:2px solid var(--hot);outline-offset:3px;border-radius:2px}
+</style>
+</head>
+<body>
+
+<div class="rail" aria-hidden="true"></div>
+<div class="rail-head" id="railhead" aria-hidden="true"></div>
+
+<nav class="jump" aria-label="Sections">
+  <div class="jump-inner">
+    <a href="#setup">1 · Surface</a>
+    <a href="#ray">2 · Ray</a>
+    <a href="#march">3 · March</a>
+    <a href="#stepmath">4 · Step math</a>
+    <a href="#hit">5 · At the hit</a>
+    <a href="#light">6 · Light</a>
+    <a href="#nonsdf">7 · Not-distance fields</a>
+    <a href="#bounds">8 · Bounding work</a>
+    <a href="#raster">9 · Raster</a>
+    <a href="#traps">A · WGSL traps</a>
+    <a href="#debug">B · Debug views</a>
+    <a href="#dials">C · Dials</a>
+  </div>
+</nav>
+
+<div class="wrap">
+<header class="hero">
+  <p class="eyebrow">WGSL · wgpu · Rust — fragment-shader reference</p>
+  <h1>You have one triangle<br>and a <em>loop</em>.</h1>
+  <p class="lede">Rasterization asks <strong>where does this triangle land?</strong> Raymarching asks the opposite: for every pixel, shoot a ray into the scene and walk along it until something stops you. Everything else — geometry, normals, shadows, fog — falls out of how you take that walk.</p>
+  <p class="lede">This is the reference for the walk itself: how the ray gets built, what governs the step size, what breaks when the step size lies to you, and how to do all of it inside WGSL's particular constraints.</p>
+
+  <div class="figure">
+    <canvas id="trace" aria-label="Animated diagram of sphere tracing: a ray steps toward two shapes, each step bounded by a circle whose radius is the distance to the nearest surface"></canvas>
+    <div class="figcap">
+      <span><b>Sphere tracing.</b> Each circle is the distance to the nearest surface — provably empty, so the ray can jump the whole radius.</span>
+      <span class="spacer"></span>
+      <span id="stepreadout">step 0</span>
+      <button class="figbtn" id="figtoggle" type="button">Pause</button>
+    </div>
+  </div>
+</header>
+</div>
+
+<div class="wrap">
+
+<!-- ══ 1 ══════════════════════════════════════════════════════════════ -->
+<section id="setup" style="--c:var(--v0)">
+  <div class="sechead"><span class="tick"></span><div>
+    <p class="sectag">Step 1 — the surface you draw on</p>
+    <h2>Get a fragment shader running over every pixel, with nothing in the way</h2>
+  </div></div>
+
+  <p>You need one draw call that covers the screen and carries no geometry information at all. The usual answer is a <strong>fullscreen triangle</strong> — not a quad. One oversized triangle clipped to the viewport avoids the diagonal seam where two quad triangles meet, where quads waste a row of helper invocations.</p>
+
+  <div class="code"><div class="code-bar"><span class="lang">wgsl</span><span class="file">no vertex buffer, no index buffer, three vertices</span></div><pre><code class="lang-wgsl">@vertex
+fn vs_main(@builtin(vertex_index) vi: u32) -&gt; @builtin(position) vec4f {
+    // vi = 0,1,2  -&gt;  uv = (0,0), (2,0), (0,2)
+    let uv = vec2f(f32((vi &lt;&lt; 1u) &amp; 2u), f32(vi &amp; 2u));
+    // ...which maps to clip positions (-1,-1), (3,-1), (-1,3)
+    return vec4f(uv * 2.0 - 1.0, 0.0, 1.0);
+}</code></pre></div>
+
+  <div class="code"><div class="code-bar"><span class="lang">rust</span><span class="file">pipeline + draw — wgpu 23+</span></div><pre><code class="lang-rust">let pipeline = device.create_render_pipeline(&amp;wgpu::RenderPipelineDescriptor {
+    label: Some("raymarch"),
+    layout: Some(&amp;pipeline_layout),
+    vertex: wgpu::VertexState {
+        module: &amp;shader,
+        entry_point: Some("vs_main"),
+        buffers: &amp;[],                       // &lt;- the point: nothing bound
+        compilation_options: Default::default(),
+    },
+    fragment: Some(wgpu::FragmentState {
+        module: &amp;shader,
+        entry_point: Some("fs_main"),
+        targets: &amp;[Some(surface_format.into())],
+        compilation_options: Default::default(),
+    }),
+    primitive: wgpu::PrimitiveState {
+        topology: wgpu::PrimitiveTopology::TriangleList,
+        cull_mode: None,                    // winding is irrelevant here
+        ..Default::default()
+    },
+    depth_stencil: None,
+    multisample: wgpu::MultisampleState::default(),
+    multiview: None,
+    cache: None,
+});
+
+// in the render pass:
+pass.set_pipeline(&amp;pipeline);
+pass.set_bind_group(0, &amp;bind_group, &amp;[]);
+pass.draw(0..3, 0..1);                      // three vertices, one instance</code></pre></div>
+
+  <h3>The uniform block, and the alignment rule that will bite you</h3>
+  <p>A <code>vec3f</code> occupies 12 bytes but <strong>aligns to 16</strong>. If your Rust struct packs three floats followed by two more, WGSL will read from different offsets than Rust wrote to, and you will get a scene that jitters, tilts, or vanishes. Pad explicitly and keep the total a multiple of 16.</p>
+
+  <div class="code"><div class="code-bar"><span class="lang">rust</span><span class="file">byte offsets annotated — match these exactly</span></div><pre><code class="lang-rust">#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+struct Uniforms {
+    resolution: [f32; 2],   //  0..8    vec2f, align 8
+    time:       f32,        //  8..12
+    fov_y:      f32,        // 12..16   (radians)
+    eye:        [f32; 3],   // 16..28   vec3f, align 16 -&gt; must start at 16
+    _pad0:      f32,        // 28..32
+    target:     [f32; 3],   // 32..44
+    _pad1:      f32,        // 44..48   total 48 = 3 * 16  ✓
+}</code></pre></div>
+
+  <div class="code"><div class="code-bar"><span class="lang">wgsl</span><span class="file">the mirror image</span></div><pre><code class="lang-wgsl">struct Uniforms {
+    resolution: vec2f,
+    time: f32,
+    fov_y: f32,
+    eye: vec3f,
+    _pad0: f32,
+    target: vec3f,
+    _pad1: f32,
+};
+@group(0) @binding(0) var&lt;uniform&gt; u: Uniforms;</code></pre></div>
+
+  <div class="note trap"><span class="label">Trap</span>
+    <p>Turning on MSAA does nothing for a raymarched image. Multisampling antialiases <em>primitive edges</em>, and your entire frame is the interior of one triangle. Every visible edge is a discontinuity in the fragment shader's own output, which MSAA never sees. Your options are supersampling (render bigger, downsample), temporally jittering the ray direction and accumulating, or computing coverage analytically inside the shader.</p>
+  </div>
+
+  <p>Everything from here lives in <code>fs_main</code>. Rebuild the uniform buffer per frame with <code>queue.write_buffer</code>; you should never need to touch the pipeline again, including on resize.</p>
+</section>
+
+<!-- ══ 2 ══════════════════════════════════════════════════════════════ -->
+<section id="ray" style="--c:var(--v1)">
+  <div class="sechead"><span class="tick"></span><div>
+    <p class="sectag">Step 2 — from pixel to ray</p>
+    <h2>Every raymarcher starts by inventing a camera out of a pixel coordinate</h2>
+  </div></div>
+
+  <p>There are exactly three things to get right: the coordinate normalization, the handedness of the camera basis, and the focal length. Getting any of them subtly wrong produces an image that looks plausible and matches nothing.</p>
+
+  <h3>Normalizing the pixel coordinate</h3>
+  <p><code>@builtin(position)</code> in a fragment shader is in <strong>framebuffer pixels, origin at the top-left, y increasing downward</strong>, sampled at pixel centers (so the first pixel is <code>0.5</code>, not <code>0.0</code>). Convert to a centered, y-up, aspect-correct coordinate:</p>
+
+  <div class="math"><span class="lbl">screen coordinate</span>uv = (2·pos.xy − res) / res.y ,   then   uv.y ← −uv.y</div>
+
+  <p>Dividing <em>both</em> components by <code>res.y</code> is deliberate. It makes <code>uv.y ∈ [−1, 1]</code> and lets <code>uv.x</code> run wider on wide screens — so the vertical field of view is fixed and horizontal FOV grows with the window, which is what almost every game does. Dividing by <code>res</code> componentwise instead stretches the image when the aspect changes.</p>
+
+  <h3>Focal length</h3>
+  <p>With <code>uv.y ∈ [−1,1]</code>, placing the image plane at distance <code>f</code> along forward gives a half-angle of <code>atan(1/f)</code>. So:</p>
+
+  <div class="math"><span class="lbl">focal length from vertical fov</span>f = 1 / tan(fov_y / 2)      // identical to proj[1][1] in a perspective matrix</div>
+
+  <p>That equality is the useful part: use it and your raymarched scene lines up with anything you rasterize through the same projection.</p>
+
+  <div class="code"><div class="code-bar"><span class="lang">wgsl</span><span class="file">ray generation, look-at camera</span></div><pre><code class="lang-wgsl">fn camera_basis(eye: vec3f, target: vec3f, roll: f32) -&gt; mat3x3f {
+    let fwd   = normalize(target - eye);
+    let wup   = vec3f(sin(roll), cos(roll), 0.0);     // roll = tilt the horizon
+    let right = normalize(cross(fwd, wup));
+    let up    = cross(right, fwd);                    // already unit + orthogonal
+    return mat3x3f(right, up, fwd);                   // columns, in that order
+}
+
+@fragment
+fn fs_main(@builtin(position) pos: vec4f) -&gt; @location(0) vec4f {
+    var uv = (2.0 * pos.xy - u.resolution) / u.resolution.y;
+    uv.y = -uv.y;                                     // framebuffer y is down
+
+    let cam   = camera_basis(u.eye, u.target, 0.0);
+    let focal = 1.0 / tan(0.5 * u.fov_y);
+
+    let ro = u.eye;
+    let rd = normalize(cam * vec3f(uv, focal));       // column-major: r*x + u*y + f*z
+    // ...
+}</code></pre></div>
+
+  <div class="note trap"><span class="label">Trap</span>
+    <p>When <code>fwd</code> becomes parallel to the world up vector — looking straight down — <code>cross(fwd, wup)</code> is the zero vector, <code>normalize</code> returns NaN, and the NaN spreads through every subsequent <code>min</code> and <code>max</code> until the pixel is black or white garbage. Either clamp the pitch short of ±90°, or feed the basis in directly as a <code>mat3x3f</code> uniform built on the CPU where you can handle the degenerate case in Rust.</p>
+  </div>
+
+  <h3>Alternative: unproject through the inverse view-projection</h3>
+  <p>If a camera controller already owns a <code>view_proj</code> matrix, skip the basis construction entirely and reuse it. This is the approach to prefer when the raymarched pass has to agree with rasterized geometry down to the pixel.</p>
+
+  <div class="code"><div class="code-bar"><span class="lang">wgsl</span><span class="file">matrix-driven ray, WebGPU NDC</span></div><pre><code class="lang-wgsl">// WebGPU clip space: x,y in [-1,1] (y UP), z in [0,1]  (0 = near, 1 = far)
+var ndc = vec2f(2.0 * pos.xy / u.resolution - 1.0);
+ndc.y = -ndc.y;
+
+let far  = u.inv_view_proj * vec4f(ndc, 1.0, 1.0);
+let ro   = u.eye;
+let rd   = normalize(far.xyz / far.w - ro);</code></pre></div>
+
+  <div class="note key"><span class="label">Remember</span>
+    <p>WebGPU depth is <strong>0 to 1</strong>, not −1 to 1 as in OpenGL. Ported GLSL that unprojects with <code>z = -1.0</code> for the near plane will produce a ray pointing somewhere behind the camera. <code>glam</code>'s <code>Mat4::perspective_rh</code> already targets 0..1, so it pairs correctly.</p>
+  </div>
+</section>
+
+<!-- ══ 3 ══════════════════════════════════════════════════════════════ -->
+<section id="march" style="--c:var(--v2)">
+  <div class="sechead"><span class="tick"></span><div>
+    <p class="sectag">Step 3 — the march</p>
+    <h2>Four ways to walk a ray, and what each one demands of your field</h2>
+  </div></div>
+
+  <p>The march is a loop that advances a scalar <code>t</code> along <code>p = ro + rd·t</code> and asks a question at each position. What changes between techniques is <em>what the question returns</em> and therefore <em>how far you're allowed to move next</em>. That single choice determines the cost, the artifacts, and what kinds of geometry you can represent.</p>
+
+  <div class="tbl"><table>
+    <thead><tr><th>Technique</th><th>Function returns</th><th>Step</th><th>Use when</th><th>Fails as</th></tr></thead>
+    <tbody>
+      <tr><td>Sphere tracing</td><td>Lower bound on distance to nearest surface</td><td><code>t += d</code></td><td>You can write or bound a distance function</td><td>Overshoot: holes, banding, melted edges</td></tr>
+      <tr><td>Fixed step</td><td>Density, occupancy, any scalar</td><td><code>t += dt</code></td><td>Volumes, clouds, fog, no surface at all</td><td>Banding; fix by jittering the start</td></tr>
+      <tr><td>Step + refine</td><td>Signed value with no distance meaning</td><td><code>t += dt</code>, bisect on sign flip</td><td>Terrain heightfields, arbitrary implicits</td><td>Missed thin features between samples</td></tr>
+      <tr><td>Analytic</td><td>Exact roots of a quadratic / linear equation</td><td>Solve once</td><td>Spheres, planes, boxes, bounding volumes</td><td>Only works for primitives you can solve</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>The sphere-tracing loop, written for real use</h3>
+  <p>Return more than a boolean. <code>t</code> gives you the hit position and fog; the step count is your only performance debugging tool; a material id lets one march shade a whole scene.</p>
+
+  <div class="code"><div class="code-bar"><span class="lang">wgsl</span><span class="file">map() returns vec2f(distance, material_id)</span></div><pre><code class="lang-wgsl">const MAX_STEPS: i32 = 128;
+const MAX_DIST:  f32 = 100.0;
+const EPS:       f32 = 0.0008;
+
+struct Hit {
+    t:     f32,
+    id:    f32,     // -1.0 = miss
+    steps: f32,     // keep it; you will need it
+};
+
+fn march(ro: vec3f, rd: vec3f) -&gt; Hit {
+    var t = 0.0;
+    var i = 0;
+    loop {
+        if (i &gt;= MAX_STEPS) { break; }
+        let p = ro + rd * t;
+        let h = map(p);
+
+        // epsilon grows with distance: one pixel covers more world space far away
+        if (h.x &lt; EPS * max(t, 1.0)) {
+            return Hit(t, h.y, f32(i));
+        }
+        t += h.x;
+        if (t &gt; MAX_DIST) { break; }
+        i += 1;
+    }
+    return Hit(t, -1.0, f32(i));
+}</code></pre></div>
+
+  <div class="note"><span class="label">Why this is fast, and why it isn't</span>
+    <p>Sphere tracing is fast because in open space each step is enormous — the ray crosses empty regions in two or three iterations. It is slow because a ray traveling <em>nearly parallel to a surface</em> stays a hair's breadth away for a long distance and takes microscopic steps the whole way. Those grazing rays are what burn your frame budget, and because a GPU runs pixels in lockstep groups, one crawling pixel stalls everything scheduled alongside it. Cap <code>MAX_STEPS</code> and accept the artifact; the alternative is a 4 ms frame becoming 40 ms.</p>
+  </div>
+
+  <h3>Fixed-step accumulation</h3>
+  <p>Nothing here is a surface. You sample a scalar field at even intervals and integrate what you find. No distance property is required, so any function of position works — noise, a 3D texture, an analytic falloff.</p>
+
+  <div class="code"><div class="code-bar"><span class="lang">wgsl</span><span class="file">front-to-back, Beer–Lambert</span></div><pre><code class="lang-wgsl">fn march_volume(ro: vec3f, rd: vec3f, t_near: f32, t_far: f32, seed: f32) -&gt; vec4f {
+    let steps = 64;
+    let dt = (t_far - t_near) / f32(steps);
+
+    var t = t_near + fract(seed) * dt;      // jitter kills the banding
+    var accum = vec3f(0.0);
+    var transmittance = 1.0;
+
+    for (var i = 0; i &lt; steps; i++) {
+        let p = ro + rd * t;
+        let density = max(0.0, fbm(p));
+
+        if (density &gt; 0.001) {
+            // absorption over one slab of thickness dt
+            let a = 1.0 - exp(-density * dt * SIGMA);
+            let lit = light_march(p);       // a second, shorter march toward the sun
+            accum += transmittance * a * lit;
+            transmittance *= 1.0 - a;
+            if (transmittance &lt; 0.01) { break; }
+        }
+        t += dt;
+    }
+    return vec4f(accum, 1.0 - transmittance);
+}</code></pre></div>
+
+  <p>The exponential is not decoration. Transmittance through a medium is <code>exp(−σ · ∫ρ ds)</code>; using <code>1 − density·dt</code> instead is a linear approximation that goes visibly wrong as soon as <code>dt</code> changes, so dropping your step count will also change the brightness of the result.</p>
+
+  <h3>Step and refine</h3>
+  <p>When your function is signed but carries no distance meaning — a heightfield difference, a polynomial, a noise isosurface — you cannot trust its magnitude, only its sign. March in small steps, watch for the sign to flip, then find the crossing between the last two samples.</p>
+
+  <div class="code"><div class="code-bar"><span class="lang">wgsl</span><span class="file">terrain: march, detect crossing, interpolate</span></div><pre><code class="lang-wgsl">fn march_terrain(ro: vec3f, rd: vec3f) -&gt; f32 {
+    var t = 0.1;
+    var last_t = t;
+    var last_h = ro.y - height(ro.xz);       // &gt; 0 above the ground
+
+    for (var i = 0; i &lt; 200; i++) {
+        let p = ro + rd * t;
+        let h = p.y - height(p.xz);
+
+        if (h &lt; 0.0) {
+            // linear crossing between last_t and t — usually enough
+            return mix(last_t, t, last_h / (last_h - h));
+        }
+        last_t = t;
+        last_h = h;
+
+        t += max(0.02, 0.35 * h);            // heuristic: big steps when high up
+        if (t &gt; 400.0) { break; }
+    }
+    return -1.0;
+}</code></pre></div>
+
+  <p>The step heuristic <code>0.35 * h</code> is a guess, not a bound — it works because terrain slopes are limited. Steepen the terrain and it starts tunneling through ridges. If you need it robust, swap the linear interpolation for four or five bisection iterations and shrink the step multiplier.</p>
+</section>
+
+<!-- ══ 4 ══════════════════════════════════════════════════════════════ -->
+<section id="stepmath" style="--c:var(--v3)">
+  <div class="sechead"><span class="tick"></span><div>
+    <p class="sectag">Step 4 — the math you cannot fudge</p>
+    <h2>Sphere tracing is only correct while your function is 1-Lipschitz</h2>
+  </div></div>
+
+  <p>This is the single idea that explains most raymarching bugs. Stepping by <code>d = map(p)</code> is safe <em>only</em> if moving a distance <code>d</code> cannot possibly reach a surface. Formally, <code>map</code> must not change faster than position does:</p>
+
+  <div class="math"><span class="lbl">the Lipschitz condition</span>| map(a) − map(b) |  ≤  K · | a − b |    with K ≤ 1</div>
+
+  <p>When <code>K ≤ 1</code>, the sphere of radius <code>d</code> around <code>p</code> is guaranteed empty and you can jump the whole way. When <code>K &gt; 1</code> — when your field changes faster than distance — you step past surfaces. The visible result is holes in thin geometry, dark banding on shallow slopes, and edges that look eroded. The fix is always the same: <strong>divide by K, or multiply your step by 1/K.</strong></p>
+
+  <div class="tbl"><table>
+    <thead><tr><th>Operation</th><th>Effect on K</th><th>Correction</th></tr></thead>
+    <tbody>
+      <tr><td>Union, <code>min(a, b)</code></td><td>Preserved</td><td>None — safe</td></tr>
+      <tr><td>Intersection / subtraction, <code>max</code></td><td>Preserved but no longer exact; distance is overestimated inside</td><td>None needed for correctness, but expect slow convergence near the cut</td></tr>
+      <tr><td>Smooth min (polynomial blend)</td><td>Stays ≤ 1; underestimates</td><td>Safe. Underestimating always is.</td></tr>
+      <tr><td>Uniform scale by <code>s</code>: <code>map(p / s) * s</code></td><td>Preserved</td><td>Do not forget the <code>* s</code></td></tr>
+      <tr><td>Non-uniform scale by <code>vec3f s</code></td><td>Broken</td><td><code>map(p / s) * min(s.x, min(s.y, s.z))</code></td></tr>
+      <tr><td>Twist / bend / any domain warp</td><td>Broken, K unknown</td><td>Multiply the step by 0.3–0.7 empirically</td></tr>
+      <tr><td>Displacement: <code>map(p) + noise(p)</code></td><td>K = 1 + max‖∇noise‖</td><td>Divide by that, or lower the noise amplitude</td></tr>
+      <tr><td>Escape-time fractal estimator</td><td>Estimate only</td><td>Step by 0.5–0.8 × the estimate</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="note key"><span class="label">The one-line diagnostic</span>
+    <p>If your scene has mysterious dark bands or dissolving edges, change <code>t += h.x</code> to <code>t += h.x * 0.5</code>. If the artifacts disappear, you have a Lipschitz problem, not a bug — go find which operation is inflating your gradient. If they persist, look at your epsilon instead.</p>
+  </div>
+
+  <h3>Epsilon: the other half of the problem</h3>
+  <p>A fixed epsilon is wrong at both ends of the depth range. Too large and near-camera surfaces look inflated and rounded; too small and distant surfaces shimmer as rays fail to converge before the step cap. The principled value is <strong>the width of a pixel at that distance</strong> — a ray isn't a line, it's a cone.</p>
+
+  <div class="math"><span class="lbl">pixel footprint at distance t</span>ε(t) = t · tan(fov_y / 2) · 2 / res.y</div>
+
+  <div class="code"><div class="code-bar"><span class="lang">wgsl</span><span class="file">cone-aware epsilon, computed once per pixel</span></div><pre><code class="lang-wgsl">// pass this into march() — one multiply per step, no per-step divide
+let px = 2.0 * tan(0.5 * u.fov_y) / u.resolution.y;   // radians per pixel
+// inside the loop:
+if (h.x &lt; max(0.5 * px * t, MIN_EPS)) { /* hit */ }</code></pre></div>
+
+  <h3>Over-relaxation, when you actually need the speed</h3>
+  <p>Sphere tracing is conservative by construction — it usually could have gone further. Enhanced sphere tracing steps by <code>ω · d</code> with <code>ω ∈ [1, 2)</code> and backtracks whenever the new bounding sphere fails to contain the previous one. It typically saves 20–40% of steps on scenes with lots of open space, and costs you a branch.</p>
+
+  <div class="code"><div class="code-bar"><span class="lang">wgsl</span><span class="file">Keinert et al., enhanced sphere tracing</span></div><pre><code class="lang-wgsl">var t = 0.0;
+var prev_radius = 0.0;
+var step_len = 0.0;
+let omega = 1.6;
+
+for (var i = 0; i &lt; MAX_STEPS; i++) {
+    let radius = map(ro + rd * t).x;
+    let overstepped = step_len &gt; radius + prev_radius;   // spheres don't overlap
+
+    if (overstepped) {
+        step_len -= omega * step_len;                    // back off, retry safely
+        t += step_len;
+        prev_radius = 0.0;
+    } else {
+        if (radius &lt; EPS * t) { break; }
+        step_len = radius * omega;
+        t += step_len;
+        prev_radius = radius;
+    }
+}</code></pre></div>
+
+  <h3>Float precision</h3>
+  <p>WGSL gives you <code>f32</code> and nothing else unless you enable the <code>shader-f16</code> feature. At <code>t = 1000</code>, the gap between representable floats is around <code>6e-5</code>, so an epsilon of <code>1e-5</code> is arithmetically unreachable and the loop spins until the step cap. Two practical consequences: <strong>keep your scene near the origin</strong>, and if you want infinite worlds, fold the domain (<code>p - s * round(p / s)</code>) rather than translating the camera into large coordinates.</p>
+</section>
+
+</div>
+
+<div class="wrap">
+
+<!-- ══ 5 ══════════════════════════════════════════════════════════════ -->
+<section id="hit" style="--c:var(--v4)">
+  <div class="sechead"><span class="tick"></span><div>
+    <p class="sectag">Step 5 — what you know at the hit</p>
+    <h2>You have a point and a scalar field. Everything else is a derivative</h2>
+  </div></div>
+
+  <p>Rasterization hands you interpolated normals, UVs and tangents for free. Raymarching hands you a position, and you reconstruct the rest by sampling the field again around it. Each sample is a full evaluation of <code>map</code>, so this is where a cheap-looking shader becomes expensive.</p>
+
+  <h3>Normals by finite differences</h3>
+  <p>The gradient of a distance field points away from the surface, and on the surface it has unit length — so <code>normalize(∇map)</code> is the normal. The naive central difference costs six evaluations. The tetrahedron trick costs four, by sampling the four corners of a tetrahedron instead of the six faces of a cube:</p>
+
+  <div class="code"><div class="code-bar"><span class="lang">wgsl</span><span class="file">4-tap tetrahedron gradient</span></div><pre><code class="lang-wgsl">fn calc_normal(p: vec3f, h: f32) -&gt; vec3f {
+    let k = vec2f(1.0, -1.0) * 0.5773502692 * h;   // 1/sqrt(3)
+    return normalize(
+        k.xyy * map(p + k.xyy).x +
+        k.yyx * map(p + k.yyx).x +
+        k.yxy * map(p + k.yxy).x +
+        k.xxx * map(p + k.xxx).x
+    );
+}</code></pre></div>
+
+  <div class="note trap"><span class="label">Scale h with distance</span>
+    <p>A fixed <code>h</code> of <code>0.0001</code> is fine at two units away and produces pure noise at two hundred, because the difference between the four samples drops below float precision. Use the same pixel-footprint value you used for epsilon: <code>calc_normal(p, max(0.5 * px * t, 1e-4))</code>. Normals that sparkle in the distance are almost always this and not a lighting bug.</p>
+  </div>
+
+  <h3>Materials without branching per primitive</h3>
+  <p>Have <code>map</code> return a <code>vec2f</code>: distance in <code>.x</code>, an id in <code>.y</code>. Combine with a min that carries the id along:</p>
+
+  <div class="code"><div class="code-bar"><span class="lang">wgsl</span><span class="file">id-carrying union</span></div><pre><code class="lang-wgsl">fn op_union(a: vec2f, b: vec2f) -&gt; vec2f {
+    return select(b, a, a.x &lt; b.x);      // note: select(false_val, true_val, cond)
+}
+
+fn map(p: vec3f) -&gt; vec2f {
+    var d = vec2f(p.y + 1.0, 1.0);                    // ground, id 1
+    d = op_union(d, vec2f(sd_sphere(p - vec3f(0.0, 0.0, 0.0), 1.0), 2.0));
+    d = op_union(d, vec2f(sd_box(p - vec3f(2.5, 0.0, 0.0), vec3f(0.8)), 3.0));
+    return d;
+}</code></pre></div>
+
+  <p>Then resolve the material <em>once</em>, after the march, in a single switch. Doing it inside the loop would evaluate every material branch on every step for every pixel in the group.</p>
+
+  <h3>Other quantities that come free from the march</h3>
+  <ul>
+    <li><strong>Depth / fog:</strong> <code>t</code> is a true world-space distance, so <code>exp(-t * density)</code> is physically meaningful atmospheric falloff, unlike the z-buffer value a rasterizer gives you.</li>
+    <li><strong>Iteration count:</strong> the number of steps taken correlates with proximity to silhouettes and creases. Divided by <code>MAX_STEPS</code> it makes a serviceable cheap ambient occlusion and an excellent profiler.</li>
+    <li><strong>Curvature:</strong> the Laplacian, <code>(sum of the 4 tetrahedron taps) − 4·map(p)</code>, is positive on convex ridges and negative in concave valleys. Free if you already computed the normal — reuse the taps.</li>
+    <li><strong>UVs:</strong> there are none. Use triplanar projection (blend three world-axis-aligned samples by the squared normal components) or object-space coordinates captured before your domain transforms.</li>
+  </ul>
+</section>
+
+<!-- ══ 6 ══════════════════════════════════════════════════════════════ -->
+<section id="light" style="--c:var(--v5)">
+  <div class="sechead"><span class="tick"></span><div>
+    <p class="sectag">Step 6 — light, by marching more</p>
+    <h2>Shadows and occlusion are the same loop pointed somewhere else</h2>
+  </div></div>
+
+  <p>This is the compensation for all the work in section 5: effects that require multi-pass machinery in a rasterizer are a dozen lines here, because you can query visibility from any point in any direction on demand.</p>
+
+  <h3>Soft shadows for the price of a hard one</h3>
+  <p>March from the surface toward the light. Instead of only asking whether anything blocks the ray, track <em>how close</em> the ray came to blocking — the smallest ratio of clearance to distance travelled. That ratio is the angular size of the gap, which is exactly what determines penumbra width.</p>
+
+  <div class="code"><div class="code-bar"><span class="lang">wgsl</span><span class="file">Quilez soft shadow, banding-corrected variant</span></div><pre><code class="lang-wgsl">fn soft_shadow(ro: vec3f, rd: vec3f, t_min: f32, t_max: f32, k: f32) -&gt; f32 {
+    var res = 1.0;
+    var t = t_min;
+    var prev_h = 1e20;
+
+    for (var i = 0; i &lt; 48; i++) {
+        let h = map(ro + rd * t).x;
+
+        // estimate the closest approach across the segment, not just at samples
+        let y = h * h / (2.0 * prev_h);
+        let d = sqrt(max(h * h - y * y, 0.0));
+        res = min(res, k * d / max(0.0, t - y));
+
+        prev_h = h;
+        t += clamp(h, 0.01, 0.35);
+        if (res &lt; 0.004 || t &gt; t_max) { break; }
+    }
+    res = clamp(res, 0.0, 1.0);
+    return res * res * (3.0 - 2.0 * res);   // smoothstep the falloff
+}</code></pre></div>
+
+  <p><code>k</code> is the inverse angular radius of the light: <code>k = 32</code> is a small crisp source, <code>k = 4</code> is a broad overcast one. Start the ray at <code>t_min ≈ 2·ε</code> or a few times your normal's <code>h</code>, or the surface shadows itself and everything turns black.</p>
+
+  <h3>Ambient occlusion by walking up the normal</h3>
+  <p>Step a short way along the normal and compare where you are with what the field says. If the field reports less distance than you travelled, something nearby is occluding you.</p>
+
+  <div class="code"><div class="code-bar"><span class="lang">wgsl</span><span class="file">5-tap AO</span></div><pre><code class="lang-wgsl">fn ambient_occlusion(p: vec3f, n: vec3f) -&gt; f32 {
+    var occ = 0.0;
+    var weight = 1.0;
+    for (var i = 0; i &lt; 5; i++) {
+        let h = 0.01 + 0.12 * f32(i) / 4.0;
+        let d = map(p + n * h).x;
+        occ += (h - d) * weight;
+        weight *= 0.92;                    // nearer samples matter more
+    }
+    return clamp(1.0 - 2.5 * occ, 0.0, 1.0);
+}</code></pre></div>
+
+  <h3>Putting a frame's worth of shading together</h3>
+  <div class="code"><div class="code-bar"><span class="lang">wgsl</span><span class="file">a complete, minimal fs_main body</span></div><pre><code class="lang-wgsl">let hit = march(ro, rd);
+var col = sky(rd);
+
+if (hit.id &gt; 0.0) {
+    let p   = ro + rd * hit.t;
+    let n   = calc_normal(p, max(0.5 * px * hit.t, 1e-4));
+    let l   = normalize(vec3f(0.6, 0.7, -0.4));
+
+    let ao  = ambient_occlusion(p, n);
+    let sha = soft_shadow(p + n * 0.02, l, 0.02, 30.0, 16.0);
+
+    let diffuse = max(dot(n, l), 0.0) * sha;
+    let sky_fill = (0.5 + 0.5 * n.y) * ao;                 // hemisphere ambient
+    let bounce  = max(dot(n, vec3f(0.0, -1.0, 0.0)), 0.0); // fake floor bounce
+
+    let albedo = material_albedo(hit.id, p, n);
+    col = albedo * (diffuse * vec3f(1.3, 1.1, 0.85)
+                  + sky_fill * vec3f(0.28, 0.36, 0.5)
+                  + bounce * 0.15);
+
+    col = mix(col, sky(rd), 1.0 - exp(-0.00015 * hit.t * hit.t * hit.t)); // fog
+}
+
+col = pow(col, vec3f(0.4545));            // gamma, if your target is not *_srgb
+return vec4f(col, 1.0);</code></pre></div>
+
+  <div class="note trap"><span class="label">Gamma</span>
+    <p>Do the encode <em>or</em> use an sRGB surface format, never both. If <code>surface_format</code> is <code>Bgra8UnormSrgb</code> the hardware converts for you, and adding <code>pow(col, 1/2.2)</code> on top washes everything out. <code>surface.get_capabilities(&amp;adapter).formats[0]</code> is frequently the sRGB variant, so check rather than assume.</p>
+  </div>
+</section>
+
+<!-- ══ 7 ══════════════════════════════════════════════════════════════ -->
+<section id="nonsdf" style="--c:var(--v6)">
+  <div class="sechead"><span class="tick"></span><div>
+    <p class="sectag">Step 7 — fields that aren't distance fields</p>
+    <h2>What to do when you can't write a distance function</h2>
+  </div></div>
+
+  <p>Distance functions are convenient, not required. Plenty of interesting geometry has no closed-form distance — noise isosurfaces, algebraic surfaces, volumetric data, fractals. The pattern is always the same: <strong>find a valid step bound, or give up on bounds and step small enough to catch what you care about.</strong></p>
+
+  <div class="grid">
+    <div class="card" style="--c:var(--v2)">
+      <h4>Implicit surfaces · f(p) = 0</h4>
+      <p>A gyroid, a torus written algebraically, a metaball sum. The magnitude of <code>f</code> is meaningless as a distance, but the first-order estimate is not:</p>
+      <div class="math" style="margin:10px 0 8px;font-size:13px">d ≈ f(p) / ‖∇f(p)‖</div>
+      <p>That's one Newton step toward the root. If you can bound <code>‖∇f‖</code> analytically, divide by the bound instead and the estimate becomes conservative — safe to sphere trace. For a gyroid, <code>‖∇f‖ ≤ √3</code>.</p>
+    </div>
+
+    <div class="card" style="--c:var(--v3)">
+      <h4>Escape-time fractals</h4>
+      <p>Mandelbulbs and Julia sets have no distance function, but they have a <em>distance estimator</em> derived from the running derivative of the iteration:</p>
+      <div class="math" style="margin:10px 0 8px;font-size:13px">DE = 0.5 · log(r) · r / dr</div>
+      <p>It underestimates in some regions and overestimates in others. Step by 0.5–0.8 × <code>DE</code>, raise <code>MAX_STEPS</code> toward 256, and expect a costly shader.</p>
+    </div>
+
+    <div class="card" style="--c:var(--v4)">
+      <h4>Volumes and participating media</h4>
+      <p>No surface exists, so there is nothing to converge to. Fixed steps, accumulate transmittance, jitter the start offset per pixel to convert banding into noise you can then denoise or temporally accumulate. Budget for a nested light march at every sample — that's where the cost is.</p>
+    </div>
+
+    <div class="card" style="--c:var(--v5)">
+      <h4>Heightfields</h4>
+      <p>Only one dimension of the field matters. March in the ground plane and compare <code>p.y</code> to <code>height(p.xz)</code>. Grow the step with distance so the sample density stays roughly constant on screen. Refine with interpolation, and note the normal comes from the 2D gradient of <code>height</code>, not a 3D tetrahedron.</p>
+    </div>
+
+    <div class="card" style="--c:var(--v6)">
+      <h4>Analytic primitives</h4>
+      <p>If the geometry is a sphere, plane, box, or cylinder, don't march it — solve it. A ray/sphere test is a quadratic. Mixing analytic and marched geometry in one pass is normal: solve the analytic ones, march the rest, keep whichever <code>t</code> is smaller.</p>
+    </div>
+
+    <div class="card" style="--c:var(--v7)">
+      <h4>Voxels / 3D textures</h4>
+      <p>A DDA traversal steps exactly cell-to-cell with no sampling error and no missed voxels — strictly better than fixed-step marching through a grid. In WGSL, sample the volume with <code>textureSampleLevel</code>, not <code>textureSample</code>, since you're inside non-uniform control flow.</p>
+    </div>
+  </div>
+
+  <h3>Root refinement, when the sign flips</h3>
+  <p>Both the implicit-surface and heightfield cases reduce to the same problem: you have <code>f(t₀) &gt; 0</code>, <code>f(t₁) &lt; 0</code>, and want the crossing. Linear interpolation is one line and usually enough. Bisection is exact to any precision you're willing to pay for, and unlike Newton's method it cannot diverge.</p>
+
+  <div class="code"><div class="code-bar"><span class="lang">wgsl</span><span class="file">both refinements</span></div><pre><code class="lang-wgsl">// cheap: secant / regula falsi, one evaluation already done
+let t_hit = mix(t0, t1, f0 / (f0 - f1));
+
+// robust: bisection, 8 iterations halves the interval 256x
+var a = t0;
+var b = t1;
+for (var i = 0; i &lt; 8; i++) {
+    let m = 0.5 * (a + b);
+    if (field(ro + rd * m) &gt; 0.0) { a = m; } else { b = m; }
+}
+let t_hit_exact = 0.5 * (a + b);</code></pre></div>
+</section>
+
+<!-- ══ 8 ══════════════════════════════════════════════════════════════ -->
+<section id="bounds" style="--c:var(--v7)">
+  <div class="sechead"><span class="tick"></span><div>
+    <p class="sectag">Step 8 — bounding the work</p>
+    <h2>The cheapest step is the one you never take</h2>
+  </div></div>
+
+  <p>A raymarcher's cost is <em>pixels × steps × cost of map()</em>. All three are attackable, and the first two are usually easier than optimizing the field.</p>
+
+  <h3>Clip the march to a bounding volume</h3>
+  <p>Intersect the ray with an analytic box around your scene first. Rays that miss return immediately; rays that hit start at the near intersection instead of the camera and stop at the far one. On a scene occupying a corner of the frame this is a large win for almost no code.</p>
+
+  <div class="code"><div class="code-bar"><span class="lang">wgsl</span><span class="file">slab method — branchless, all three axes at once</span></div><pre><code class="lang-wgsl">// returns (t_near, t_far); miss if t_far &lt; max(t_near, 0.0)
+fn box_interval(ro: vec3f, rd: vec3f, lo: vec3f, hi: vec3f) -&gt; vec2f {
+    let inv = 1.0 / rd;                       // inf on axis-aligned rays is fine
+    let a = (lo - ro) * inv;
+    let b = (hi - ro) * inv;
+    let t_lo = min(a, b);
+    let t_hi = max(a, b);
+    return vec2f(
+        max(max(t_lo.x, t_lo.y), t_lo.z),
+        min(min(t_hi.x, t_hi.y), t_hi.z)
+    );
+}</code></pre></div>
+
+  <div class="note trap"><span class="label">The 0 × ∞ case</span>
+    <p>If a ray component is exactly zero and the origin sits exactly on the corresponding slab plane, <code>inv</code> is infinity and the product is NaN. In practice the componentwise <code>min</code>/<code>max</code> absorbs it on most hardware, but WGSL does not guarantee NaN behaviour for these builtins. If you see single black pixels on axis-aligned camera angles, nudge <code>rd</code> away from exact zeros: <code>rd + vec3f(1e-8)</code>.</p>
+  </div>
+
+  <h3>Render at lower resolution</h3>
+  <p>The march is per-pixel and the cost is roughly linear in pixel count, so rendering to a half-resolution texture and upscaling is close to a 4× speedup. Raymarched images are typically low-frequency enough that this is far less visible than it would be on rasterized geometry. Do the march into an offscreen <code>Rgba16Float</code> target, then run a second trivial fullscreen pass to blit and tone-map. That second pass is also where post effects, sharpening and temporal accumulation belong.</p>
+
+  <h3>Make map() cheaper, not just shorter</h3>
+  <ul>
+    <li><strong>Bound before you evaluate.</strong> Wrap expensive sub-objects in a cheap bounding sphere: <code>if (bound &gt; 0.5) { return bound; }</code> before evaluating the detailed part. This is the single biggest win in complex scenes.</li>
+    <li><strong>Fold the domain instead of instancing.</strong> <code>p - s * round(p / s)</code> gives infinite repetition at zero cost. Clamp the repetition index to get a finite grid without a loop.</li>
+    <li><strong>Cache invariants outside the loop.</strong> Anything depending only on <code>time</code> — rotation matrices, animation curves — computes once per pixel, not once per step.</li>
+    <li><strong>Watch out for divergence.</strong> Two adjacent pixels taking 8 and 120 steps both cost 120, because they execute together. Grazing angles and silhouettes are where this happens; a step-count heatmap shows it instantly.</li>
+  </ul>
+</section>
+
+<!-- ══ 9 ══════════════════════════════════════════════════════════════ -->
+<section id="raster" style="--c:var(--v6)">
+  <div class="sechead"><span class="tick"></span><div>
+    <p class="sectag">Step 9 — living with the rasterizer</p>
+    <h2>Writing depth so marched and triangle geometry intersect properly</h2>
+  </div></div>
+
+  <p>By default your fullscreen triangle writes whatever depth the vertex shader emitted, which is meaningless. To let raymarched surfaces occlude and be occluded by ordinary meshes, output <code>@builtin(frag_depth)</code> computed from the actual hit position.</p>
+
+  <div class="code"><div class="code-bar"><span class="lang">wgsl</span><span class="file">depth output</span></div><pre><code class="lang-wgsl">struct FsOut {
+    @location(0) color: vec4f,
+    @builtin(frag_depth) depth: f32,
+};
+
+@fragment
+fn fs_main(@builtin(position) pos: vec4f) -&gt; FsOut {
+    // ... build ray, march ...
+    var out: FsOut;
+
+    if (hit.id &lt; 0.0) {
+        out.color = vec4f(sky(rd), 1.0);
+        out.depth = 1.0;                       // far plane; 0..1 in WebGPU
+        return out;
+    }
+
+    let world = ro + rd * hit.t;
+    let clip  = u.view_proj * vec4f(world, 1.0);
+    out.depth = clip.z / clip.w;               // already in [0,1], no remap
+    out.color = vec4f(shade(world, hit), 1.0);
+    return out;
+}</code></pre></div>
+
+  <p>The matching pipeline needs a real depth attachment:</p>
+
+  <div class="code"><div class="code-bar"><span class="lang">rust</span><span class="file">depth state</span></div><pre><code class="lang-rust">depth_stencil: Some(wgpu::DepthStencilState {
+    format: wgpu::TextureFormat::Depth32Float,
+    depth_write_enabled: true,
+    depth_compare: wgpu::CompareFunction::Less,
+    stencil: Default::default(),
+    bias: Default::default(),
+}),</code></pre></div>
+
+  <div class="note trap"><span class="label">Cost</span>
+    <p>Writing <code>frag_depth</code> disables early depth testing for the whole pipeline — the GPU can't reject a fragment before running a shader that decides its own depth. For a fullscreen pass that's usually irrelevant, since nothing was going to reject it anyway. But it means you cannot use previously rendered depth to skip marching. If you want that, draw opaque meshes first, sample the depth buffer as a texture in the raymarching pass, and clamp <code>MAX_DIST</code> to the reconstructed view distance.</p>
+  </div>
+
+  <h3>Order of operations</h3>
+  <ol>
+    <li>Render opaque triangle geometry into colour + depth as usual.</li>
+    <li>Run the raymarching pass with <code>depth_compare: Less</code> and depth writes on. Marched surfaces behind meshes get rejected after shading; marched surfaces in front win.</li>
+    <li>Run any volumetric pass <em>last</em>, with depth writes <strong>off</strong> and alpha blending on, using the depth buffer to terminate each ray at the first solid surface.</li>
+  </ol>
+</section>
+
+</div>
+
+<div class="appendix">
+<div class="wrap">
+
+<!-- ══ A ══════════════════════════════════════════════════════════════ -->
+<section id="traps" style="--c:var(--warn)">
+  <div class="sechead"><span class="tick"></span><div>
+    <p class="sectag">Appendix A</p>
+    <h2>WGSL specifics that catch people porting from GLSL</h2>
+  </div></div>
+
+  <div class="tbl"><table>
+    <thead><tr><th>What you'd write in GLSL</th><th>What WGSL needs</th><th>Why it matters here</th></tr></thead>
+    <tbody>
+      <tr><td><code>float x = i;</code></td><td><code>let x = f32(i);</code></td><td>No implicit conversion at all. Loop counters are <code>i32</code>; every use in float math needs a cast.</td></tr>
+      <tr><td><code>a &lt; b ? x : y</code></td><td><code>select(y, x, a &lt; b)</code></td><td>No ternary. The argument order is <em>false value first</em> — reversed from what everyone expects.</td></tr>
+      <tr><td><code>mod(p, s)</code></td><td><code>p - s * floor(p / s)</code></td><td>WGSL's <code>%</code> follows the sign of the dividend, like C's <code>fmod</code>. Domain repetition with <code>%</code> mirrors the scene across the origin.</td></tr>
+      <tr><td><code>texture(tex, uv)</code> in a loop</td><td><code>textureSampleLevel(tex, samp, uv, 0.0)</code></td><td><code>textureSample</code> computes derivatives and is illegal in non-uniform control flow. Your march loop is non-uniform by definition, so this is a hard compile error, not a warning.</td></tr>
+      <tr><td>Recursive SDF trees</td><td>Flatten into a loop or unroll</td><td>WGSL forbids recursion entirely. No exceptions, no depth limit workaround.</td></tr>
+      <tr><td><code>vec3 v;</code> in a UBO</td><td>Pad to 16 bytes</td><td>Size 12, alignment 16. The single most common cause of "my camera is in the wrong place".</td></tr>
+      <tr><td><code>float data[64];</code> uniform array</td><td><code>var&lt;storage, read&gt;</code></td><td>Uniform arrays have a 16-byte element stride, so <code>array&lt;f32, 64&gt;</code> costs 1024 bytes and indexes awkwardly. Storage buffers pack tightly.</td></tr>
+      <tr><td><code>#define</code> constants</td><td><code>const</code> / <code>override</code></td><td><code>const</code> is compile-time. <code>override</code> is a pipeline-overridable constant you set from Rust at pipeline creation — perfect for step counts and quality levels without recompiling the shader source.</td></tr>
+      <tr><td><code>pow(x, y)</code> with <code>x &lt; 0</code></td><td><code>sign(x) * pow(abs(x), y)</code></td><td>Undefined for negative bases. Shows up in fractal power terms and in some noise functions.</td></tr>
+      <tr><td>Assuming NaN is contained</td><td>Guard <code>normalize</code> of possibly-zero vectors</td><td><code>normalize(vec3f(0.0))</code> is NaN, and NaN survives <code>min</code>, <code>max</code>, <code>clamp</code> and <code>mix</code> on many backends. One NaN in <code>map</code> kills the pixel for the whole frame.</td></tr>
+      <tr><td><code>gl_FragDepth</code></td><td><code>@builtin(frag_depth)</code>, range 0..1</td><td>WebGPU depth is 0..1, not −1..1. Ported unprojection code silently produces wrong rays.</td></tr>
+      <tr><td>Mutable locals everywhere</td><td><code>let</code> immutable, <code>var</code> mutable</td><td><code>let t = 0.0; t += d;</code> won't compile. Accumulators and loop state must be <code>var</code>.</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="note"><span class="label">Reading naga's complaints</span>
+    <p>Validation happens at <code>create_shader_module</code> and <code>create_render_pipeline</code>, and by default a failure panics with a message that names the line. To handle it yourself — essential for shader hot-reloading — wrap the calls in <code>device.push_error_scope(wgpu::ErrorFilter::Validation)</code> and <code>device.pop_error_scope()</code>, keeping the last known-good pipeline when the new one fails to compile.</p>
+  </div>
+</section>
+
+<!-- ══ B ══════════════════════════════════════════════════════════════ -->
+<section id="debug" style="--c:var(--v3)">
+  <div class="sechead"><span class="tick"></span><div>
+    <p class="sectag">Appendix B</p>
+    <h2>Debug views — put these behind a uniform and leave them in</h2>
+  </div></div>
+
+  <p>You cannot set a breakpoint in a fragment shader. Your entire debugger is the ability to return a colour instead of the shaded result, so make that easy: add a <code>debug_mode: u32</code> to your uniforms and bind it to number keys.</p>
+
+  <div class="tbl"><table>
+    <thead><tr><th>View</th><th>Return</th><th>Reads as</th></tr></thead>
+    <tbody>
+      <tr><td>Step count</td><td><code>vec3f(hit.steps / f32(MAX_STEPS))</code></td><td>White regions are where your frame time goes. Look for bright halos at silhouettes and bright floors at grazing angles.</td></tr>
+      <tr><td>Distance field slice</td><td><code>vec3f(fract(map(p).x * 8.0))</code> along a plane</td><td>Even, parallel bands mean a well-behaved field. Bands that bunch up or invert mark where a Lipschitz violation lives.</td></tr>
+      <tr><td>Normals</td><td><code>n * 0.5 + 0.5</code></td><td>Flat pastel surfaces are correct. Speckle means <code>h</code> is too small for the distance; blocky facets mean it's too large.</td></tr>
+      <tr><td>Depth</td><td><code>vec3f(hit.t / MAX_DIST)</code></td><td>Verifies the ray actually travels as far as you think, and that <code>MAX_DIST</code> is sensibly scaled.</td></tr>
+      <tr><td>Convergence failures</td><td>Red where <code>steps == MAX_STEPS</code> and no hit</td><td>Rays that ran out of budget. A little at the horizon is fine; large patches mean raise the cap or fix the field.</td></tr>
+      <tr><td>Material ids</td><td><code>hash3(hit.id)</code></td><td>Confirms your union operators are carrying ids through correctly.</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="code"><div class="code-bar"><span class="lang">wgsl</span><span class="file">the whole debug system</span></div><pre><code class="lang-wgsl">switch (u.debug_mode) {
+    case 1u: { return vec4f(vec3f(hit.steps / f32(MAX_STEPS)), 1.0); }
+    case 2u: { return vec4f(n * 0.5 + 0.5, 1.0); }
+    case 3u: { return vec4f(vec3f(hit.t / MAX_DIST), 1.0); }
+    case 4u: { return vec4f(vec3f(fract(map(p).x * 8.0)), 1.0); }
+    default: { break; }
+}
+return vec4f(shaded, 1.0);</code></pre></div>
+
+  <div class="note key"><span class="label">Hot reload is not optional</span>
+    <p>Raymarching is iterative by nature — you tune constants by looking at the result. Watch the <code>.wgsl</code> file with <code>notify</code>, rebuild the shader module and pipeline on change inside a validation error scope, and keep the old pipeline on failure. Ten minutes of setup pays for itself the first evening.</p>
+  </div>
+</section>
+
+<!-- ══ C ══════════════════════════════════════════════════════════════ -->
+<section id="dials" style="--c:var(--v7)">
+  <div class="sechead"><span class="tick"></span><div>
+    <p class="sectag">Appendix C</p>
+    <h2>Starting values, and which direction to turn them</h2>
+  </div></div>
+
+  <p>These assume a scene a few units across sitting near the origin. Scale <code>MAX_DIST</code>, <code>EPS</code> and the normal offset together if your world is much bigger or smaller — they're all lengths in the same space.</p>
+
+  <div class="tbl"><table>
+    <thead><tr><th>Dial</th><th>Start</th><th>Turn up when</th><th>Turn down when</th></tr></thead>
+    <tbody>
+      <tr><td><code>MAX_STEPS</code></td><td>96</td><td>Distant or grazing geometry dissolves</td><td>Frame time is dominated by the heatmap's bright regions</td></tr>
+      <tr><td><code>MAX_DIST</code></td><td>~20× scene radius</td><td>Background geometry is being clipped away</td><td>Rays waste steps in empty space past anything visible</td></tr>
+      <tr><td><code>EPS</code> (relative)</td><td><code>0.5 · px · t</code></td><td>Distant surfaces shimmer or fail to converge</td><td>Near surfaces look inflated, corners look rounded</td></tr>
+      <tr><td><code>EPS</code> (fixed floor)</td><td><code>1e-4</code></td><td>Close-up detail is soft</td><td>Close-up pixels take many steps</td></tr>
+      <tr><td>Normal <code>h</code></td><td>same as <code>EPS</code></td><td>Normals are faceted or stair-stepped</td><td>Normals sparkle in the distance</td></tr>
+      <tr><td>Step multiplier ω</td><td>1.0</td><td>Field is exact and you want speed (up to ~1.6, with backtracking)</td><td>Any warp, displacement or non-uniform scale is present (0.5–0.8)</td></tr>
+      <tr><td>Shadow <code>k</code></td><td>16</td><td>You want crisper, more point-like shadows (32–64)</td><td>You want soft overcast light (4–8)</td></tr>
+      <tr><td>Shadow <code>t_min</code></td><td><code>0.02</code></td><td>Surfaces shadow themselves (acne)</td><td>Contact shadows detach from objects</td></tr>
+      <tr><td>AO samples</td><td>5</td><td>Occlusion looks stepped</td><td>Anywhere — this is usually the first thing to cut</td></tr>
+      <tr><td>Volume steps</td><td>64</td><td>Banding survives jittering</td><td>Always; try 32 with temporal accumulation instead</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>An order of operations for building one from scratch</h3>
+  <ol>
+    <li>Fullscreen triangle. Output <code>vec4f(uv, 0.0, 1.0)</code> and confirm the gradient runs the direction you expect — this catches the y-flip immediately.</li>
+    <li>Ray generation. Output <code>rd * 0.5 + 0.5</code>. You should see a smooth colour field that rotates with the camera.</li>
+    <li>March against a single sphere at the origin. Output the step-count heatmap, not shading.</li>
+    <li>Normals. Output <code>n * 0.5 + 0.5</code> and check for speckle before adding any light.</li>
+    <li>One directional light, no shadows. Now the image is legible and every subsequent bug has a visible cause.</li>
+    <li>Ground plane, then shadows, then AO, then fog — in that order, checking the heatmap after each.</li>
+  </ol>
+
+  <p>Every step in that list is verifiable on its own. The single most common way to lose an evening is writing all six at once and then trying to work out which of them is wrong.</p>
+</section>
+
+</div>
+</div>
+
+<div class="wrap">
+<footer>
+  <p>Written for wgpu 23+ / WGSL as of the WebGPU 1.0 specification. Behaviour around NaN in builtins, uniformity analysis and <code>override</code> constants is the part most likely to drift between versions — check the current spec if something here disagrees with your compiler.</p>
+</footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ── syntax highlighting ─────────────────────────────────────────── */
+  var KEYWORDS = ['fn','let','var','const','override','struct','return','if','else','for','loop','while','break','continue','switch','case','default','discard','true','false','enable','alias','uniform','storage','read','write','pub','use','mod','impl','match','Some','None','Default'];
+  var TYPES = ['f32','i32','u32','bool','f16','vec2f','vec3f','vec4f','vec2','vec3','vec4','mat2x2f','mat3x3f','mat4x4f','mat3x3','mat4x4','array','ptr','atomic','sampler','texture_2d','texture_3d','Self','usize'];
+
+  var RE = new RegExp(
+    '(\\/\\/[^\\n]*)' +                                   // 1 comment
+    '|(&quot;[^&]*?&quot;|"[^"\\n]*")' +                    // 2 string
+    '|(@[A-Za-z_][A-Za-z0-9_]*)' +                        // 3 attribute
+    '|\\b(' + KEYWORDS.join('|') + ')\\b' +               // 4 keyword
+    '|\\b(' + TYPES.join('|') + ')\\b' +                  // 5 type
+    '|\\b(\\d+\\.?\\d*(?:[eE][-+]?\\d+)?[uif]?(?:32|16)?)\\b', // 6 number
+    'g'
+  );
+
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  document.querySelectorAll('.code code').forEach(function (el) {
+    var html = esc(el.textContent);
+    el.innerHTML = html.replace(RE, function (m, c, s, a, k, t, n) {
+      if (c) return '<span class="tok-c">' + c + '</span>';
+      if (s) return '<span class="tok-s">' + s + '</span>';
+      if (a) return '<span class="tok-a">' + a + '</span>';
+      if (k) return '<span class="tok-k">' + k + '</span>';
+      if (t) return '<span class="tok-t">' + t + '</span>';
+      if (n) return '<span class="tok-n">' + n + '</span>';
+      return m;
+    });
+  });
+
+  /* ── rail head follows scroll ────────────────────────────────────── */
+  var head = document.getElementById('railhead');
+  var ramp = ['--v0','--v1','--v2','--v3','--v4','--v5','--v6','--v7'];
+  var cs = getComputedStyle(document.documentElement);
+  var colors = ramp.map(function (v) { return cs.getPropertyValue(v).trim(); });
+
+  function placeHead() {
+    var max = document.body.scrollHeight - window.innerHeight;
+    var p = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
+    head.style.top = (72 + p * (window.innerHeight - 144)) + 'px';
+    head.style.borderColor = colors[Math.min(colors.length - 1, Math.floor(p * colors.length))];
+  }
+  placeHead();
+  window.addEventListener('scroll', placeHead, { passive: true });
+  window.addEventListener('resize', placeHead);
+
+  /* ── hero: 2D sphere tracing diagram ─────────────────────────────── */
+  var canvas = document.getElementById('trace');
+  var ctx = canvas.getContext('2d');
+  var readout = document.getElementById('stepreadout');
+  var toggle = document.getElementById('figtoggle');
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // world units: x from 0..9, y centred
+  var CIRCLES = [
+    { x: 5.15, y: 0.28, r: 0.92 },
+    { x: 6.95, y: -0.72, r: 0.60 },
+    { x: 4.30, y: -1.05, r: 0.34 }
+  ];
+  var GROUND = 1.62;                  // plane at y = -1.62
+  var ORIGIN = { x: 0.55, y: -0.42 };
+  var DIR = (function () {
+    var dx = 1.0, dy = 0.185, l = Math.hypot(dx, dy);
+    return { x: dx / l, y: dy / l };
+  })();
+
+  function sdf(x, y) {
+    var d = y + GROUND;
+    for (var i = 0; i < CIRCLES.length; i++) {
+      var c = CIRCLES[i];
+      d = Math.min(d, Math.hypot(x - c.x, y - c.y) - c.r);
+    }
+    return d;
+  }
+
+  function computeSteps() {
+    var t = 0, out = [];
+    for (var i = 0; i < 14; i++) {
+      var x = ORIGIN.x + DIR.x * t, y = ORIGIN.y + DIR.y * t;
+      var d = sdf(x, y);
+      out.push({ x: x, y: y, d: d, t: t });
+      if (d < 0.035 || t > 9.5) break;
+      t += d;
+    }
+    return out;
+  }
+  var STEPS = computeSteps();
+
+  var W = 0, H = 0, S = 1, oy = 0, dpr = 1;
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = canvas.clientWidth;
+    H = canvas.clientHeight;
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    S = W / 9.0;
+    oy = H * 0.52;
+  }
+  function px(x) { return x * S; }
+  function py(y) { return oy - y * S; }
+
+  function draw(reveal) {
+    ctx.clearRect(0, 0, W, H);
+
+    // ground
+    ctx.fillStyle = 'rgba(43,39,66,0.55)';
+    ctx.fillRect(0, py(-GROUND), W, H - py(-GROUND));
+    ctx.strokeStyle = colors[1];
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, py(-GROUND) + 0.5);
+    ctx.lineTo(W, py(-GROUND) + 0.5);
+    ctx.stroke();
+
+    // shapes
+    CIRCLES.forEach(function (c) {
+      ctx.beginPath();
+      ctx.arc(px(c.x), py(c.y), px(c.r), 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(43,39,66,0.65)';
+      ctx.fill();
+      ctx.strokeStyle = colors[1];
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    });
+
+    var n = Math.min(reveal, STEPS.length);
+
+    // safe-distance circles
+    for (var i = 0; i < n; i++) {
+      var s = STEPS[i];
+      var col = colors[Math.min(colors.length - 1, i)];
+      ctx.beginPath();
+      ctx.arc(px(s.x), py(s.y), Math.max(px(s.d), 0.7), 0, Math.PI * 2);
+      ctx.strokeStyle = col;
+      ctx.globalAlpha = 0.55;
+      ctx.lineWidth = 1.25;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    // remaining ray, dashed
+    if (n > 0 && n < STEPS.length) {
+      var last = STEPS[n - 1];
+      ctx.setLineDash([3, 5]);
+      ctx.strokeStyle = 'rgba(111,104,144,0.7)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(px(last.x), py(last.y));
+      ctx.lineTo(px(last.x + DIR.x * 9), py(last.y + DIR.y * 9));
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // travelled ray
+    if (n > 0) {
+      var end = STEPS[n - 1];
+      ctx.beginPath();
+      ctx.moveTo(px(ORIGIN.x), py(ORIGIN.y));
+      ctx.lineTo(px(end.x), py(end.y));
+      ctx.strokeStyle = colors[7];
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+    }
+
+    // step dots
+    for (var j = 0; j < n; j++) {
+      var s2 = STEPS[j];
+      ctx.beginPath();
+      ctx.arc(px(s2.x), py(s2.y), 3, 0, Math.PI * 2);
+      ctx.fillStyle = colors[Math.min(colors.length - 1, j)];
+      ctx.fill();
+    }
+
+    // eye
+    ctx.beginPath();
+    ctx.arc(px(ORIGIN.x), py(ORIGIN.y), 5, 0, Math.PI * 2);
+    ctx.fillStyle = '#100e19';
+    ctx.fill();
+    ctx.strokeStyle = colors[7];
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    if (readout) {
+      var hit = n >= STEPS.length;
+      readout.textContent = 'step ' + n + ' / ' + STEPS.length + (hit ? '  ·  surface' : '');
+    }
+  }
+
+  var reveal = 0, acc = 0, last = 0, playing = !reduce, raf = null;
+
+  function frame(now) {
+    if (!last) last = now;
+    var dt = Math.min(now - last, 100);
+    last = now;
+    if (playing) {
+      acc += dt;
+      var hold = reveal >= STEPS.length ? 1500 : 340;
+      if (acc > hold) {
+        acc = 0;
+        reveal = reveal >= STEPS.length ? 0 : reveal + 1;
+        draw(reveal);
+      }
+    }
+    raf = requestAnimationFrame(frame);
+  }
+
+  function boot() {
+    resize();
+    if (reduce) { reveal = STEPS.length; playing = false; if (toggle) toggle.textContent = 'Play'; }
+    draw(reveal);
+    if (!raf) raf = requestAnimationFrame(frame);
+  }
+
+  window.addEventListener('resize', function () { resize(); draw(reveal); });
+  if (toggle) {
+    toggle.addEventListener('click', function () {
+      playing = !playing;
+      toggle.textContent = playing ? 'Pause' : 'Play';
+      if (playing && reveal >= STEPS.length) { reveal = 0; draw(reveal); }
+    });
+  }
+  if (document.fonts && document.fonts.ready) { document.fonts.ready.then(boot); } else { boot(); }
+})();
+</script>
+
+</body>
+</html>

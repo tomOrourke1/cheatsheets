@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WGSL Cheat Sheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0d13;
+    --bg-raised: #11151e;
+    --bg-card: #141924;
+    --border: #232a38;
+    --text: #dde3ee;
+    --text-dim: #7d8aa3;
+    --text-faint: #4d5871;
+
+    --vertex: #52e0c4;    /* cyan-teal — vertex stage */
+    --fragment: #ff6f9c;  /* pink — fragment stage */
+    --compute: #ffb454;   /* amber — compute stage */
+    --core: #a78bfa;      /* violet — core language */
+
+    --code-kw: #a78bfa;
+    --code-type: #52e0c4;
+    --code-num: #ffb454;
+    --code-str: #ff6f9c;
+    --code-comment: #5b6478;
+    --code-attr: #7dc4ff;
+    --code-fn: #dde3ee;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+    font-size: 15px;
+    line-height: 1.65;
+    display: flex;
+    min-height: 100vh;
+  }
+
+  h1, h2, h3, .brand {
+    font-family: 'Space Grotesk', sans-serif;
+  }
+
+  /* ---------- Layout shell ---------- */
+
+  .sidebar {
+    width: 260px;
+    flex-shrink: 0;
+    background: var(--bg-raised);
+    border-right: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 24px 0 40px;
+  }
+
+  .sidebar::-webkit-scrollbar { width: 8px; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .brand {
+    padding: 0 24px 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
+  }
+  .brand .title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.02em;
+  }
+  .brand .sub {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 4px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .nav-group {
+    padding: 4px 0 10px;
+  }
+  .nav-group-label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--text-faint);
+    padding: 8px 24px 4px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+  }
+  .nav-link {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 6px 24px;
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 13px;
+    border-left: 2px solid transparent;
+    transition: color .12s ease, border-color .12s ease, background .12s ease;
+  }
+  .nav-link:hover {
+    color: var(--text);
+    background: rgba(255,255,255,0.02);
+  }
+  .nav-link.active {
+    color: var(--text);
+    border-left-color: var(--dot-color, var(--core));
+    background: rgba(255,255,255,0.03);
+  }
+  .nav-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--dot-color, var(--core));
+    flex-shrink: 0;
+  }
+
+  /* ---------- Main content ---------- */
+
+  main {
+    flex: 1;
+    min-width: 0;
+    padding: 48px 56px 120px;
+    max-width: 900px;
+  }
+
+  .hero {
+    margin-bottom: 48px;
+  }
+  .hero h1 {
+    font-size: 34px;
+    font-weight: 700;
+    margin: 0 0 10px;
+    letter-spacing: -0.02em;
+  }
+  .hero p {
+    color: var(--text-dim);
+    font-size: 14.5px;
+    max-width: 620px;
+    margin: 0 0 28px;
+  }
+
+  /* pipeline diagram signature element */
+  .pipeline {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--bg-card);
+  }
+  .pipeline-stage {
+    flex: 1;
+    padding: 14px 16px;
+    position: relative;
+    border-right: 1px solid var(--border);
+  }
+  .pipeline-stage:last-child { border-right: none; }
+  .pipeline-stage .label {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  .pipeline-stage .desc {
+    font-size: 11.5px;
+    color: var(--text-faint);
+    margin-top: 3px;
+  }
+  .pipeline-stage::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--stage-color);
+  }
+  .pipeline-stage.v { --stage-color: var(--vertex); }
+  .pipeline-stage.f { --stage-color: var(--fragment); }
+  .pipeline-stage.c { --stage-color: var(--compute); }
+  .pipeline-stage .label { color: var(--stage-color); }
+
+  /* ---------- Sections ---------- */
+
+  section {
+    margin-bottom: 52px;
+    scroll-margin-top: 24px;
+  }
+
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-num {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13px;
+    color: var(--text-faint);
+    font-weight: 600;
+  }
+  section h2 {
+    font-size: 20px;
+    margin: 0;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .tag {
+    margin-left: auto;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    border: 1px solid currentColor;
+  }
+  .tag.vertex { color: var(--vertex); }
+  .tag.fragment { color: var(--fragment); }
+  .tag.compute { color: var(--compute); }
+  .tag.core { color: var(--core); }
+
+  section > p {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin: 0 0 14px;
+  }
+
+  /* ---------- Code blocks ---------- */
+
+  .code-block {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 0 0 18px;
+  }
+  .code-block .bar {
+    display: flex;
+    gap: 6px;
+    padding: 9px 12px;
+    background: rgba(255,255,255,0.015);
+    border-bottom: 1px solid var(--border);
+  }
+  .code-block .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--border);
+  }
+  .code-block pre {
+    margin: 0;
+    padding: 14px 18px 16px;
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  .code-block code {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    white-space: pre;
+  }
+
+  .kw { color: var(--code-kw); }
+  .ty { color: var(--code-type); }
+  .nu { color: var(--code-num); }
+  .st { color: var(--code-str); }
+  .cm { color: var(--code-comment); font-style: italic; }
+  .at { color: var(--code-attr); }
+  .fn { color: var(--code-fn); font-weight: 600; }
+
+  /* ---------- Tables ---------- */
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 18px;
+    font-size: 13px;
+  }
+  th {
+    text-align: left;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-faint);
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-dim);
+    vertical-align: top;
+  }
+  td:first-child, td code {
+    color: var(--text);
+  }
+  code.inline {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 12.5px;
+    color: var(--code-type);
+  }
+  tr:last-child td { border-bottom: none; }
+
+  .stage-dot {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .stage-dot.v { background: var(--vertex); }
+  .stage-dot.f { background: var(--fragment); }
+  .stage-dot.c { background: var(--compute); }
+
+  .builtin-table td:nth-child(4) {
+    text-align: center;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-faint);
+  }
+  .builtin-table td:last-child {
+    font-size: 12.5px;
+  }
+
+  /* ---------- Misc ---------- */
+
+  .note {
+    display: flex;
+    gap: 10px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--core);
+    border-radius: 6px;
+    padding: 12px 16px;
+    font-size: 13px;
+    color: var(--text-dim);
+    margin: 0 0 18px;
+  }
+  .note b { color: var(--text); }
+
+  .subhead {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    margin: 22px 0 10px;
+  }
+
+  ::selection { background: rgba(167,139,250,0.3); }
+
+  @media (max-width: 860px) {
+    .sidebar { display: none; }
+    main { padding: 32px 20px 100px; max-width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="sidebar" id="sidebar">
+  <div class="brand">
+    <div class="title">WGSL</div>
+    <div class="sub">/* cheat sheet */</div>
+  </div>
+
+  <div class="nav-group">
+    <div class="nav-link" data-color="core"><span class="nav-dot" style="--dot-color: var(--core)"></span><a href="#structure" style="all:unset">Shader structure</a></div>
+    <div class="nav-link" data-color="core"><span class="nav-dot" style="--dot-color: var(--core)"></span><a href="#types" style="all:unset">Basic types</a></div>
+    <div class="nav-link" data-color="core"><span class="nav-dot" style="--dot-color: var(--core)"></span><a href="#variables" style="all:unset">Variables & constants</a></div>
+    <div class="nav-link" data-color="core"><span class="nav-dot" style="--dot-color: var(--core)"></span><a href="#address-spaces" style="all:unset">Address spaces</a></div>
+    <div class="nav-link" data-color="core"><span class="nav-dot" style="--dot-color: var(--core)"></span><a href="#structs" style="all:unset">Structs</a></div>
+    <div class="nav-link" data-color="core"><span class="nav-dot" style="--dot-color: var(--core)"></span><a href="#functions" style="all:unset">Functions</a></div>
+  </div>
+
+  <div class="nav-group">
+    <div class="nav-group-label">Pipeline</div>
+    <div class="nav-link" data-color="vertex"><span class="nav-dot" style="--dot-color: var(--vertex)"></span><a href="#entry-points" style="all:unset">Entry points & @builtins</a></div>
+    <div class="nav-link" data-color="core"><span class="nav-dot" style="--dot-color: var(--core)"></span><a href="#attributes" style="all:unset">Attributes</a></div>
+  </div>
+
+  <div class="nav-group">
+    <div class="nav-group-label">Language</div>
+    <div class="nav-link" data-color="core"><span class="nav-dot" style="--dot-color: var(--core)"></span><a href="#control-flow" style="all:unset">Control flow</a></div>
+    <div class="nav-link" data-color="core"><span class="nav-dot" style="--dot-color: var(--core)"></span><a href="#operators" style="all:unset">Operators</a></div>
+    <div class="nav-link" data-color="core"><span class="nav-dot" style="--dot-color: var(--core)"></span><a href="#vectors" style="all:unset">Vectors & swizzling</a></div>
+    <div class="nav-link" data-color="core"><span class="nav-dot" style="--dot-color: var(--core)"></span><a href="#matrices" style="all:unset">Matrices</a></div>
+    <div class="nav-link" data-color="core"><span class="nav-dot" style="--dot-color: var(--core)"></span><a href="#arrays" style="all:unset">Arrays</a></div>
+  </div>
+
+  <div class="nav-group">
+    <div class="nav-group-label">GPU resources</div>
+    <div class="nav-link" data-color="fragment"><span class="nav-dot" style="--dot-color: var(--fragment)"></span><a href="#textures" style="all:unset">Textures & samplers</a></div>
+    <div class="nav-link" data-color="compute"><span class="nav-dot" style="--dot-color: var(--compute)"></span><a href="#compute" style="all:unset">Compute & workgroups</a></div>
+  </div>
+
+  <div class="nav-group">
+    <div class="nav-group-label">Reference</div>
+    <div class="nav-link" data-color="core"><span class="nav-dot" style="--dot-color: var(--core)"></span><a href="#builtins" style="all:unset">Built-in functions</a></div>
+    <div class="nav-link" data-color="core"><span class="nav-dot" style="--dot-color: var(--core)"></span><a href="#syntax-misc" style="all:unset">Comments & misc</a></div>
+    <div class="nav-link" data-color="core"><span class="nav-dot" style="--dot-color: var(--core)"></span><a href="#bindgroups" style="all:unset">Bind groups</a></div>
+    <div class="nav-link" data-color="compute"><span class="nav-dot" style="--dot-color: var(--compute)"></span><a href="#full-example" style="all:unset">Full example</a></div>
+    <div class="nav-link" data-color="core"><span class="nav-dot" style="--dot-color: var(--core)"></span><a href="#wgpu-notes" style="all:unset">Notes for wgpu</a></div>
+  </div>
+</nav>
+
+<main>
+
+  <div class="hero">
+    <h1>WGSL Cheat Sheet</h1>
+    <p>WebGPU Shading Language — the shader language used with wgpu, Dawn, and browser WebGPU. Syntax reference for vertex, fragment, and compute stages.</p>
+
+    <div class="pipeline">
+      <div class="pipeline-stage v">
+        <div class="label">@vertex</div>
+        <div class="desc">transforms per-vertex data → clip position</div>
+      </div>
+      <div class="pipeline-stage f">
+        <div class="label">@fragment</div>
+        <div class="desc">rasterized pixels → color output</div>
+      </div>
+      <div class="pipeline-stage c">
+        <div class="label">@compute</div>
+        <div class="desc">general-purpose parallel work, no fixed pipeline</div>
+      </div>
+    </div>
+  </div>
+
+  <section id="structure">
+    <div class="section-head">
+      <span class="section-num">01</span>
+      <h2>Shader structure</h2>
+      <span class="tag core">core</span>
+    </div>
+    <p>A WGSL file mixes struct definitions, global bindings, constants, and entry points in any order.</p>
+    <div class="code-block">
+      <div class="bar"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <pre><code data-wgsl>struct VertexOutput {
+    @builtin(position) position: vec4&lt;f32&gt;,
+    @location(0) uv: vec2&lt;f32&gt;,
+};
+
+@group(0) @binding(0) var&lt;uniform&gt; mvp: mat4x4&lt;f32&gt;;
+
+@vertex
+fn vs_main(@location(0) pos: vec3&lt;f32&gt;) -&gt; VertexOutput {
+    var out: VertexOutput;
+    out.position = mvp * vec4&lt;f32&gt;(pos, 1.0);
+    return out;
+}
+
+@fragment
+fn fs_main(in: VertexOutput) -&gt; @location(0) vec4&lt;f32&gt; {
+    return vec4&lt;f32&gt;(1.0, 0.0, 0.0, 1.0);
+}</code></pre>
+    </div>
+  </section>
+
+  <section id="types">
+    <div class="section-head">
+      <span class="section-num">02</span>
+      <h2>Basic types</h2>
+      <span class="tag core">core</span>
+    </div>
+    <table>
+      <tr><th>Type</th><th>Meaning</th></tr>
+      <tr><td><code class="inline">bool</code></td><td>boolean</td></tr>
+      <tr><td><code class="inline">i32</code></td><td>32-bit signed int</td></tr>
+      <tr><td><code class="inline">u32</code></td><td>32-bit unsigned int</td></tr>
+      <tr><td><code class="inline">f32</code></td><td>32-bit float</td></tr>
+      <tr><td><code class="inline">f16</code></td><td>16-bit float (needs <code class="inline">enable f16;</code>)</td></tr>
+      <tr><td><code class="inline">vec2&lt;T&gt;</code>, <code class="inline">vec3&lt;T&gt;</code>, <code class="inline">vec4&lt;T&gt;</code></td><td>vectors (T = f32 / i32 / u32 / bool)</td></tr>
+      <tr><td><code class="inline">mat2x2&lt;f32&gt;</code> … <code class="inline">mat4x4&lt;f32&gt;</code></td><td>matrices (col × row)</td></tr>
+      <tr><td><code class="inline">array&lt;T, N&gt;</code></td><td>fixed-size array</td></tr>
+      <tr><td><code class="inline">array&lt;T&gt;</code></td><td>runtime-sized array (storage buffers only, must be last field)</td></tr>
+      <tr><td><code class="inline">ptr&lt;AS, T&gt;</code></td><td>pointer (address space AS)</td></tr>
+      <tr><td><code class="inline">atomic&lt;i32&gt;</code> / <code class="inline">atomic&lt;u32&gt;</code></td><td>atomic types (storage / workgroup only)</td></tr>
+    </table>
+    <div class="note"><b>Shorthand aliases:</b>&nbsp; <code class="inline">vec2f = vec2&lt;f32&gt;</code>, <code class="inline">vec3i = vec3&lt;i32&gt;</code>, <code class="inline">vec4u = vec4&lt;u32&gt;</code>, <code class="inline">mat4x4f = mat4x4&lt;f32&gt;</code> — widely supported, recommended for brevity.</div>
+  </section>
+
+  <section id="variables">
+    <div class="section-head">
+      <span class="section-num">03</span>
+      <h2>Variables & constants</h2>
+      <span class="tag core">core</span>
+    </div>
+    <div class="code-block">
+      <div class="bar"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <pre><code data-wgsl>let x: f32 = 1.0;        <span class="cm">// immutable (single-assignment)</span>
+var y: f32 = 2.0;        <span class="cm">// mutable</span>
+var z = 3.0;             <span class="cm">// type inferred</span>
+
+const PI: f32 = 3.14159; <span class="cm">// compile-time constant (module scope)</span>
+
+override tileSize: u32 = 8u; <span class="cm">// pipeline-overridable constant</span></code></pre>
+    </div>
+    <table>
+      <tr><th>Keyword</th><th>Meaning</th></tr>
+      <tr><td><code class="inline">let</code></td><td>single-assignment local value</td></tr>
+      <tr><td><code class="inline">var</code></td><td>mutable; must specify address space if global (<code class="inline">var&lt;uniform&gt;</code>, <code class="inline">var&lt;storage&gt;</code>, <code class="inline">var&lt;private&gt;</code>, <code class="inline">var&lt;workgroup&gt;</code>)</td></tr>
+      <tr><td><code class="inline">const</code></td><td>fully compile-time, module- or function-scope</td></tr>
+      <tr><td><code class="inline">override</code></td><td>set at pipeline-creation time (specialization constant)</td></tr>
+    </table>
+  </section>
+
+  <section id="address-spaces">
+    <div class="section-head">
+      <span class="section-num">04</span>
+      <h2>Address spaces</h2>
+      <span class="tag core">core</span>
+    </div>
+    <table>
+      <tr><th>Space</th><th>Usage</th></tr>
+      <tr><td><code class="inline">function</code></td><td>default for local vars</td></tr>
+      <tr><td><code class="inline">private</code></td><td>module-scope, per-invocation</td></tr>
+      <tr><td><code class="inline">workgroup</code></td><td>shared within a compute workgroup</td></tr>
+      <tr><td><code class="inline">uniform</code></td><td>read-only bound buffer</td></tr>
+      <tr><td><code class="inline">storage</code></td><td>read/write bound buffer</td></tr>
+      <tr><td><code class="inline">handle</code></td><td>textures / samplers (implicit)</td></tr>
+    </table>
+    <div class="code-block">
+      <div class="bar"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <pre><code data-wgsl>@group(0) @binding(0) var&lt;uniform&gt; camera: CameraData;
+@group(0) @binding(1) var&lt;storage, read&gt; particlesIn: array&lt;Particle&gt;;
+@group(0) @binding(2) var&lt;storage, read_write&gt; particlesOut: array&lt;Particle&gt;;
+var&lt;workgroup&gt; tile: array&lt;f32, 64&gt;;</code></pre>
+    </div>
+  </section>
+
+  <section id="structs">
+    <div class="section-head">
+      <span class="section-num">05</span>
+      <h2>Structs</h2>
+      <span class="tag core">core</span>
+    </div>
+    <div class="code-block">
+      <div class="bar"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <pre><code data-wgsl>struct Particle {
+    position: vec2&lt;f32&gt;,
+    velocity: vec2&lt;f32&gt;,
+};</code></pre>
+    </div>
+    <p>Fields are comma-separated. Use <code class="inline">@location(n)</code>, <code class="inline">@builtin(x)</code>, <code class="inline">@size(n)</code>, <code class="inline">@align(n)</code> attributes for I/O or explicit layout. A runtime-sized <code class="inline">array&lt;T&gt;</code> can only be the <b style="color:var(--text)">last</b> field in a struct used with <code class="inline">storage</code>.</p>
+  </section>
+
+  <section id="functions">
+    <div class="section-head">
+      <span class="section-num">06</span>
+      <h2>Functions</h2>
+      <span class="tag core">core</span>
+    </div>
+    <div class="code-block">
+      <div class="bar"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <pre><code data-wgsl>fn add(a: f32, b: f32) -&gt; f32 {
+    return a + b;
+}
+
+fn noReturn() {
+    <span class="cm">// no return type = void</span>
+}</code></pre>
+    </div>
+    <p>Parameters pass by value except pointers. <b style="color:var(--text)">No function overloading</b> — two functions can't share a name.</p>
+    <div class="subhead">Pointers (pass-by-reference within a function body)</div>
+    <div class="code-block">
+      <div class="bar"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <pre><code data-wgsl>fn increment(p: ptr&lt;function, i32&gt;) {
+    *p = *p + 1;
+}
+<span class="cm">// call: increment(&amp;x);</span></code></pre>
+    </div>
+  </section>
+
+  <section id="entry-points">
+    <div class="section-head">
+      <span class="section-num">07</span>
+      <h2>Entry points</h2>
+      <span class="tag vertex">pipeline</span>
+    </div>
+    <div class="code-block">
+      <div class="bar"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <pre><code data-wgsl>@vertex
+fn vs_main(@builtin(vertex_index) idx: u32) -&gt; @builtin(position) vec4&lt;f32&gt; { ... }
+
+@fragment
+fn fs_main() -&gt; @location(0) vec4&lt;f32&gt; { ... }
+
+@compute @workgroup_size(8, 8, 1)
+fn cs_main(@builtin(global_invocation_id) gid: vec3&lt;u32&gt;) { ... }</code></pre>
+    </div>
+    <div class="subhead">Every <code class="inline">@builtin(x)</code> value — complete list</div>
+    <p>These are the built-in inputs and outputs WGSL/wgpu give you for free — no bindings needed, just declare the parameter or struct field with the right <code class="inline">@builtin(name)</code> attribute.</p>
+    <table class="builtin-table">
+      <tr><th>@builtin(&hellip;)</th><th>Type</th><th>Stage</th><th>Dir</th><th>What it gives you</th></tr>
+
+      <tr>
+        <td><code class="inline">vertex_index</code></td>
+        <td><code class="inline">u32</code></td>
+        <td><span class="stage-dot v"></span>vertex</td>
+        <td>in</td>
+        <td>Index of the current vertex within the draw call (respects base vertex / first index).</td>
+      </tr>
+      <tr>
+        <td><code class="inline">instance_index</code></td>
+        <td><code class="inline">u32</code></td>
+        <td><span class="stage-dot v"></span>vertex</td>
+        <td>in</td>
+        <td>Index of the current instance in an instanced draw.</td>
+      </tr>
+      <tr>
+        <td><code class="inline">position</code></td>
+        <td><code class="inline">vec4&lt;f32&gt;</code></td>
+        <td><span class="stage-dot v"></span>vertex</td>
+        <td>out</td>
+        <td>Required output — clip-space position fed to the rasterizer.</td>
+      </tr>
+      <tr>
+        <td><code class="inline">clip_distances</code></td>
+        <td><code class="inline">array&lt;f32, N&gt;</code></td>
+        <td><span class="stage-dot v"></span>vertex</td>
+        <td>out</td>
+        <td>Per-vertex user clip distances for custom clip planes (needs the <code class="inline">clip_distances</code> extension).</td>
+      </tr>
+      <tr>
+        <td><code class="inline">position</code></td>
+        <td><code class="inline">vec4&lt;f32&gt;</code></td>
+        <td><span class="stage-dot f"></span>fragment</td>
+        <td>in</td>
+        <td>Framebuffer-space fragment coordinate — <code class="inline">xy</code> in pixels, <code class="inline">z</code> depth, <code class="inline">w</code> = 1/clip-w. (Not the vertex-stage value — recomputed per fragment.)</td>
+      </tr>
+      <tr>
+        <td><code class="inline">front_facing</code></td>
+        <td><code class="inline">bool</code></td>
+        <td><span class="stage-dot f"></span>fragment</td>
+        <td>in</td>
+        <td>True if the triangle is front-facing, based on winding order.</td>
+      </tr>
+      <tr>
+        <td><code class="inline">sample_index</code></td>
+        <td><code class="inline">u32</code></td>
+        <td><span class="stage-dot f"></span>fragment</td>
+        <td>in</td>
+        <td>Which MSAA sample this invocation is shading (forces per-sample shading).</td>
+      </tr>
+      <tr>
+        <td><code class="inline">sample_mask</code></td>
+        <td><code class="inline">u32</code></td>
+        <td><span class="stage-dot f"></span>fragment</td>
+        <td>in</td>
+        <td>Bitmask of which MSAA samples cover this fragment.</td>
+      </tr>
+      <tr>
+        <td><code class="inline">frag_depth</code></td>
+        <td><code class="inline">f32</code></td>
+        <td><span class="stage-dot f"></span>fragment</td>
+        <td>out</td>
+        <td>Overrides the fragment's depth instead of using the rasterizer's interpolated value.</td>
+      </tr>
+      <tr>
+        <td><code class="inline">sample_mask</code></td>
+        <td><code class="inline">u32</code></td>
+        <td><span class="stage-dot f"></span>fragment</td>
+        <td>out</td>
+        <td>Bitmask to narrow which samples this invocation actually writes to.</td>
+      </tr>
+      <tr>
+        <td><code class="inline">local_invocation_id</code></td>
+        <td><code class="inline">vec3&lt;u32&gt;</code></td>
+        <td><span class="stage-dot c"></span>compute</td>
+        <td>in</td>
+        <td>This thread's 3D position inside its workgroup (0..workgroup_size-1 per axis).</td>
+      </tr>
+      <tr>
+        <td><code class="inline">local_invocation_index</code></td>
+        <td><code class="inline">u32</code></td>
+        <td><span class="stage-dot c"></span>compute</td>
+        <td>in</td>
+        <td>Flattened 1D version of <code class="inline">local_invocation_id</code> — handy for indexing shared arrays.</td>
+      </tr>
+      <tr>
+        <td><code class="inline">global_invocation_id</code></td>
+        <td><code class="inline">vec3&lt;u32&gt;</code></td>
+        <td><span class="stage-dot c"></span>compute</td>
+        <td>in</td>
+        <td>This thread's position across the <i>entire dispatch</i> — <code class="inline">workgroup_id * workgroup_size + local_invocation_id</code>.</td>
+      </tr>
+      <tr>
+        <td><code class="inline">workgroup_id</code></td>
+        <td><code class="inline">vec3&lt;u32&gt;</code></td>
+        <td><span class="stage-dot c"></span>compute</td>
+        <td>in</td>
+        <td>Which workgroup this thread belongs to, within the dispatch grid.</td>
+      </tr>
+      <tr>
+        <td><code class="inline">num_workgroups</code></td>
+        <td><code class="inline">vec3&lt;u32&gt;</code></td>
+        <td><span class="stage-dot c"></span>compute</td>
+        <td>in</td>
+        <td>The <code class="inline">x, y, z</code> dispatch size passed to <code class="inline">dispatchWorkgroups()</code>.</td>
+      </tr>
+    </table>
+
+    <div class="note">
+      <b>Free math, no bindings:</b> <code class="inline">global_invocation_id = workgroup_id * workgroup_size + local_invocation_id</code>. If you only dispatch in 1D, <code class="inline">global_invocation_id.x</code> is usually all you need as your array index.
+    </div>
+    <div class="note">
+      <b>Direction matters:</b> the same name can mean different things — <code class="inline">position</code> is a required <i>output</i> from the vertex stage, but a different <i>input</i> value (the rasterized screen-space coord) in the fragment stage. <code class="inline">sample_mask</code> likewise exists as both an input and a separate output.
+    </div>
+  </section>
+
+  <section id="attributes">
+    <div class="section-head">
+      <span class="section-num">08</span>
+      <h2>Attributes reference</h2>
+      <span class="tag core">core</span>
+    </div>
+    <table>
+      <tr><th>Attribute</th><th>Use</th></tr>
+      <tr><td><code class="inline">@group(n) @binding(n)</code></td><td>resource binding location</td></tr>
+      <tr><td><code class="inline">@location(n)</code></td><td>I/O between shader stages</td></tr>
+      <tr><td><code class="inline">@builtin(name)</code></td><td>built-in variable</td></tr>
+      <tr><td><code class="inline">@vertex</code> <code class="inline">@fragment</code> <code class="inline">@compute</code></td><td>entry point stage</td></tr>
+      <tr><td><code class="inline">@workgroup_size(x, y, z)</code></td><td>compute workgroup dims</td></tr>
+      <tr><td><code class="inline">@interpolate(type, sampling)</code></td><td>interpolation control (<code class="inline">flat</code>, <code class="inline">perspective</code>, <code class="inline">linear</code>; <code class="inline">center</code>, <code class="inline">centroid</code>, <code class="inline">sample</code>)</td></tr>
+      <tr><td><code class="inline">@align(n)</code> <code class="inline">@size(n)</code></td><td>explicit memory layout</td></tr>
+      <tr><td><code class="inline">@must_use</code></td><td>function result can't be discarded</td></tr>
+      <tr><td><code class="inline">@diagnostic(...)</code></td><td>control diagnostics (e.g. <code class="inline">off, derivative_uniformity</code>)</td></tr>
+    </table>
+  </section>
+
+  <section id="control-flow">
+    <div class="section-head">
+      <span class="section-num">09</span>
+      <h2>Control flow</h2>
+      <span class="tag core">core</span>
+    </div>
+    <div class="code-block">
+      <div class="bar"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <pre><code data-wgsl>if (x &gt; 0.0) {
+    <span class="cm">// ...</span>
+} else if (x &lt; 0.0) {
+    <span class="cm">// ...</span>
+} else {
+    <span class="cm">// ...</span>
+}
+
+for (var i: u32 = 0u; i &lt; 10u; i = i + 1u) { ... }
+
+var i: u32 = 0u;
+while (i &lt; 10u) {
+    i = i + 1u;
+}
+
+loop {
+    <span class="cm">// infinite loop</span>
+    if (done) { break; }
+    continuing {
+        <span class="cm">// runs each iteration end, before condition re-check</span>
+    }
+}
+
+switch (x) {
+    case 0: { <span class="cm">/* ... */</span> }
+    case 1, 2: { <span class="cm">/* ... */</span> }
+    default: { <span class="cm">/* ... */</span> }
+}
+
+discard; <span class="cm">// fragment shader only — kill the fragment</span></code></pre>
+    </div>
+    <div class="note">WGSL requires <b>parentheses around conditions</b> (<code class="inline">if (x)</code>, <code class="inline">while (x)</code>), unlike Rust.</div>
+  </section>
+
+  <section id="operators">
+    <div class="section-head">
+      <span class="section-num">10</span>
+      <h2>Operators</h2>
+      <span class="tag core">core</span>
+    </div>
+    <table>
+      <tr><th>Kind</th><th>Operators</th></tr>
+      <tr><td>Arithmetic</td><td><code class="inline">+ - * / %</code></td></tr>
+      <tr><td>Comparison</td><td><code class="inline">== != &lt; &gt; &lt;= &gt;=</code></td></tr>
+      <tr><td>Logical</td><td><code class="inline">&& || !</code></td></tr>
+      <tr><td>Bitwise</td><td><code class="inline">& | ^ ~ << >></code></td></tr>
+      <tr><td>Assignment</td><td><code class="inline">= += -= *= /= %= &= |= ^= <<= >>=</code></td></tr>
+    </table>
+    <p>No implicit numeric conversions — cast explicitly:</p>
+    <div class="code-block">
+      <div class="bar"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <pre><code data-wgsl>let a: f32 = f32(some_i32);
+let b: i32 = i32(some_f32);</code></pre>
+    </div>
+  </section>
+
+  <section id="vectors">
+    <div class="section-head">
+      <span class="section-num">11</span>
+      <h2>Vectors & swizzling</h2>
+      <span class="tag core">core</span>
+    </div>
+    <div class="code-block">
+      <div class="bar"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <pre><code data-wgsl>var v: vec4&lt;f32&gt; = vec4&lt;f32&gt;(1.0, 2.0, 3.0, 4.0);
+let xy = v.xy;         <span class="cm">// vec2&lt;f32&gt;</span>
+let rgb = v.rgb;       <span class="cm">// vec3&lt;f32&gt; (color aliases: r g b a)</span>
+let zyx = v.zyx;       <span class="cm">// reordering</span>
+v.x = 5.0;             <span class="cm">// component assignment</span>
+v = vec4&lt;f32&gt;(v.xyz, 1.0); <span class="cm">// reconstruct</span></code></pre>
+    </div>
+    <p>Component names: <code class="inline">.xyzw</code> or <code class="inline">.rgba</code> — don't mix within one swizzle.</p>
+    <div class="subhead">Construction shortcuts</div>
+    <div class="code-block">
+      <div class="bar"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <pre><code data-wgsl>vec3&lt;f32&gt;(1.0)              <span class="cm">// splat: (1,1,1)</span>
+vec4&lt;f32&gt;(v3, 1.0)          <span class="cm">// vec3 + scalar</span>
+vec4&lt;f32&gt;(v2, v2b)          <span class="cm">// vec2 + vec2</span></code></pre>
+    </div>
+  </section>
+
+  <section id="matrices">
+    <div class="section-head">
+      <span class="section-num">12</span>
+      <h2>Matrices</h2>
+      <span class="tag core">core</span>
+    </div>
+    <div class="code-block">
+      <div class="bar"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <pre><code data-wgsl>var m: mat4x4&lt;f32&gt; = mat4x4&lt;f32&gt;(
+    vec4&lt;f32&gt;(1.0, 0.0, 0.0, 0.0),
+    vec4&lt;f32&gt;(0.0, 1.0, 0.0, 0.0),
+    vec4&lt;f32&gt;(0.0, 0.0, 1.0, 0.0),
+    vec4&lt;f32&gt;(0.0, 0.0, 0.0, 1.0),
+); <span class="cm">// columns, column-major</span>
+
+let transformed = m * vec4&lt;f32&gt;(pos, 1.0);
+let combined = m1 * m2;</code></pre>
+    </div>
+    <p>Access column: <code class="inline">m[0]</code> → <code class="inline">vec4&lt;f32&gt;</code>. Access element: <code class="inline">m[0][1]</code>.</p>
+  </section>
+
+  <section id="arrays">
+    <div class="section-head">
+      <span class="section-num">13</span>
+      <h2>Arrays</h2>
+      <span class="tag core">core</span>
+    </div>
+    <div class="code-block">
+      <div class="bar"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <pre><code data-wgsl>var arr: array&lt;f32, 4&gt; = array&lt;f32, 4&gt;(1.0, 2.0, 3.0, 4.0);
+let val = arr[2];
+arr[0] = 9.0;
+
+<span class="cm">// runtime-sized (storage buffers only)</span>
+@group(0) @binding(0) var&lt;storage, read&gt; data: array&lt;f32&gt;;
+let n = arrayLength(&amp;data);</code></pre>
+    </div>
+  </section>
+
+  <section id="textures">
+    <div class="section-head">
+      <span class="section-num">14</span>
+      <h2>Textures & samplers</h2>
+      <span class="tag fragment">fragment</span>
+    </div>
+    <div class="code-block">
+      <div class="bar"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <pre><code data-wgsl>@group(0) @binding(0) var mySampler: sampler;
+@group(0) @binding(1) var myTexture: texture_2d&lt;f32&gt;;
+@group(0) @binding(2) var myDepthTex: texture_depth_2d;
+@group(0) @binding(3) var myStorageTex: texture_storage_2d&lt;rgba8unorm, write&gt;;
+
+@fragment
+fn fs_main(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt; {
+    return textureSample(myTexture, mySampler, uv);
+}</code></pre>
+    </div>
+    <p>Common texture types: <code class="inline">texture_1d</code>, <code class="inline">texture_2d</code>, <code class="inline">texture_2d_array</code>, <code class="inline">texture_3d</code>, <code class="inline">texture_cube</code>, <code class="inline">texture_cube_array</code>, <code class="inline">texture_multisampled_2d</code>, <code class="inline">texture_depth_2d</code>, <code class="inline">texture_storage_2d&lt;format, access&gt;</code>.</p>
+    <div class="subhead">Common functions</div>
+    <div class="code-block">
+      <div class="bar"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <pre><code data-wgsl>textureSample(tex, samp, coord)
+textureSampleLevel(tex, samp, coord, level)
+textureLoad(tex, coord, level)          <span class="cm">// no sampler, direct texel fetch</span>
+textureStore(tex, coord, value)         <span class="cm">// storage textures</span>
+textureDimensions(tex)
+textureNumLevels(tex)</code></pre>
+    </div>
+  </section>
+
+  <section id="compute">
+    <div class="section-head">
+      <span class="section-num">15</span>
+      <h2>Compute shaders & workgroups</h2>
+      <span class="tag compute">compute</span>
+    </div>
+    <div class="code-block">
+      <div class="bar"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <pre><code data-wgsl>var&lt;workgroup&gt; shared_data: array&lt;f32, 256&gt;;
+
+@compute @workgroup_size(256)
+fn cs_main(
+    @builtin(local_invocation_id) local_id: vec3&lt;u32&gt;,
+    @builtin(global_invocation_id) global_id: vec3&lt;u32&gt;
+) {
+    shared_data[local_id.x] = f32(global_id.x);
+    workgroupBarrier();       <span class="cm">// sync all threads in workgroup</span>
+    storageBarrier();         <span class="cm">// sync storage memory ops</span>
+    <span class="cm">// ... reduction, etc.</span>
+}</code></pre>
+    </div>
+    <div class="subhead">Atomics</div>
+    <div class="code-block">
+      <div class="bar"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <pre><code data-wgsl>var&lt;storage, read_write&gt; counter: atomic&lt;u32&gt;;
+atomicAdd(&amp;counter, 1u);
+atomicLoad(&amp;counter);
+atomicStore(&amp;counter, 0u);
+atomicCompareExchangeWeak(&amp;counter, old, new);</code></pre>
+    </div>
+  </section>
+
+  <section id="builtins">
+    <div class="section-head">
+      <span class="section-num">16</span>
+      <h2>Built-in functions</h2>
+      <span class="tag core">reference</span>
+    </div>
+    <table>
+      <tr><th>Category</th><th>Functions</th></tr>
+      <tr><td>Math</td><td><code class="inline">abs, ceil, floor, round, sign, sqrt, inverseSqrt, pow, exp, exp2, log, log2, sin, cos, tan, asin, acos, atan, atan2, clamp, min, max, mix, step, smoothstep, fract, trunc, modf, saturate</code></td></tr>
+      <tr><td>Vector / geometry</td><td><code class="inline">dot, cross, length, distance, normalize, reflect, refract, faceForward</code></td></tr>
+      <tr><td>Derivatives <span style="color:var(--fragment)">(fragment only)</span></td><td><code class="inline">dpdx, dpdy, fwidth</code></td></tr>
+      <tr><td>Bit ops</td><td><code class="inline">countOneBits, reverseBits, firstLeadingBit, firstTrailingBit, extractBits, insertBits</code></td></tr>
+      <tr><td>Packing</td><td><code class="inline">pack4x8snorm, unpack4x8unorm, pack2x16float, unpack2x16float</code>, etc.</td></tr>
+      <tr><td>Barriers / atomics</td><td>see <a href="#compute" style="color:var(--compute)">Compute & workgroups</a></td></tr>
+    </table>
+  </section>
+
+  <section id="syntax-misc">
+    <div class="section-head">
+      <span class="section-num">17</span>
+      <h2>Comments & misc syntax</h2>
+      <span class="tag core">core</span>
+    </div>
+    <div class="code-block">
+      <div class="bar"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <pre><code data-wgsl><span class="cm">// single-line comment</span>
+<span class="cm">/* block comment */</span>
+
+enable f16;               <span class="cm">// enable an extension</span>
+diagnostic(off, derivative_uniformity); <span class="cm">// directive</span>
+
+fn foo() -&gt; bool {
+    return true;
+}</code></pre>
+    </div>
+    <ul style="color: var(--text-dim); font-size: 13.5px; padding-left: 20px; margin: 0 0 10px;">
+      <li>Statements end with <code class="inline">;</code> (like Rust/C).</li>
+      <li>Blocks use <code class="inline">{ }</code>.</li>
+      <li>No semicolon after a struct/function closing brace.</li>
+      <li>Statically typed — no implicit casts, no null, limited pointer support across function boundaries.</li>
+    </ul>
+  </section>
+
+  <section id="bindgroups">
+    <div class="section-head">
+      <span class="section-num">18</span>
+      <h2>Typical bind group declarations</h2>
+      <span class="tag core">reference</span>
+    </div>
+    <div class="code-block">
+      <div class="bar"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <pre><code data-wgsl>@group(0) @binding(0) var&lt;uniform&gt; uniforms: Uniforms;
+@group(0) @binding(1) var&lt;storage, read&gt; inputBuf: array&lt;f32&gt;;
+@group(0) @binding(2) var&lt;storage, read_write&gt; outputBuf: array&lt;f32&gt;;
+@group(1) @binding(0) var tex: texture_2d&lt;f32&gt;;
+@group(1) @binding(1) var samp: sampler;</code></pre>
+    </div>
+  </section>
+
+  <section id="full-example">
+    <div class="section-head">
+      <span class="section-num">19</span>
+      <h2>Minimal full compute example</h2>
+      <span class="tag compute">compute</span>
+    </div>
+    <div class="code-block">
+      <div class="bar"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <pre><code data-wgsl>@group(0) @binding(0) var&lt;storage, read&gt; input: array&lt;f32&gt;;
+@group(0) @binding(1) var&lt;storage, read_write&gt; output: array&lt;f32&gt;;
+
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) id: vec3&lt;u32&gt;) {
+    let i = id.x;
+    if (i &gt;= arrayLength(&amp;input)) {
+        return;
+    }
+    output[i] = input[i] * 2.0;
+}</code></pre>
+    </div>
+  </section>
+
+  <section id="wgpu-notes">
+    <div class="section-head">
+      <span class="section-num">20</span>
+      <h2>Notes for wgpu (Rust) users</h2>
+      <span class="tag core">wgpu</span>
+    </div>
+    <ul style="color: var(--text-dim); font-size: 13.5px; padding-left: 20px; margin: 0;">
+      <li>WGSL loads directly via <code class="inline">device.create_shader_module(wgpu::ShaderModuleDescriptor { source: wgpu::ShaderSource::Wgsl(...), .. })</code>.</li>
+      <li>Struct layouts must match Rust-side <code class="inline">#[repr(C)]</code> structs and buffer layouts — <code class="inline">bytemuck</code> plus explicit <code class="inline">@align</code>/<code class="inline">@size</code> attributes help avoid mismatches.</li>
+      <li><code class="inline">naga</code> (used internally by wgpu) is the WGSL compiler/validator — its error messages are usually precise about type mismatches and layout issues.</li>
+    </ul>
+  </section>
+
+</main>
+
+<script>
+  // Highlight active nav link on scroll
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks = document.querySelectorAll('.nav-link');
+
+  function setActive() {
+    let current = '';
+    const scrollPos = window.scrollY + 80;
+    sections.forEach(sec => {
+      if (sec.offsetTop <= scrollPos) current = sec.id;
+    });
+    navLinks.forEach(link => {
+      const a = link.querySelector('a');
+      link.classList.toggle('active', a && a.getAttribute('href') === '#' + current);
+      if (a && a.getAttribute('href') === '#' + current) {
+        link.style.setProperty('--dot-color', getComputedStyle(link.querySelector('.nav-dot')).backgroundColor);
+      }
+    });
+  }
+  window.addEventListener('scroll', setActive, { passive: true });
+  setActive();
+
+  // Lightweight WGSL syntax highlighter for blocks not already hand-annotated with spans
+  const KEYWORDS = ['fn','let','var','const','override','struct','return','if','else','for','while','loop','break','continue','continuing','switch','case','default','discard','enable','diagnostic','true','false','in','out'];
+  const TYPES = ['f32','f16','i32','u32','bool','vec2','vec3','vec4','vec2f','vec3f','vec4f','vec2i','vec3i','vec4i','vec2u','vec3u','vec4u','mat2x2','mat3x3','mat4x4','mat4x4f','array','ptr','atomic','sampler','texture_1d','texture_2d','texture_2d_array','texture_3d','texture_cube','texture_cube_array','texture_multisampled_2d','texture_depth_2d','texture_storage_2d','function','private','workgroup','uniform','storage','read','read_write','write'];
+
+  document.querySelectorAll('code[data-wgsl]').forEach(block => {
+    if (block.querySelector('span')) return; // already hand-annotated
+    let html = block.innerHTML;
+    html = html.replace(/\/\/.*$/gm, m => `<span class="cm">${m}</span>`);
+    html = html.replace(/@\w+/g, m => `<span class="at">${m}</span>`);
+    html = html.replace(/\b(\d+\.\d+|\d+u|\d+)\b/g, m => `<span class="nu">${m}</span>`);
+    TYPES.forEach(t => {
+      const re = new RegExp(`\\b${t}\\b`, 'g');
+      html = html.replace(re, m => `<span class="ty">${m}</span>`);
+    });
+    KEYWORDS.forEach(k => {
+      const re = new RegExp(`\\b${k}\\b`, 'g');
+      html = html.replace(re, m => `<span class="kw">${m}</span>`);
+    });
+    block.innerHTML = html;
+  });
+</script>
+
+</body>
+</html>

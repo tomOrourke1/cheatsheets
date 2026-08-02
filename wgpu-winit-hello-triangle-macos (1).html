@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hello triangle — rust · wgpu 30 · winit 0.30 · macOS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Martian+Mono:wght@400;600;800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#e4e8e5;
+  --card:#f4f6f3;
+  --slab:#14191f;
+  --ink:#10161a;
+  --muted:#59635f;
+  --rule:#c2c9c4;
+  --rule-hard:#9aa5a0;
+  --signal:#c4301a;
+  --extend:#2c6b5c;
+  --screen:#597c95;
+
+  --mono:"Martian Mono",ui-monospace,monospace;
+  --code:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --serif:"Source Serif 4",Georgia,serif;
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--serif);
+  font-size:15.5px;
+  line-height:1.62;
+  font-variant-numeric:tabular-nums;
+}
+.wrap{max-width:1140px;margin:0 auto;padding:0 28px 96px}
+
+/* ---------- masthead ---------- */
+.masthead{padding:56px 0 30px;border-bottom:2px solid var(--ink)}
+.eyebrow{
+  font-family:var(--mono);font-size:10px;font-weight:600;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--muted);
+  margin:0 0 22px;
+}
+.eyebrow b{color:var(--signal);font-weight:800}
+.masthead h1{
+  font-family:var(--mono);font-weight:800;
+  font-size:clamp(30px,6.4vw,58px);line-height:.98;letter-spacing:-.045em;
+  margin:0 0 18px;
+}
+.standfirst{max-width:48ch;margin:0;font-size:17px;color:#2a3236}
+.specs{
+  display:flex;flex-wrap:wrap;gap:0 34px;margin-top:26px;
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;color:var(--muted);
+}
+.specs span b{display:block;color:var(--ink);font-weight:600;font-size:12px;letter-spacing:-.02em}
+
+/* ---------- hero ---------- */
+.hero{
+  display:grid;grid-template-columns:340px minmax(0,1fr);gap:44px;
+  padding:40px 0 46px;border-bottom:1px solid var(--rule-hard);align-items:start;
+}
+.hero figure{margin:0}
+.hero svg{display:block;width:100%;height:auto;border:1px solid var(--rule-hard)}
+.hero figcaption{
+  font-family:var(--mono);font-size:9.5px;line-height:1.7;letter-spacing:.04em;
+  color:var(--muted);margin-top:10px;
+}
+.hero-txt p{margin:0 0 16px;max-width:56ch}
+.hero-txt p:first-child{font-size:17px}
+.chain{display:flex;flex-wrap:wrap;gap:6px;margin:22px 0 0;padding:0;list-style:none}
+.chain li{
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.03em;
+  border:1px solid var(--rule-hard);padding:4px 8px;background:var(--card);
+}
+.chain li i{color:var(--signal);font-style:normal;font-weight:800;margin-right:5px}
+.chain li.hot{border-color:var(--signal);background:#f6e6e2}
+
+.tri-shape{
+  stroke-dasharray:560;stroke-dashoffset:560;
+  animation:draw 1.1s cubic-bezier(.6,0,.2,1) .2s forwards;
+}
+.tri-fill{opacity:0;animation:fade .7s ease .9s forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+@keyframes fade{to{opacity:1}}
+@media (prefers-reduced-motion:reduce){
+  .tri-shape{animation:none;stroke-dashoffset:0}
+  .tri-fill{animation:none;opacity:1}
+}
+
+/* ---------- stages ---------- */
+.stages{padding-left:78px;position:relative;margin-top:8px}
+.stages::before{
+  content:"";position:absolute;left:26px;top:34px;bottom:34px;width:1px;background:var(--rule-hard);
+}
+.stage{position:relative;padding:34px 0 30px;border-bottom:1px solid var(--rule)}
+.stage:last-child{border-bottom:0}
+.stage-num{
+  position:absolute;left:-78px;top:34px;width:52px;text-align:right;
+  font-family:var(--mono);font-weight:800;font-size:19px;letter-spacing:-.05em;
+  color:var(--signal);background:var(--paper);padding:2px 0 6px;
+}
+.stage h2{
+  font-family:var(--mono);font-weight:600;font-size:16px;letter-spacing:-.03em;
+  margin:0 0 3px;
+}
+.dek{margin:0 0 18px;color:var(--muted);font-size:14.5px;font-style:italic}
+.stage-body{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:26px;align-items:start}
+.notes p{margin:0 0 12px;font-size:14px;line-height:1.55}
+.notes p:last-child{margin-bottom:0}
+.notes code{font-family:var(--code);font-size:12px;background:#dde2df;padding:1px 4px}
+.ext{border-left:2px solid var(--extend);padding-left:11px;color:#22453d}
+.ext b{
+  display:block;font-family:var(--mono);font-size:9px;font-weight:700;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--extend);margin-bottom:2px;
+}
+.warn{border-left:2px solid var(--signal);padding-left:11px;color:#5e1c0f}
+.warn b{
+  display:block;font-family:var(--mono);font-size:9px;font-weight:700;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--signal);margin-bottom:2px;
+}
+.bytefig{margin:18px 0 0}
+.bytefig svg{display:block;width:100%;height:auto}
+.bytefig figcaption{
+  font-family:var(--mono);font-size:9px;line-height:1.7;letter-spacing:.04em;
+  color:var(--muted);margin-top:7px;
+}
+
+/* ---------- code ---------- */
+pre{
+  margin:0;background:var(--slab);color:#d8dee6;
+  padding:16px 18px;overflow-x:auto;border-left:2px solid var(--signal);
+}
+pre code{font-family:var(--code);font-size:12.2px;line-height:1.62;font-weight:400}
+.filename{
+  font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 6px;
+}
+.filename.gap{margin-top:16px}
+.c{color:#6f8494;font-style:italic}
+.s{color:#b6cf8e}
+.k{color:#e0885f}
+.t{color:#93b8dd}
+.a{color:#cf98d0}
+
+/* ---------- panels ---------- */
+.panel{margin-top:56px;padding-top:26px;border-top:2px solid var(--ink)}
+.panel h2{
+  font-family:var(--mono);font-weight:800;font-size:15px;letter-spacing:-.03em;
+  margin:0 0 4px;
+}
+.panel > .dek{margin-bottom:22px}
+.cols2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 34px}
+.item{border-top:1px solid var(--rule);padding-top:11px}
+.item h3{
+  font-family:var(--mono);font-size:11.5px;font-weight:600;letter-spacing:-.01em;
+  margin:0 0 5px;
+}
+.item p{margin:0;font-size:14px;line-height:1.55;color:#2c3438}
+.item code,.gotcha code,.map code{font-family:var(--code);font-size:12px;background:#dde2df;padding:1px 4px}
+
+.gotcha{display:grid;grid-template-columns:26px minmax(0,1fr);gap:0 14px;border-top:1px solid var(--rule);padding:12px 0}
+.gotcha .n{font-family:var(--mono);font-size:11px;font-weight:800;color:var(--signal);padding-top:2px}
+.gotcha h3{font-family:var(--mono);font-size:11.5px;font-weight:600;margin:0 0 4px;letter-spacing:-.01em}
+.gotcha p{margin:0;font-size:14px;line-height:1.55}
+
+.map{width:100%;border-collapse:collapse;font-size:14px}
+.map th{
+  text-align:left;font-family:var(--mono);font-size:9px;font-weight:700;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--muted);
+  padding:0 14px 8px 0;border-bottom:1px solid var(--rule-hard);
+}
+.map td{padding:9px 14px 9px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+.map td:first-child{width:32%}
+.map td:last-child{width:76px;font-family:var(--mono);font-size:10px;color:var(--signal);white-space:nowrap}
+
+footer{
+  margin-top:56px;padding-top:20px;border-top:1px solid var(--rule-hard);
+  font-family:var(--mono);font-size:9.5px;line-height:1.9;letter-spacing:.04em;color:var(--muted);
+}
+footer a{color:var(--ink)}
+
+a:focus-visible,pre:focus-visible{outline:2px solid var(--signal);outline-offset:3px}
+
+@media (max-width:900px){
+  .hero{grid-template-columns:1fr;gap:30px}
+  .stage-body{grid-template-columns:1fr;gap:18px}
+  .cols2{grid-template-columns:1fr}
+  .stages{padding-left:0}
+  .stages::before{display:none}
+  .stage-num{position:static;text-align:left;width:auto;display:block;padding:0;margin-bottom:2px}
+  .map td:first-child{width:auto}
+}
+@media (max-width:600px){
+  .wrap{padding:0 18px 64px}
+  pre code{font-size:11.4px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="masthead">
+  <p class="eyebrow">Rust &nbsp;·&nbsp; wgpu <b>30.0</b> &nbsp;·&nbsp; winit <b>0.30</b> &nbsp;·&nbsp; target: macOS / Metal</p>
+  <h1>hello<br>triangle</h1>
+  <p class="standfirst">One window, one vertex buffer, one draw call. Your own data goes up to the GPU — position and colour per vertex — and every line below is a place something bigger plugs in.</p>
+  <div class="specs">
+    <span>Backend<b>Metal (native)</b></span>
+    <span>Shader language<b>WGSL</b></span>
+    <span>Rust MSRV<b>1.87</b></span>
+    <span>Vertex stride<b>24 bytes</b></span>
+    <span>Total lines<b>~160</b></span>
+  </div>
+</header>
+
+<section class="hero">
+  <figure>
+    <svg viewBox="0 0 320 320" role="img" aria-label="Clip space diagram: a triangle with a red vertex at top, green at bottom left and blue at bottom right, interpolated across the face.">
+      <defs>
+        <clipPath id="triclip"><polygon points="160,84 62,236 258,236"/></clipPath>
+        <radialGradient id="gr" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#ff2d1e"/><stop offset="100%" stop-color="#000"/>
+        </radialGradient>
+        <radialGradient id="gg" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#25e06a"/><stop offset="100%" stop-color="#000"/>
+        </radialGradient>
+        <radialGradient id="gb" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#2b6bff"/><stop offset="100%" stop-color="#000"/>
+        </radialGradient>
+      </defs>
+
+      <rect x="0" y="0" width="320" height="320" fill="#597c95"/>
+      <g stroke="#ffffff" stroke-opacity=".2" stroke-width="1">
+        <line x1="20" y1="160" x2="300" y2="160"/>
+        <line x1="160" y1="20" x2="160" y2="300"/>
+      </g>
+      <rect x="20" y="20" width="280" height="280" fill="none" stroke="#ffffff" stroke-opacity=".35" stroke-width="1" stroke-dasharray="3 4"/>
+
+      <g class="tri-fill" clip-path="url(#triclip)" style="isolation:isolate">
+        <rect x="20" y="60" width="280" height="200" fill="#000"/>
+        <ellipse cx="160" cy="84"  rx="215" ry="215" fill="url(#gr)" style="mix-blend-mode:screen"/>
+        <ellipse cx="62"  cy="236" rx="215" ry="215" fill="url(#gg)" style="mix-blend-mode:screen"/>
+        <ellipse cx="258" cy="236" rx="215" ry="215" fill="url(#gb)" style="mix-blend-mode:screen"/>
+      </g>
+      <polygon class="tri-shape" points="160,84 62,236 258,236" fill="none"
+               stroke="#ffffff" stroke-opacity=".55" stroke-width="1.4" stroke-linejoin="round"/>
+
+      <g fill="#ffffff" font-family="JetBrains Mono, monospace" font-size="9">
+        <circle cx="160" cy="84"  r="3.2"/><text x="168" y="80">v0 &#183; ( 0.0,  0.55) &#183; R</text>
+        <circle cx="62"  cy="236" r="3.2"/><text x="14"  y="258">v1 &#183; (&#8722;0.6, &#8722;0.45) &#183; G</text>
+        <circle cx="258" cy="236" r="3.2"/><text x="196" y="258">v2 &#183; ( 0.6, &#8722;0.45) &#183; B</text>
+      </g>
+      <path d="M186 176 A 34 34 0 0 0 172 140" fill="none" stroke="#ffffff" stroke-opacity=".7" stroke-width="1.3"/>
+      <path d="M172 140 l 5.5 3 l -6.5 4 z" fill="#ffffff" fill-opacity=".7"/>
+      <text x="190" y="164" fill="#ffffff" fill-opacity=".7" font-family="JetBrains Mono, monospace" font-size="8.5">ccw</text>
+    </svg>
+    <figcaption>
+      Three vertices you own, uploaded once. Positions are clip space (&#8722;1..1, +y up);
+      colours are per-vertex and the rasteriser interpolates everything in between for free.
+      Order v0&#8594;v1&#8594;v2 is counter-clockwise, which is what <span style="color:#10161a">FrontFace::Ccw</span> calls front.
+    </figcaption>
+  </figure>
+
+  <div class="hero-txt">
+    <p>wgpu asks you to build the whole graphics state up front and hand it over frozen. That feels like a lot of ceremony for one triangle, but it is the same ceremony for a full renderer — nothing here gets thrown away later.</p>
+    <p>Read it as a chain. Each object can only be made once the one before it exists, and the last two links repeat every frame. The highlighted links are the data path: a Rust struct becomes bytes, bytes become a buffer, and a layout tells the GPU how to read them back.</p>
+    <ul class="chain">
+      <li><i>00</i>event loop</li>
+      <li><i>01</i>Instance</li>
+      <li><i>02</i>Surface</li>
+      <li><i>03</i>Adapter</li>
+      <li><i>04</i>Device + Queue</li>
+      <li><i>05</i>configure</li>
+      <li class="hot"><i>06</i>Vertex + Buffer</li>
+      <li class="hot"><i>07</i>ShaderModule</li>
+      <li><i>08</i>PipelineLayout</li>
+      <li class="hot"><i>09</i>RenderPipeline</li>
+      <li class="hot"><i>10</i>frame</li>
+    </ul>
+  </div>
+</section>
+
+<section class="panel" style="margin-top:36px;border-top:0;padding-top:34px">
+  <h2>Cargo.toml</h2>
+  <p class="dek">seven crates, two of which are less optional than they look</p>
+  <div class="stage-body">
+    <div>
+      <p class="filename">Cargo.toml</p>
+<pre><code>[package]
+name    = "hello-triangle"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+wgpu       = "30.0"
+winit      = "0.30"
+bytemuck   = { version = "1.24", features = ["derive"] }
+pollster   = "0.4"    // block_on() for the async device request
+env_logger = "0.11"   // NOT optional in practice — see gotcha 01
+log        = "0.4"
+anyhow     = "1.0"</code></pre>
+    </div>
+    <aside class="notes">
+      <p>Two source files: <code>src/main.rs</code> and <code>src/shader.wgsl</code>. On macOS wgpu compiles the Metal backend by default — there is no SDK to install, no MoltenVK, nothing to link.</p>
+      <p><code>bytemuck</code> is how a Rust struct becomes <code>&amp;[u8]</code> without <code>unsafe</code> in your own code. The <code>derive</code> feature gives you <code>Pod</code> and <code>Zeroable</code> as derive macros.</p>
+      <p class="warn"><b>drift</b>Minor versions move fast in this ecosystem. If a version fails to resolve, <code>cargo add wgpu winit bytemuck</code> and re-check field names against the release notes.</p>
+    </aside>
+  </div>
+</section>
+
+<div class="stages">
+
+<!-- 00 -->
+<section class="stage">
+  <span class="stage-num">00</span>
+  <h2>The event loop</h2>
+  <p class="dek">winit owns main(); your renderer is a guest</p>
+  <div class="stage-body">
+    <div>
+      <p class="filename">src/main.rs — top</p>
+<pre><code>use std::sync::Arc;
+use wgpu::util::DeviceExt;          // brings create_buffer_init() into scope
+use winit::application::ApplicationHandler;
+use winit::event::{KeyEvent, WindowEvent};
+use winit::event_loop::{ActiveEventLoop, EventLoop};
+use winit::keyboard::{KeyCode, PhysicalKey};
+use winit::window::{Window, WindowId};
+
+fn main() -&gt; anyhow::Result&lt;()&gt; {
+    env_logger::init();
+    let event_loop = EventLoop::new()?;
+    let mut app = App { state: None };
+    event_loop.run_app(&amp;mut app)?;
+    Ok(())
+}
+
+struct App { state: Option&lt;State&gt; }
+
+impl ApplicationHandler for App {
+    // Called once the platform is ready to give you a window.
+    fn resumed(&amp;mut self, event_loop: &amp;ActiveEventLoop) {
+        if self.state.is_some() { return; }
+        let attrs = Window::default_attributes()
+            .with_title("hello triangle");
+        let window = Arc::new(event_loop.create_window(attrs).unwrap());
+        self.state = Some(pollster::block_on(State::new(window)).unwrap());
+    }
+
+    fn window_event(
+        &amp;mut self,
+        event_loop: &amp;ActiveEventLoop,
+        _id: WindowId,
+        event: WindowEvent,
+    ) {
+        let Some(state) = self.state.as_mut() else { return };
+        match event {
+            WindowEvent::CloseRequested =&gt; event_loop.exit(),
+            WindowEvent::Resized(size) =&gt; state.resize(size.width, size.height),
+            WindowEvent::RedrawRequested =&gt; state.render(),
+            WindowEvent::KeyboardInput {
+                event: KeyEvent {
+                    physical_key: PhysicalKey::Code(KeyCode::Escape), ..
+                }, ..
+            } =&gt; event_loop.exit(),
+            _ =&gt; {}
+        }
+    }
+}</code></pre>
+    </div>
+    <aside class="notes">
+      <p>Since winit 0.30 the loop is a trait, not a closure. You implement <code>ApplicationHandler</code> and winit calls you.</p>
+      <p>The window cannot exist before <code>resumed()</code>, so everything downstream of it is <code>Option</code>-shaped until then. That is why <code>State</code> is built inside <code>resumed</code> rather than in <code>main</code>.</p>
+      <p><code>Arc&lt;Window&gt;</code>, not <code>Window</code>: the surface needs to hold a reference for its whole life. Handing wgpu an <code>Arc</code> lets it own one and gives you a <code>Surface&lt;'static&gt;</code>.</p>
+      <p><code>DeviceExt</code> is an extension trait. Without that import, <code>device.create_buffer_init(...)</code> in stage 06 simply will not resolve.</p>
+      <p class="ext"><b>extends</b>Add <code>about_to_wait()</code> for a continuous render loop, <code>device_event()</code> for raw mouse deltas, and <code>EventLoop::with_user_event()</code> when you need to wake the loop from another thread.</p>
+    </aside>
+  </div>
+</section>
+
+<!-- 01 -->
+<section class="stage">
+  <span class="stage-num">01</span>
+  <h2>Instance</h2>
+  <p class="dek">which backends this process is allowed to use</p>
+  <div class="stage-body">
+    <div>
+      <p class="filename">src/main.rs — State::new()</p>
+<pre><code>struct State {
+    window:   Arc&lt;Window&gt;,
+    surface:  wgpu::Surface&lt;'static&gt;,
+    device:   wgpu::Device,
+    queue:    wgpu::Queue,
+    config:   wgpu::SurfaceConfiguration,
+    configured: bool,
+    pipeline: wgpu::RenderPipeline,
+    vertex_buffer: wgpu::Buffer,
+    vertex_count:  u32,
+}
+
+impl State {
+    async fn new(window: Arc&lt;Window&gt;) -&gt; anyhow::Result&lt;Self&gt; {
+        let size = window.inner_size();   // PHYSICAL pixels
+
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+            backends: wgpu::Backends::METAL,
+            ..wgpu::InstanceDescriptor::new_without_display_handle()
+        });</code></pre>
+    </div>
+    <aside class="notes">
+      <p>The instance does nothing but hand out adapters and surfaces. It does not need to be kept alive afterwards.</p>
+      <p><code>Backends::METAL</code> is the honest choice on macOS. <code>Backends::PRIMARY</code> is the portable one — same code, also picks Vulkan and DX12 elsewhere.</p>
+      <p><code>size</code> is in physical pixels already. On a Retina display an 800&#215;600 logical window reports 1600&#215;1200 here, and that is exactly what the surface wants. Do not divide by <code>scale_factor()</code>.</p>
+      <p class="ext"><b>extends</b><code>InstanceFlags::debugging()</code> in the <code>flags</code> field turns on validation and API labels. <code>Backends::from_env()</code> lets <code>WGPU_BACKEND=…</code> override the choice at runtime.</p>
+    </aside>
+  </div>
+</section>
+
+<!-- 02 -->
+<section class="stage">
+  <span class="stage-num">02</span>
+  <h2>Surface</h2>
+  <p class="dek">the piece of the window you are allowed to draw into</p>
+  <div class="stage-body">
+    <div>
+      <p class="filename">src/main.rs — State::new()</p>
+<pre><code>        let surface = instance.create_surface(window.clone())?;</code></pre>
+    </div>
+    <aside class="notes">
+      <p>One line, but it is the bridge between two crates: winit's <code>Window</code> implements <code>raw-window-handle</code>, and that is all wgpu asks for.</p>
+      <p>Cloning the <code>Arc</code> transfers an owner into the surface, so the window outlives every frame that references it.</p>
+      <p class="warn"><b>macOS</b>Metal surface creation panics if it is not on the main thread. Since <code>resumed()</code> runs on the main thread, keeping <code>State::new</code> there is the whole fix.</p>
+    </aside>
+  </div>
+</section>
+
+<!-- 03 -->
+<section class="stage">
+  <span class="stage-num">03</span>
+  <h2>Adapter</h2>
+  <p class="dek">a physical GPU, picked to match the surface</p>
+  <div class="stage-body">
+    <div>
+      <p class="filename">src/main.rs — State::new()</p>
+<pre><code>        let adapter = instance
+            .request_adapter(&amp;wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::default(),
+                compatible_surface: Some(&amp;surface),
+                force_fallback_adapter: false,
+                apply_limit_buckets: false,
+            })
+            .await?;</code></pre>
+    </div>
+    <aside class="notes">
+      <p>Passing <code>compatible_surface</code> is what guarantees the GPU you get can actually present to this window. On an Intel Mac with two GPUs this is the difference between a picture and a validation error.</p>
+      <p><code>power_preference</code> is a hint: <code>LowPower</code> favours the integrated GPU and battery life, <code>HighPerformance</code> the discrete one.</p>
+      <p><code>apply_limit_buckets</code> rounds the reported limits into coarse tiers, which hides the exact hardware from fingerprinting and makes per-tier shader caching possible. Off is fine while you are learning.</p>
+      <p class="ext"><b>extends</b><code>adapter.get_info()</code> for the device name and backend, <code>adapter.features()</code> and <code>adapter.limits()</code> before you ask for anything unusual in stage 04.</p>
+    </aside>
+  </div>
+</section>
+
+<!-- 04 -->
+<section class="stage">
+  <span class="stage-num">04</span>
+  <h2>Device and Queue</h2>
+  <p class="dek">the logical GPU, plus the pipe you push work and data down</p>
+  <div class="stage-body">
+    <div>
+      <p class="filename">src/main.rs — State::new()</p>
+<pre><code>        let (device, queue) = adapter
+            .request_device(&amp;wgpu::DeviceDescriptor {
+                label: Some("device"),
+                required_features: wgpu::Features::empty(),
+                required_limits:   wgpu::Limits::default(),
+                experimental_features: wgpu::ExperimentalFeatures::disabled(),
+                memory_hints: wgpu::MemoryHints::default(),
+                trace: wgpu::Trace::Off,
+            })
+            .await?;</code></pre>
+    </div>
+    <aside class="notes">
+      <p><code>Device</code> creates resources — buffers, textures, pipelines. <code>Queue</code> submits work and writes into buffers after the fact. Both are cheap to clone and are <code>Send + Sync</code>.</p>
+      <p>What you ask for here is what you get — exactly. Request no features and using one later is a validation error, not a silent success. Request <code>Limits::default()</code> and your app stays portable down to WebGPU-class hardware.</p>
+      <p class="ext"><b>extends</b><code>required_features</code> is where <code>POLYGON_MODE_LINE</code>, timestamp queries and native-only extras get switched on, gated by what <code>adapter.features()</code> reported. <code>Trace::Directory(path)</code> records an API trace for bug reports.</p>
+    </aside>
+  </div>
+</section>
+
+<!-- 05 -->
+<section class="stage">
+  <span class="stage-num">05</span>
+  <h2>Configure the surface</h2>
+  <p class="dek">format, size, and how frames reach the display</p>
+  <div class="stage-body">
+    <div>
+      <p class="filename">src/main.rs — State::new()</p>
+<pre><code>        let caps = surface.get_capabilities(&amp;adapter);
+        let format = caps.formats.iter().copied()
+            .find(|f| f.is_srgb())
+            .unwrap_or(caps.formats[0]);
+
+        let config = wgpu::SurfaceConfiguration {
+            usage:  wgpu::TextureUsages::RENDER_ATTACHMENT,
+            format,
+            color_space: wgpu::SurfaceColorSpace::Auto,
+            width:  size.width,
+            height: size.height,
+            present_mode: wgpu::PresentMode::Fifo,   // vsync, always supported
+            desired_maximum_frame_latency: 2,
+            alpha_mode: caps.alpha_modes[0],
+            view_formats: vec![],
+        };
+        // configure() itself happens in resize(), below.</code></pre>
+    </div>
+    <aside class="notes">
+      <p>Preferring an <code>*Srgb</code> format means the hardware does the sRGB encode on write, so your shader — and therefore your vertex colours — work in linear light and still look right.</p>
+      <p><code>Fifo</code> is vsync and is guaranteed on every platform. <code>AutoNoVsync</code> is the "uncapped, fall back gracefully" option.</p>
+      <p><code>desired_maximum_frame_latency</code> trades latency against smoothness: 1 is the most responsive, 2 the default compromise.</p>
+      <p class="ext"><b>extends</b><code>color_space</code> is the door to HDR and wide gamut — read <code>caps.format_capabilities</code>, pick something other than <code>Auto</code>, and take over tone mapping yourself.</p>
+    </aside>
+  </div>
+</section>
+
+<!-- 06 -->
+<section class="stage">
+  <span class="stage-num">06</span>
+  <h2>Your data &#8594; a Buffer</h2>
+  <p class="dek">a Rust struct, some bytes, and a promise about how to read them</p>
+  <div class="stage-body">
+    <div>
+      <p class="filename">src/main.rs — above State</p>
+<pre><code>#[repr(C)]                                    // C field order, no reordering
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct Vertex {
+    position: [f32; 3],    // clip space: x, y in -1..1, +y up
+    color:    [f32; 3],    // LINEAR rgb, not sRGB
+}
+
+impl Vertex {
+    // A const, so the attribute array is not a temporary.
+    const LAYOUT: wgpu::VertexBufferLayout&lt;'static&gt; = wgpu::VertexBufferLayout {
+        array_stride: std::mem::size_of::&lt;Self&gt;() as wgpu::BufferAddress,  // 24
+        step_mode: wgpu::VertexStepMode::Vertex,     // advance once per vertex
+        attributes: &amp;wgpu::vertex_attr_array![
+            0 =&gt; Float32x3,     // byte 0..12  -&gt; @location(0) position
+            1 =&gt; Float32x3,     // byte 12..24 -&gt; @location(1) color
+        ],
+    };
+}
+
+// Counter-clockwise: top, bottom-left, bottom-right.
+const VERTICES: &amp;[Vertex] = &amp;[
+    Vertex { position: [ 0.0,  0.55, 0.0], color: [1.0, 0.0, 0.0] },
+    Vertex { position: [-0.6, -0.45, 0.0], color: [0.0, 1.0, 0.0] },
+    Vertex { position: [ 0.6, -0.45, 0.0], color: [0.0, 0.0, 1.0] },
+];</code></pre>
+
+      <p class="filename gap">src/main.rs — State::new()</p>
+<pre><code>        let vertex_buffer = device.create_buffer_init(
+            &amp;wgpu::util::BufferInitDescriptor {
+                label: Some("vertices"),
+                contents: bytemuck::cast_slice(VERTICES),   // -&gt; &amp;[u8]
+                usage: wgpu::BufferUsages::VERTEX,
+            }
+        );
+        let vertex_count = VERTICES.len() as u32;</code></pre>
+
+      <figure class="bytefig">
+        <svg viewBox="0 0 620 128" role="img" aria-label="Byte layout of one Vertex: 24 bytes total, position occupying bytes 0 to 12 and colour occupying bytes 12 to 24.">
+          <g font-family="JetBrains Mono, monospace" font-size="9" fill="#59635f">
+            <text x="0" y="10">one Vertex &#183; array_stride = 24</text>
+          </g>
+          <g stroke="#9aa5a0" stroke-width="1">
+            <rect x="0"   y="24" width="288" height="34" fill="#f4f6f3"/>
+            <rect x="288" y="24" width="288" height="34" fill="#f4f6f3"/>
+            <rect x="576" y="24" width="44"  height="34" fill="#dde2df" stroke-dasharray="3 3"/>
+          </g>
+          <g stroke="#c2c9c4" stroke-width="1">
+            <line x1="96"  y1="24" x2="96"  y2="58"/>
+            <line x1="192" y1="24" x2="192" y2="58"/>
+            <line x1="384" y1="24" x2="384" y2="58"/>
+            <line x1="480" y1="24" x2="480" y2="58"/>
+          </g>
+          <g font-family="JetBrains Mono, monospace" font-size="10" fill="#10161a" text-anchor="middle">
+            <text x="48"  y="46">x</text><text x="144" y="46">y</text><text x="240" y="46">z</text>
+            <text x="336" y="46">r</text><text x="432" y="46">g</text><text x="528" y="46">b</text>
+          </g>
+          <g font-family="JetBrains Mono, monospace" font-size="8.5" fill="#59635f">
+            <text x="0" y="72">0</text>
+            <text x="288" y="72" text-anchor="middle">12</text>
+            <text x="576" y="72" text-anchor="middle">24</text>
+            <text x="598" y="46" text-anchor="middle" fill="#9aa5a0">v1</text>
+          </g>
+          <g stroke-width="2" fill="none">
+            <line x1="0" y1="88" x2="286" y2="88" stroke="#c4301a"/>
+            <line x1="290" y1="88" x2="574" y2="88" stroke="#2c6b5c"/>
+          </g>
+          <g font-family="JetBrains Mono, monospace" font-size="9">
+            <text x="0" y="106" fill="#c4301a">shader_location 0 &#183; Float32x3 &#183; vec3f position</text>
+            <text x="290" y="106" fill="#2c6b5c">shader_location 1 &#183; Float32x3 &#183; vec3f color</text>
+          </g>
+        </svg>
+        <figcaption>The buffer is untyped bytes. <span style="color:#10161a">array_stride</span> is how far to jump for the next vertex; each attribute's offset and format are what turn a slice of that jump back into a shader value.</figcaption>
+      </figure>
+    </div>
+
+    <aside class="notes">
+      <p><code>#[repr(C)]</code> is not decoration. Without it Rust may reorder fields, and your byte offsets stop matching the layout you just declared.</p>
+      <p><code>Pod</code> ("plain old data") and <code>Zeroable</code> are what let <code>bytemuck::cast_slice</code> reinterpret <code>&amp;[Vertex]</code> as <code>&amp;[u8]</code> safely. Derive them; do not hand-write the <code>unsafe impl</code> unless a field forces you to.</p>
+      <p><code>create_buffer_init</code> allocates and uploads in one call — ideal for data that never changes. It comes from the <code>DeviceExt</code> trait imported in stage 00.</p>
+      <p><code>vertex_attr_array!</code> computes offsets for you from the format list, so adding a field means editing one line rather than three.</p>
+      <p>Colours here are linear. Pure 1.0 and 0.0 come out unchanged, but a midtone will not: <code>0.5</code> reaches the screen as roughly <code>#BC</code>, not <code>#80</code>.</p>
+      <p class="ext"><b>extends</b>Add <code>| BufferUsages::COPY_DST</code> and you can overwrite it later with <code>queue.write_buffer()</code>. Add fields — UVs, normals — by extending the struct and the <code>vertex_attr_array!</code> list together. Add a second buffer with <code>step_mode: Instance</code> for per-instance transforms.</p>
+    </aside>
+  </div>
+</section>
+
+<!-- 07 -->
+<section class="stage">
+  <span class="stage-num">07</span>
+  <h2>Shader module</h2>
+  <p class="dek">WGSL in, Metal shading language out, courtesy of naga</p>
+  <div class="stage-body">
+    <div>
+      <p class="filename">src/shader.wgsl</p>
+<pre><code>// Matches Vertex::LAYOUT. These locations are vertex ATTRIBUTE slots.
+struct VertexIn {
+    @location(0) position: vec3f,
+    @location(1) color:    vec3f,
+}
+
+// These locations are INTERPOLATOR slots between the two stages.
+// The numbering restarts; @location(0) here is unrelated to the one above.
+struct VertexOut {
+    @builtin(position) clip_position: vec4f,
+    @location(0) color: vec3f,
+}
+
+@vertex
+fn vs_main(v: VertexIn) -&gt; VertexOut {
+    var out: VertexOut;
+    out.clip_position = vec4f(v.position, 1.0);
+    out.color = v.color;
+    return out;
+}
+
+@fragment
+fn fs_main(in: VertexOut) -&gt; @location(0) vec4f {
+    // in.color has been interpolated across the triangle for us.
+    return vec4f(in.color, 1.0);
+}</code></pre>
+
+      <p class="filename gap">src/main.rs — State::new()</p>
+<pre><code>        let shader = device.create_shader_module(
+            wgpu::include_wgsl!("shader.wgsl")
+        );</code></pre>
+    </div>
+    <aside class="notes">
+      <p>The vertex shader runs once per vertex, the fragment shader once per pixel covered. Anything you put in <code>VertexOut</code> beyond <code>@builtin(position)</code> gets interpolated between the three corners on the way — that interpolation is the entire reason the triangle is a gradient and not three flat colours.</p>
+      <p><code>@builtin(position)</code> is clip space: x and y run &#8722;1..1 with +y up, and the GPU divides by w afterwards. Passing <code>1.0</code> as w means no perspective divide.</p>
+      <p><code>vec3f</code> and <code>vec4f</code> are the short aliases for <code>vec3&lt;f32&gt;</code> and <code>vec4&lt;f32&gt;</code>.</p>
+      <p><code>include_wgsl!</code> embeds the file at compile time. Swap it for <code>ShaderSource::Wgsl(string.into())</code> to load and recompile shaders at runtime.</p>
+      <p class="ext"><b>extends</b>Add <code>@location(1) uv: vec2f</code> to both structs to carry texture coordinates. Multiply <code>clip_position</code> by a matrix from a uniform to get a camera. The same file can hold a <code>@compute</code> entry point too.</p>
+    </aside>
+  </div>
+</section>
+
+<!-- 08 -->
+<section class="stage">
+  <span class="stage-num">08</span>
+  <h2>Pipeline layout</h2>
+  <p class="dek">the declaration of everything the shader reads that is not a vertex</p>
+  <div class="stage-body">
+    <div>
+      <p class="filename">src/main.rs — State::new()</p>
+<pre><code>        let layout = device.create_pipeline_layout(
+            &amp;wgpu::PipelineLayoutDescriptor {
+                label: Some("layout"),
+                bind_group_layouts: &amp;[],   // no uniforms, textures or samplers
+                immediate_size: 0,          // no small per-draw constants
+            }
+        );</code></pre>
+    </div>
+    <aside class="notes">
+      <p>Vertex buffers do <em>not</em> go here — they are described on the pipeline itself in stage 09. This is for the other channel: uniforms, textures, samplers, storage buffers.</p>
+      <p>Empty is still meaningful. Every uniform buffer and texture you ever add gets declared in this one place first.</p>
+      <p><code>immediate_size</code> is the successor to push constants — a tiny block of bytes set per draw, without a buffer.</p>
+      <p class="ext"><b>extends</b>Create a <code>BindGroupLayout</code>, list it here as <code>&amp;[Some(&amp;bgl)]</code>, then build matching <code>BindGroup</code>s and bind them per draw in stage 10. Slots may be <code>None</code>, so different pipelines can keep the same group indices.</p>
+    </aside>
+  </div>
+</section>
+
+<!-- 09 -->
+<section class="stage">
+  <span class="stage-num">09</span>
+  <h2>Render pipeline</h2>
+  <p class="dek">the whole fixed-function state, compiled once and frozen</p>
+  <div class="stage-body">
+    <div>
+      <p class="filename">src/main.rs — State::new()</p>
+<pre><code>        let pipeline = device.create_render_pipeline(
+            &amp;wgpu::RenderPipelineDescriptor {
+                label: Some("triangle"),
+                layout: Some(&amp;layout),
+
+                vertex: wgpu::VertexState {
+                    module: &amp;shader,
+                    entry_point: Some("vs_main"),
+                    buffers: &amp;[Some(Vertex::LAYOUT)],   // slot 0
+                    compilation_options: Default::default(),
+                },
+
+                fragment: Some(wgpu::FragmentState {
+                    module: &amp;shader,
+                    entry_point: Some("fs_main"),
+                    targets: &amp;[Some(wgpu::ColorTargetState {
+                        format: config.format,   // must match the surface
+                        blend: Some(wgpu::BlendState::REPLACE),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                    compilation_options: Default::default(),
+                }),
+
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleList,
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: Some(wgpu::Face::Back),
+                    ..Default::default()
+                },
+
+                depth_stencil: None,
+                multisample: wgpu::MultisampleState::default(),
+                multiview_mask: None,
+                cache: None,
+            }
+        );
+
+        Ok(Self {
+            window, surface, device, queue, config,
+            configured: false, pipeline, vertex_buffer, vertex_count,
+        })
+    }</code></pre>
+    </div>
+    <aside class="notes">
+      <p><code>buffers</code> is the index of this list mapping to vertex buffer slots. Since wgpu 30 it is <code>&amp;[Option&lt;VertexBufferLayout&gt;]</code>, so you can leave a slot <code>None</code> and keep, say, instance data at slot 2 across pipelines that differ at slot 1.</p>
+      <p>Everything a draw call needs, except the data itself, decided in advance. Changing any of it means building another pipeline — which is why real renderers build a handful up front and switch between them.</p>
+      <p><code>targets[0].format</code> has to equal the surface format from stage 05. Mismatch is the most common validation error at startup.</p>
+      <p>Winding and culling are a matched pair: v0&#8594;v1&#8594;v2 is counter-clockwise, so <code>Ccw</code> + cull <code>Back</code> keeps the triangle. Flip either and it disappears silently.</p>
+      <p class="ext"><b>extends</b><code>blend</code> takes <code>ALPHA_BLENDING</code> for transparency. <code>depth_stencil</code> takes a depth format. <code>multisample.count = 4</code> plus a resolve target gives MSAA. <code>targets</code> can hold several entries for deferred rendering.</p>
+    </aside>
+  </div>
+</section>
+
+<!-- 10 -->
+<section class="stage">
+  <span class="stage-num">10</span>
+  <h2>Resize and frame</h2>
+  <p class="dek">the only two functions that run more than once</p>
+  <div class="stage-body">
+    <div>
+      <p class="filename">src/main.rs — impl State (continued)</p>
+<pre><code>    fn resize(&amp;mut self, width: u32, height: u32) {
+        if width == 0 || height == 0 { return; }   // minimised
+        self.config.width  = width;
+        self.config.height = height;
+        self.surface.configure(&amp;self.device, &amp;self.config);
+        self.configured = true;
+    }
+
+    fn render(&amp;mut self) {
+        self.window.request_redraw();           // ask for the next frame
+        if !self.configured { return; }
+
+        let frame = match self.surface.get_current_texture() {
+            wgpu::CurrentSurfaceTexture::Success(t)
+            | wgpu::CurrentSurfaceTexture::Suboptimal(t) =&gt; t,
+            wgpu::CurrentSurfaceTexture::Outdated =&gt; {
+                self.surface.configure(&amp;self.device, &amp;self.config);
+                return;
+            }
+            _ =&gt; return,   // Timeout | Occluded | Validation | Lost
+        };
+
+        let view = frame.texture.create_view(&amp;Default::default());
+        let mut encoder = self.device
+            .create_command_encoder(&amp;Default::default());
+
+        {
+            let mut pass = encoder.begin_render_pass(
+                &amp;wgpu::RenderPassDescriptor {
+                    label: Some("clear + draw"),
+                    color_attachments: &amp;[Some(wgpu::RenderPassColorAttachment {
+                        view: &amp;view,
+                        resolve_target: None,
+                        depth_slice: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(wgpu::Color {
+                                r: 0.1, g: 0.2, b: 0.3, a: 1.0,
+                            }),
+                            store: wgpu::StoreOp::Store,
+                        },
+                    })],
+                    depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
+                    multiview_mask: None,
+                }
+            );
+
+            pass.set_pipeline(&amp;self.pipeline);
+            pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            pass.draw(0..self.vertex_count, 0..1);   // 3 vertices, 1 instance
+        }                              // pass dropped -&gt; encoder free again
+
+        self.queue.submit([encoder.finish()]);
+        self.queue.present(frame);
+    }
+}</code></pre>
+    </div>
+    <aside class="notes">
+      <p><code>set_vertex_buffer(0, ..)</code> binds to slot 0 — the same slot index as position 0 in the pipeline's <code>buffers</code> list. <code>slice(..)</code> is the whole buffer; a range lets one buffer hold several meshes.</p>
+      <p><code>draw(0..3, 0..1)</code> is a vertex range and an instance range. The vertex range indexes into the bound buffer, so it must not exceed what you uploaded.</p>
+      <p><code>request_redraw()</code> first, unconditionally: winit only draws once unless you keep asking, and putting it at the top means an early return still schedules the next frame.</p>
+      <p>The <code>configured</code> flag exists because the first <code>Resized</code> event arrives after <code>resumed()</code>. Draw before it and you hit a validation error.</p>
+      <p><code>get_current_texture()</code> returns an enum, not a <code>Result</code>. <code>Outdated</code> means the window changed underneath you — reconfigure and skip a frame. Everything else is a skip.</p>
+      <p class="ext"><b>extends</b><code>set_index_buffer()</code> + <code>draw_indexed()</code> to stop repeating shared vertices. <code>set_bind_group()</code> for uniforms. <code>queue.write_buffer()</code> before <code>submit</code> to animate the data. <code>draw(0..3, 0..1000)</code> for instancing.</p>
+    </aside>
+  </div>
+</section>
+
+</div><!-- /stages -->
+
+<!-- ------------ macOS ------------ -->
+<section class="panel">
+  <h2>macOS notes</h2>
+  <p class="dek">what is different when Metal is the backend</p>
+  <div class="cols2">
+    <div class="item">
+      <h3>Nothing to install</h3>
+      <p>The Metal backend is compiled in by default and links against the system framework. No Vulkan SDK, no MoltenVK, no shader toolchain. <code>cargo run</code> is the whole setup.</p>
+    </div>
+    <div class="item">
+      <h3>Main thread only</h3>
+      <p>Both <code>EventLoop::new()</code> and Metal surface creation must happen on the main thread. Build <code>State</code> inside <code>resumed()</code> and this never comes up.</p>
+    </div>
+    <div class="item">
+      <h3>Retina is already handled</h3>
+      <p><code>inner_size()</code> is physical pixels — 2&#215; the logical size on a Retina panel. Feed it straight to the surface config. Dragging between displays fires <code>ScaleFactorChanged</code> then <code>Resized</code>; handling <code>Resized</code> covers both.</p>
+    </div>
+    <div class="item">
+      <h3>Live resize</h3>
+      <p>macOS runs a nested loop while you drag a window edge. You get <code>Resized</code> and <code>RedrawRequested</code> in pairs, and the image can look stretched between them. Reconfiguring in <code>resize()</code> before drawing is what keeps it clean.</p>
+    </div>
+    <div class="item">
+      <h3>Debugging</h3>
+      <p><code>RUST_LOG=wgpu_core=info,wgpu_hal=info cargo run</code> for the real errors. <code>MTL_CAPTURE_ENABLED=1</code> lets Xcode's GPU frame capture attach — which is also how you inspect what is actually in your vertex buffer.</p>
+    </div>
+    <div class="item">
+      <h3>The colour you actually see</h3>
+      <p>Everything you write is linear. <code>LoadOp::Clear(0.1, 0.2, 0.3)</code> reaches the display as roughly <span style="color:#597c95;font-weight:600">#597C95</span>, and a vertex colour of <code>0.5</code> lands near <code>#BC</code> — noticeably lighter than the numbers suggest.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ------------ gotchas ------------ -->
+<section class="panel">
+  <h2>Where it breaks</h2>
+  <p class="dek">roughly in the order people hit them</p>
+
+  <div class="gotcha"><span class="n">01</span><div>
+    <h3>No env_logger::init()</h3>
+    <p>wgpu panics with a generic message and logs the real error through the <code>log</code> crate. Without a logger installed, that error goes nowhere and you are debugging blind.</p>
+  </div></div>
+
+  <div class="gotcha"><span class="n">02</span><div>
+    <h3>Drawing before the surface is configured</h3>
+    <p><code>configure()</code> happens on the first <code>Resized</code>, which arrives after <code>resumed()</code>. Guard <code>render()</code> with a flag, or call <code>resize()</code> once at the end of <code>State::new</code>.</p>
+  </div></div>
+
+  <div class="gotcha"><span class="n">03</span><div>
+    <h3>Configuring a zero-sized surface</h3>
+    <p>Minimising sends <code>Resized(0, 0)</code>. Configuring with a zero dimension is a validation error and can take the process down. Return early.</p>
+  </div></div>
+
+  <div class="gotcha"><span class="n">04</span><div>
+    <h3>Letting the window drop</h3>
+    <p>A <code>Surface&lt;'a&gt;</code> borrows its window. Pass an <code>Arc&lt;Window&gt;</code> into <code>create_surface</code> so wgpu takes an owner and you get <code>Surface&lt;'static&gt;</code>; storing a bare <code>Window</code> next to the surface fights the borrow checker forever.</p>
+  </div></div>
+
+  <div class="gotcha"><span class="n">05</span><div>
+    <h3>Vertex struct without #[repr(C)]</h3>
+    <p>Rust's default layout is unspecified and the compiler may reorder or pad your fields. The offsets in <code>vertex_attr_array!</code> assume C layout, so without <code>#[repr(C)]</code> you get scrambled geometry or a <code>bytemuck</code> compile error about padding.</p>
+  </div></div>
+
+  <div class="gotcha"><span class="n">06</span><div>
+    <h3>Missing DeviceExt import</h3>
+    <p><code>create_buffer_init</code> lives on an extension trait. Without <code>use wgpu::util::DeviceExt;</code> the method does not exist, and the error message points at <code>Device</code> rather than the missing import.</p>
+  </div></div>
+
+  <div class="gotcha"><span class="n">07</span><div>
+    <h3>Locations that do not line up</h3>
+    <p><code>shader_location</code> in the layout must match <code>@location(n)</code> in <code>VertexIn</code>, and the <code>VertexFormat</code> must match the WGSL type — <code>Float32x3</code> for <code>vec3f</code>. Get either wrong and pipeline creation fails with a shader-interface error.</p>
+  </div></div>
+
+  <div class="gotcha"><span class="n">08</span><div>
+    <h3>Confusing the two kinds of @location</h3>
+    <p>Locations on <code>VertexIn</code> name vertex attribute slots. Locations on <code>VertexOut</code> name interpolators between the vertex and fragment stages. They are separate numbering spaces that both start at 0.</p>
+  </div></div>
+
+  <div class="gotcha"><span class="n">09</span><div>
+    <h3>Forgetting set_vertex_buffer</h3>
+    <p>The pipeline declares slot 0, so the pass must fill slot 0 before the draw. Skipping it is a validation error, not an empty triangle.</p>
+  </div></div>
+
+  <div class="gotcha"><span class="n">10</span><div>
+    <h3>Wrong buffer usage flags</h3>
+    <p><code>BufferUsages::VERTEX</code> is required to bind it as vertex data. Add <code>COPY_DST</code> only if you intend to <code>write_buffer</code> into it later — asking for usages you do not need costs you nothing but hides real mistakes.</p>
+  </div></div>
+
+  <div class="gotcha"><span class="n">11</span><div>
+    <h3>Identical entry point names</h3>
+    <p>The WGSL spec requires the vertex and fragment entry points to have different names. <code>vs_main</code> / <code>fs_main</code> is the convention; <code>main</code> / <code>main</code> fails to compile.</p>
+  </div></div>
+
+  <div class="gotcha"><span class="n">12</span><div>
+    <h3>Winding fighting the cull mode</h3>
+    <p>The triangle is counter-clockwise. With <code>FrontFace::Ccw</code> and <code>cull_mode: Some(Face::Back)</code> it survives. Reorder the vertices, or switch to <code>Cw</code>, and it is culled — no error, no triangle. Set <code>cull_mode: None</code> to rule this out while debugging.</p>
+  </div></div>
+
+  <div class="gotcha"><span class="n">13</span><div>
+    <h3>Pipeline format vs surface format</h3>
+    <p><code>ColorTargetState::format</code> must equal <code>SurfaceConfiguration::format</code>. Hard-coding <code>Bgra8UnormSrgb</code> works until it does not; read it from the config.</p>
+  </div></div>
+
+  <div class="gotcha"><span class="n">14</span><div>
+    <h3>Reconfiguring while a frame is alive</h3>
+    <p><code>Surface::configure()</code> panics if a <code>SurfaceTexture</code> from that surface has not been dropped or presented yet. Finish the frame first, then reconfigure.</p>
+  </div></div>
+
+  <div class="gotcha"><span class="n">15</span><div>
+    <h3>Forgetting to drop the render pass</h3>
+    <p><code>begin_render_pass</code> borrows the encoder mutably, so <code>encoder.finish()</code> will not compile until the pass is gone. Wrap it in a block or call <code>drop(pass)</code>.</p>
+  </div></div>
+
+  <div class="gotcha"><span class="n">16</span><div>
+    <h3>Presenting the old way</h3>
+    <p><code>SurfaceTexture::present()</code> was removed in wgpu 30. It is <code>queue.present(frame)</code> now, after <code>queue.submit</code>. Most tutorials older than mid-2026 still show the old call.</p>
+  </div></div>
+</section>
+
+<!-- ------------ extension map ------------ -->
+<section class="panel">
+  <h2>Where it grows</h2>
+  <p class="dek">the same skeleton, one field at a time</p>
+  <table class="map">
+    <thead><tr><th>You want</th><th>Change this</th><th>Stage</th></tr></thead>
+    <tbody>
+      <tr><td>More per-vertex data (UVs, normals)</td><td>Add fields to <code>Vertex</code>, one more line in <code>vertex_attr_array!</code>, one more <code>@location</code> in <code>VertexIn</code></td><td>06 / 07</td></tr>
+      <tr><td>Geometry that changes each frame</td><td><code>BufferUsages::VERTEX | COPY_DST</code>, then <code>queue.write_buffer()</code> before <code>submit</code></td><td>06 / 10</td></tr>
+      <tr><td>Indexed meshes</td><td>A second buffer with <code>BufferUsages::INDEX</code>, then <code>set_index_buffer()</code> + <code>draw_indexed()</code></td><td>06 / 10</td></tr>
+      <tr><td>Loading a model file</td><td>Build the <code>Vec&lt;Vertex&gt;</code> at runtime and pass <code>bytemuck::cast_slice(&amp;verts)</code></td><td>06</td></tr>
+      <tr><td>A camera, or any uniform</td><td><code>BindGroupLayout</code> &#8594; <code>bind_group_layouts</code> &#8594; <code>set_bind_group()</code></td><td>08 / 10</td></tr>
+      <tr><td>Textures and samplers</td><td>Same bind-group path, with texture and sampler binding types</td><td>08 / 10</td></tr>
+      <tr><td>A few bytes per draw</td><td><code>immediate_size</code> (what used to be push constants)</td><td>08</td></tr>
+      <tr><td>Thousands of copies</td><td>A second vertex buffer with <code>step_mode: Instance</code>, then <code>draw(0..3, 0..N)</code></td><td>06 / 09 / 10</td></tr>
+      <tr><td>3D that occludes correctly</td><td><code>depth_stencil</code> in the pipeline + <code>depth_stencil_attachment</code> in the pass</td><td>09 / 10</td></tr>
+      <tr><td>Smooth edges</td><td><code>multisample.count = 4</code> + a <code>resolve_target</code></td><td>09 / 10</td></tr>
+      <tr><td>Transparency</td><td><code>blend: Some(BlendState::ALPHA_BLENDING)</code></td><td>09</td></tr>
+      <tr><td>Wireframe</td><td><code>polygon_mode: Line</code> + <code>Features::POLYGON_MODE_LINE</code></td><td>04 / 09</td></tr>
+      <tr><td>G-buffers, deferred shading</td><td>More entries in <code>targets</code> and <code>color_attachments</code></td><td>09 / 10</td></tr>
+      <tr><td>Uncapped frame rate</td><td><code>present_mode: AutoNoVsync</code></td><td>05</td></tr>
+      <tr><td>HDR or wide gamut output</td><td><code>SurfaceConfiguration::color_space</code>, guided by <code>caps.format_capabilities</code></td><td>05</td></tr>
+      <tr><td>GPU compute over the same data</td><td><code>BufferUsages::STORAGE</code>, <code>create_compute_pipeline()</code>, <code>begin_compute_pass()</code></td><td>06 / &#8212;</td></tr>
+      <tr><td>The same app on the web</td><td>wgpu's <code>webgl</code> feature, <code>wasm-bindgen</code>, and spawn the future instead of <code>block_on</code></td><td>00</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ------------ run ------------ -->
+<section class="panel">
+  <h2>Running it</h2>
+  <p class="dek">and prising it open when it misbehaves</p>
+  <div class="stage-body">
+    <div>
+<pre><code># the happy path
+cargo run
+
+# see what wgpu is actually complaining about
+RUST_LOG=wgpu_core=info,wgpu_hal=info cargo run
+
+# pin the backend / inspect adapter selection
+WGPU_BACKEND=metal cargo run
+
+# let Xcode's GPU frame capture attach and inspect buffer contents
+MTL_CAPTURE_ENABLED=1 cargo run</code></pre>
+    </div>
+    <aside class="notes">
+      <p>A first run takes a while — wgpu compiles WGSL to Metal shading language through naga at pipeline creation, and Cargo is building a large dependency tree.</p>
+      <p>Steel-blue background but no triangle: the clear worked and the draw did not. Start at gotcha 12.</p>
+      <p>Triangle in the wrong place or the wrong shape: the bytes and the layout disagree. Start at gotcha 05.</p>
+    </aside>
+  </div>
+</section>
+
+<footer>
+  <p>Verified against wgpu 30.0.0 (released 1 July 2026) and winit 0.30.13 &nbsp;·&nbsp; compiled July 2026<br>
+  wgpu ships a breaking release roughly every three months, so check the release notes before trusting any field name here.<br>
+  Primary references: <a href="https://docs.rs/wgpu/latest/wgpu/">docs.rs/wgpu</a> &nbsp;·&nbsp; <a href="https://sotrh.github.io/learn-wgpu/">Learn Wgpu</a> &nbsp;·&nbsp; <a href="https://github.com/gfx-rs/wgpu/releases">wgpu release notes</a></p>
+</footer>
+
+</div>
+
+<script>
+(function () {
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  var re = /(\/\/[^\n]*|#\s[^\n]*)|("(?:[^"\\\n]|\\.)*")|(@[a-zA-Z_][a-zA-Z0-9_]*)|\b(fn|let|mut|struct|impl|match|return|if|else|use|pub|async|await|const|for|in|true|false|as|self|Self|var)\b|\b([A-Z][A-Za-z0-9_]*)\b/g;
+
+  document.querySelectorAll('pre > code').forEach(function (el) {
+    var src = el.textContent;
+    var out = '', last = 0, m;
+    re.lastIndex = 0;
+    while ((m = re.exec(src)) !== null) {
+      out += esc(src.slice(last, m.index));
+      var cls = m[1] ? 'c' : m[2] ? 's' : m[3] ? 'a' : m[4] ? 'k' : 't';
+      out += '<span class="' + cls + '">' + esc(m[0]) + '</span>';
+      last = m.index + m[0].length;
+    }
+    out += esc(src.slice(last));
+    el.innerHTML = out;
+    el.parentNode.setAttribute('tabindex', '0');
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Box Runner — a first Bevy 0.19 project</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0f1116;
+  --panel:#171a22;
+  --panel-2:#1d212b;
+  --rule:#2a2f3b;
+  --rule-soft:#20242e;
+  --ink:#dbdfe9;
+  --ink-strong:#f2f4f9;
+  --dim:#868da0;
+  --dimmer:#5f6577;
+  --gold:#f2c05c;
+  --gold-deep:#a8823a;
+  --violet:#b09cff;
+  --mint:#6ed7ab;
+  --rose:#ff93a6;
+  --sky:#7cc4f5;
+  --maxw:1360px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:92px}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-size:15px;line-height:1.62;-webkit-font-smoothing:antialiased;
+}
+code,pre,.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+a{color:var(--gold);text-decoration:none;border-bottom:1px solid rgba(242,192,92,.3)}
+a:hover{border-bottom-color:var(--gold)}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:2px}
+
+.top{position:sticky;top:0;z-index:40;background:rgba(15,17,22,.94);backdrop-filter:blur(10px);border-bottom:1px solid var(--rule)}
+.top-in{max-width:var(--maxw);margin:0 auto;padding:13px 28px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:11px;margin-right:auto}
+.brand-mark{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:16.5px;letter-spacing:-.02em;color:var(--ink-strong)}
+.brand-mark em{color:var(--gold);font-style:normal}
+.pill{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--gold);border:1px solid rgba(242,192,92,.35);border-radius:2px;padding:3px 8px}
+.pill--muted{color:var(--dim);border-color:var(--rule)}
+.top-link{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--dim);border:none}
+.top-link:hover{color:var(--gold)}
+
+.hero{max-width:var(--maxw);margin:0 auto;padding:60px 28px 38px;border-bottom:1px solid var(--rule)}
+.hero-eyebrow{font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--dimmer);margin:0 0 20px}
+.hero h1{margin:0;font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:clamp(28px,4.6vw,48px);line-height:1.08;letter-spacing:-.035em;color:var(--ink-strong)}
+.hero h1 span{color:var(--gold)}
+.hero-lede{max-width:64ch;margin:22px 0 0;color:var(--dim);font-size:16px}
+.hero-meta{display:flex;flex-wrap:wrap;gap:10px 26px;margin-top:26px;font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--dimmer)}
+.hero-meta b{color:var(--dim);font-weight:400}
+
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 28px 110px;display:grid;grid-template-columns:230px 1fr;gap:54px}
+.rail{position:sticky;top:92px;align-self:start;max-height:calc(100vh - 124px);overflow-y:auto;padding:34px 0 20px}
+.rail-title{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--dimmer);margin:0 0 14px;padding-left:14px}
+.rail ol{list-style:none;margin:0;padding:0;border-left:1px solid var(--rule-soft)}
+.nav-link{display:flex;gap:10px;align-items:baseline;padding:5px 0 5px 13px;border-bottom:none;color:var(--dim);font-size:13.5px;line-height:1.35;border-left:2px solid transparent;margin-left:-1px}
+.nav-link:hover{color:var(--ink)}
+.nav-num{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--dimmer);flex:none}
+.nav-link.on{color:var(--gold);border-left-color:var(--gold)}
+.nav-link.on .nav-num{color:var(--gold-deep)}
+
+.step{padding:50px 0;border-bottom:1px solid var(--rule-soft)}
+.step:first-child{padding-top:38px}
+.step-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.step-num{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--gold-deep);letter-spacing:.05em}
+.step-title{margin:0;font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:23px;letter-spacing:-.02em;color:var(--ink-strong)}
+.step-tag{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--dimmer);border:1px solid var(--rule);border-radius:2px;padding:2px 7px}
+.step-blurb{margin:14px 0 0;max-width:74ch;color:var(--dim)}
+.step-body{margin-top:24px;display:flex;flex-direction:column;gap:18px}
+.prose{margin:8px 0 0;max-width:74ch}
+.prose code,.note code,.tbl code,.step-blurb code,.check-text code{background:var(--panel-2);border:1px solid var(--rule-soft);border-radius:2px;padding:1px 5px;font-size:12.5px;color:var(--sky)}
+
+.snip{margin:0;border:1px solid var(--rule);border-radius:4px;background:var(--panel);overflow:hidden}
+.snip-bar{display:flex;align-items:center;gap:12px;padding:7px 12px;background:var(--panel-2);border-bottom:1px solid var(--rule);font-family:"IBM Plex Mono",monospace;font-size:11.5px}
+.snip-file{color:var(--dim)}
+.snip-lang{color:var(--dimmer);margin-left:auto;letter-spacing:.08em;text-transform:uppercase;font-size:10px}
+.snip-copy{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;background:transparent;border:1px solid var(--rule);color:var(--dimmer);border-radius:2px;padding:2px 8px;cursor:pointer}
+.snip-copy:hover{color:var(--gold);border-color:var(--gold-deep)}
+.snip-copy.done{color:var(--mint);border-color:var(--mint)}
+.snip-body{margin:0;padding:16px 18px;overflow-x:auto;font-size:12.8px;line-height:1.66}
+.snip-body code{color:var(--ink)}
+
+.tok-comment{color:var(--dimmer);font-style:italic}
+.tok-string{color:var(--mint)}
+.tok-kw{color:var(--violet)}
+.tok-type{color:var(--gold)}
+.tok-macro{color:var(--rose)}
+.tok-attr{color:var(--dimmer)}
+.tok-num{color:var(--sky)}
+
+.check{border:1px solid var(--rule);border-left:2px solid var(--mint);border-radius:3px;background:var(--panel);overflow:hidden;max-width:82ch}
+.check-cmd{display:flex;align-items:center;gap:9px;padding:9px 15px;background:var(--panel-2);border-bottom:1px solid var(--rule);font-family:"IBM Plex Mono",monospace;font-size:12.2px;color:var(--ink)}
+.check-dot{width:7px;height:7px;border-radius:50%;background:var(--mint);flex:none}
+.check-text{margin:0;padding:12px 15px;font-size:13.6px;color:var(--dim)}
+
+.note{margin:0;padding:12px 16px;border-radius:3px;font-size:13.5px;background:var(--panel);border:1px solid var(--rule);border-left:2px solid var(--gold-deep);color:var(--dim);max-width:82ch}
+.note strong{color:var(--ink);font-weight:600}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--rule);border-radius:4px}
+.tbl{border-collapse:collapse;width:100%;font-size:13.2px}
+.tbl th{text-align:left;padding:9px 14px;background:var(--panel-2);color:var(--dim);font-family:"IBM Plex Mono",monospace;font-weight:500;font-size:11px;letter-spacing:.1em;text-transform:uppercase;border-bottom:1px solid var(--rule)}
+.tbl td{padding:9px 14px;border-bottom:1px solid var(--rule-soft);vertical-align:top;color:var(--dim)}
+.tbl tr:last-child td{border-bottom:none}
+.tbl td:first-child{font-family:"IBM Plex Mono",monospace;font-size:12.4px;color:var(--ink)}
+
+footer{max-width:var(--maxw);margin:0 auto;padding:32px 28px 56px;border-top:1px solid var(--rule);color:var(--dimmer);font-size:12.5px;font-family:"IBM Plex Mono",monospace}
+
+@media (max-width:1000px){
+  .wrap{grid-template-columns:1fr;gap:0;padding:0 20px 76px}
+  .rail{position:static;max-height:none;padding:26px 0 0;overflow:visible}
+  .rail ol{display:flex;flex-wrap:wrap;gap:4px 6px;border-left:none}
+  .nav-link{border:1px solid var(--rule);border-radius:2px;padding:4px 9px}
+  .nav-link.on{border-color:var(--gold)}
+  .hero{padding:42px 20px 30px}
+  .top-in{padding:12px 20px}
+  footer{padding:26px 20px 48px}
+}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="top-in">
+    <div class="brand">
+      <span class="brand-mark">box<em>_</em>runner</span>
+      <span class="pill">bevy 0.19</span>
+      <span class="pill pill--muted">13 steps</span>
+    </div>
+    <a class="top-link" href="#full">jump to the finished file →</a>
+  </div>
+</div>
+
+<header class="hero">
+  <p class="hero-eyebrow">Build-along · one file, no dependencies but Bevy</p>
+  <h1>A yellow box<br>that <span>jumps</span>.</h1>
+  <p class="hero-lede">A menu with a working Play button, a controllable player, gravity, jumping, and platforms you can land on. Every step ends with something you can run and see. By the end you'll have the shape that most small Bevy projects start from — states, input, a fixed-timestep loop, and UI — in about 240 lines.</p>
+  <div class="hero-meta">
+    <span><b>build</b> in order, run at every checkpoint</span>
+    <span><b>step 11</b> is the complete file</span>
+    <span><b>step 12</b> is what to do when it breaks</span>
+  </div>
+</header>
+
+<div class="wrap">
+  <nav class="rail" aria-label="Steps">
+    <p class="rail-title">Steps</p>
+    <ol><li><a class="nav-link" href="#project"><span class="nav-num">01</span><span class="nav-label">Make the project</span></a></li><li><a class="nav-link" href="#window"><span class="nav-num">02</span><span class="nav-label">Open a window</span></a></li><li><a class="nav-link" href="#sprite"><span class="nav-num">03</span><span class="nav-label">Draw the player</span></a></li><li><a class="nav-link" href="#input"><span class="nav-num">04</span><span class="nav-label">Move left and right</span></a></li><li><a class="nav-link" href="#gravity"><span class="nav-num">05</span><span class="nav-label">Gravity and a floor</span></a></li><li><a class="nav-link" href="#jump"><span class="nav-num">06</span><span class="nav-label">Jumping</span></a></li><li><a class="nav-link" href="#level"><span class="nav-num">07</span><span class="nav-label">Build a level</span></a></li><li><a class="nav-link" href="#states"><span class="nav-num">08</span><span class="nav-label">Add app states</span></a></li><li><a class="nav-link" href="#menu"><span class="nav-num">09</span><span class="nav-label">The menu</span></a></li><li><a class="nav-link" href="#polish"><span class="nav-num">10</span><span class="nav-label">Close the loop</span></a></li><li><a class="nav-link" href="#full"><span class="nav-num">11</span><span class="nav-label">The whole file</span></a></li><li><a class="nav-link" href="#errors"><span class="nav-num">12</span><span class="nav-label">When it won't compile</span></a></li><li><a class="nav-link" href="#next"><span class="nav-num">13</span><span class="nav-label">Where to take it</span></a></li></ol>
+  </nav>
+  <main>
+    
+<section class="step" id="project">
+  <header class="step-head">
+    <span class="step-num">01</span>
+    <h2 class="step-title">Make the project</h2>
+    <span class="step-tag">cargo</span>
+  </header>
+  <p class="step-blurb">Nothing Bevy-specific yet — a normal Rust binary crate with one dependency.</p>
+  <div class="step-body"><figure class="snip"><figcaption class="snip-bar"><span class="snip-file">terminal</span><span class="snip-lang">sh</span><button class="snip-copy" type="button">copy</button></figcaption><pre class="snip-body"><code data-lang="sh">cargo new box-runner
+cd box-runner
+cargo add bevy@0.19</code></pre></figure><p class="prose">Then add the profile block. Without it, debug builds run at a few frames per second and you will think you broke something.</p><figure class="snip"><figcaption class="snip-bar"><span class="snip-file">Cargo.toml</span><span class="snip-lang">toml</span><button class="snip-copy" type="button">copy</button></figcaption><pre class="snip-body"><code data-lang="toml">[package]
+name = &quot;box-runner&quot;
+version = &quot;0.1.0&quot;
+edition = &quot;2024&quot;
+
+[dependencies]
+bevy = &quot;0.19&quot;
+
+# Your code stays fast to recompile; dependencies get optimised properly.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package.&quot;*&quot;]
+opt-level = 3</code></pre></figure><p class="note note--info">The first <code>cargo build</code> compiles the whole engine and takes several minutes. Every build after that is fast. Go make tea.</p></div>
+</section>
+<section class="step" id="window">
+  <header class="step-head">
+    <span class="step-num">02</span>
+    <h2 class="step-title">Open a window</h2>
+    <span class="step-tag">App</span>
+  </header>
+  <p class="step-blurb">An <code>App</code> is a list of plugins and a list of systems. <code>DefaultPlugins</code> brings the window, renderer, input and asset server.</p>
+  <div class="step-body"><figure class="snip"><figcaption class="snip-bar"><span class="snip-file">src/main.rs</span><span class="snip-lang">rust</span><button class="snip-copy" type="button">copy</button></figcaption><pre class="snip-body"><code data-lang="rust">use bevy::prelude::*;
+
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: &quot;Box Runner&quot;.into(),
+                resolution: (960., 640.).into(),
+                ..default()
+            }),
+            ..default()
+        }))
+        .insert_resource(ClearColor(Color::srgb(0.09, 0.10, 0.13)))
+        .run();
+}</code></pre></figure><div class="check"><div class="check-cmd"><span class="check-dot"></span>cargo run</div><p class="check-text">A 960×640 window titled “Box Runner”, filled with dark blue-grey. Close it with the window button.</p></div><p class="note note--info"><code>..default()</code> is <code>..Default::default()</code>, re-exported by the prelude. You will type it constantly — Bevy structs are wide and you usually only care about two fields.</p></div>
+</section>
+<section class="step" id="sprite">
+  <header class="step-head">
+    <span class="step-num">03</span>
+    <h2 class="step-title">Draw the player</h2>
+    <span class="step-tag">Camera2d · Sprite</span>
+  </header>
+  <p class="step-blurb">Two things are needed to see anything in 2D: a camera, and an entity with a <code>Sprite</code>. Without a camera you get a blank window and no error.</p>
+  <div class="step-body"><p class="prose">Add the constants at the top of the file, under the <code>use</code> line.</p><figure class="snip"><figcaption class="snip-bar"><span class="snip-file">src/main.rs</span><span class="snip-lang">rust</span><button class="snip-copy" type="button">copy</button></figcaption><pre class="snip-body"><code data-lang="rust">const PLAYER_SIZE: Vec2 = Vec2::new(40., 56.);
+const SPAWN_POINT: Vec3 = Vec3::new(0., 200., 0.);</code></pre></figure><p class="prose">Add a marker component and two startup systems.</p><figure class="snip"><figcaption class="snip-bar"><span class="snip-file">src/main.rs</span><span class="snip-lang">rust</span><button class="snip-copy" type="button">copy</button></figcaption><pre class="snip-body"><code data-lang="rust">#[derive(Component)]
+struct Player;
+
+fn spawn_camera(mut commands: Commands) {
+    commands.spawn(Camera2d);
+}
+
+fn spawn_player(mut commands: Commands) {
+    commands.spawn((
+        Player,
+        Sprite::from_color(Color::srgb(0.95, 0.75, 0.3), PLAYER_SIZE),
+        Transform::from_translation(SPAWN_POINT),
+    ));
+}</code></pre></figure><p class="prose">And register them in <code>main</code>, just before <code>.run()</code>.</p><figure class="snip"><figcaption class="snip-bar"><span class="snip-file">src/main.rs</span><span class="snip-lang">rust</span><button class="snip-copy" type="button">copy</button></figcaption><pre class="snip-body"><code data-lang="rust">.add_systems(Startup, (spawn_camera, spawn_player))</code></pre></figure><div class="check"><div class="check-cmd"><span class="check-dot"></span>cargo run</div><p class="check-text">A yellow rectangle sitting above the centre of the window. The world origin (0, 0) is the middle of the screen, and +Y is up.</p></div><p class="note note--info"><code>Sprite::from_color</code> needs no image file, which is why this guide uses a box instead of artwork. Swap in <code>Sprite::from_image(asset_server.load("sprites/hero.png"))</code> whenever you have a PNG in <code>assets/</code>.</p></div>
+</section>
+<section class="step" id="input">
+  <header class="step-head">
+    <span class="step-num">04</span>
+    <h2 class="step-title">Move left and right</h2>
+    <span class="step-tag">ButtonInput</span>
+  </header>
+  <p class="step-blurb">Keyboard state lives in a resource. You poll it; there is no callback.</p>
+  <div class="step-body"><p class="prose">Two new pieces of data: how fast the player is going, and what the keyboard is asking for.</p><figure class="snip"><figcaption class="snip-bar"><span class="snip-file">src/main.rs</span><span class="snip-lang">rust</span><button class="snip-copy" type="button">copy</button></figcaption><pre class="snip-body"><code data-lang="rust">const MOVE_SPEED: f32 = 320.;
+
+#[derive(Component, Default)]
+struct Velocity(Vec2);
+
+#[derive(Resource, Default)]
+struct PlayerInput {
+    direction: f32,
+    jump_queued: bool,
+}</code></pre></figure><p class="prose">Give the player a <code>Velocity</code> when it spawns.</p><figure class="snip"><figcaption class="snip-bar"><span class="snip-file">src/main.rs</span><span class="snip-lang">rust</span><button class="snip-copy" type="button">copy</button></figcaption><pre class="snip-body"><code data-lang="rust">fn spawn_player(mut commands: Commands) {
+    commands.spawn((
+        Player,
+        Velocity::default(),
+        Sprite::from_color(Color::srgb(0.95, 0.75, 0.3), PLAYER_SIZE),
+        Transform::from_translation(SPAWN_POINT),
+    ));
+}</code></pre></figure><p class="prose">Read the keyboard into the resource, then use it to drive the transform.</p><figure class="snip"><figcaption class="snip-bar"><span class="snip-file">src/main.rs</span><span class="snip-lang">rust</span><button class="snip-copy" type="button">copy</button></figcaption><pre class="snip-body"><code data-lang="rust">fn read_input(keys: Res&lt;ButtonInput&lt;KeyCode&gt;&gt;, mut input: ResMut&lt;PlayerInput&gt;) {
+    let mut direction = 0.;
+    if keys.pressed(KeyCode::KeyA) || keys.pressed(KeyCode::ArrowLeft) {
+        direction -= 1.;
+    }
+    if keys.pressed(KeyCode::KeyD) || keys.pressed(KeyCode::ArrowRight) {
+        direction += 1.;
+    }
+    input.direction = direction;
+
+    // just_pressed is true for exactly one frame
+    if keys.just_pressed(KeyCode::Space) || keys.just_pressed(KeyCode::KeyW) {
+        input.jump_queued = true;
+    }
+}
+
+fn move_player(
+    time: Res&lt;Time&gt;,
+    input: Res&lt;PlayerInput&gt;,
+    player: Single&lt;(&amp;mut Transform, &amp;mut Velocity), With&lt;Player&gt;&gt;,
+) {
+    let (mut transform, mut velocity) = player.into_inner();
+    velocity.0.x = input.direction * MOVE_SPEED;
+    transform.translation.x += velocity.0.x * time.delta_secs();
+}</code></pre></figure><figure class="snip"><figcaption class="snip-bar"><span class="snip-file">src/main.rs</span><span class="snip-lang">rust</span><button class="snip-copy" type="button">copy</button></figcaption><pre class="snip-body"><code data-lang="rust">.init_resource::&lt;PlayerInput&gt;()
+.add_systems(Startup, (spawn_camera, spawn_player))
+.add_systems(Update, (read_input, move_player).chain())</code></pre></figure><div class="check"><div class="check-cmd"><span class="check-dot"></span>cargo run</div><p class="check-text">A / D or the arrow keys slide the box left and right. It drifts off-screen forever — gravity and walls come next.</p></div><p class="note note--info">Always multiply movement by <code>time.delta_secs()</code>. Without it your player moves faster on a 144 Hz monitor than a 60 Hz one.<br><br><code>Single&lt;..&gt;</code> means “exactly one entity matches”. If none match — or two do — the system is skipped instead of panicking, which is exactly what we want once the player only exists during gameplay.</p></div>
+</section>
+<section class="step" id="gravity">
+  <header class="step-head">
+    <span class="step-num">05</span>
+    <h2 class="step-title">Gravity and a floor</h2>
+    <span class="step-tag">FixedUpdate</span>
+  </header>
+  <p class="step-blurb">Physics moves to <code>FixedUpdate</code>, which runs at a constant rate regardless of frame rate. Jump height stays the same on every machine.</p>
+  <div class="step-body"><p class="prose">A collider is just a size. Everything solid gets one, including the player.</p><figure class="snip"><figcaption class="snip-bar"><span class="snip-file">src/main.rs</span><span class="snip-lang">rust</span><button class="snip-copy" type="button">copy</button></figcaption><pre class="snip-body"><code data-lang="rust">const GRAVITY: f32 = 1800.;
+
+#[derive(Component, Default)]
+struct Grounded(bool);
+
+#[derive(Component)]
+struct Collider(Vec2);</code></pre></figure><p class="prose">The whole collision system, in one function. Move on one axis, push out of anything you hit, then repeat for the other axis. Doing the axes separately is what stops you snagging on corners.</p><figure class="snip"><figcaption class="snip-bar"><span class="snip-file">src/main.rs</span><span class="snip-lang">rust</span><button class="snip-copy" type="button">copy</button></figcaption><pre class="snip-body"><code data-lang="rust">/// If the two boxes overlap, returns how deeply, on each axis.
+fn box_overlap(a_pos: Vec2, a_size: Vec2, b_pos: Vec2, b_size: Vec2) -&gt; Option&lt;Vec2&gt; {
+    let distance = (a_pos - b_pos).abs();
+    let touching = (a_size + b_size) * 0.5;
+
+    if distance.x &lt; touching.x &amp;&amp; distance.y &lt; touching.y {
+        Some(touching - distance)
+    } else {
+        None
+    }
+}
+
+fn move_and_collide(
+    time: Res&lt;Time&gt;,
+    player: Single&lt;(&amp;mut Transform, &amp;mut Velocity, &amp;mut Grounded, &amp;Collider), With&lt;Player&gt;&gt;,
+    solids: Query&lt;(&amp;Transform, &amp;Collider), Without&lt;Player&gt;&gt;,
+) {
+    let dt = time.delta_secs();
+    let (mut transform, mut velocity, mut grounded, collider) = player.into_inner();
+
+    // ---- horizontal
+    transform.translation.x += velocity.0.x * dt;
+
+    for (solid, solid_collider) in &amp;solids {
+        let Some(overlap) = box_overlap(
+            transform.translation.truncate(),
+            collider.0,
+            solid.translation.truncate(),
+            solid_collider.0,
+        ) else {
+            continue;
+        };
+
+        if velocity.0.x &gt; 0. {
+            transform.translation.x -= overlap.x;
+        } else if velocity.0.x &lt; 0. {
+            transform.translation.x += overlap.x;
+        }
+        velocity.0.x = 0.;
+    }
+
+    // ---- vertical
+    velocity.0.y -= GRAVITY * dt;
+    transform.translation.y += velocity.0.y * dt;
+    grounded.0 = false;
+
+    for (solid, solid_collider) in &amp;solids {
+        let Some(overlap) = box_overlap(
+            transform.translation.truncate(),
+            collider.0,
+            solid.translation.truncate(),
+            solid_collider.0,
+        ) else {
+            continue;
+        };
+
+        if velocity.0.y &gt; 0. {
+            // hit our head
+            transform.translation.y -= overlap.y;
+        } else if velocity.0.y &lt; 0. {
+            // landed
+            transform.translation.y += overlap.y;
+            grounded.0 = true;
+        }
+        velocity.0.y = 0.;
+    }
+}</code></pre></figure><p class="prose"><code>move_player</code> is now redundant — delete it. Split the old work in two: <code>read_input</code> stays in <code>Update</code>, and a new <code>apply_input</code> feeds the velocity inside <code>FixedUpdate</code>.</p><figure class="snip"><figcaption class="snip-bar"><span class="snip-file">src/main.rs</span><span class="snip-lang">rust</span><button class="snip-copy" type="button">copy</button></figcaption><pre class="snip-body"><code data-lang="rust">fn apply_input(
+    mut input: ResMut&lt;PlayerInput&gt;,
+    player: Single&lt;(&amp;mut Velocity, &amp;Grounded), With&lt;Player&gt;&gt;,
+) {
+    let (mut velocity, _grounded) = player.into_inner();
+    velocity.0.x = input.direction * MOVE_SPEED;
+    input.jump_queued = false;
+}</code></pre></figure><p class="prose">Give the player its collider and grounded flag, and put a floor in the world.</p><figure class="snip"><figcaption class="snip-bar"><span class="snip-file">src/main.rs</span><span class="snip-lang">rust</span><button class="snip-copy" type="button">copy</button></figcaption><pre class="snip-body"><code data-lang="rust">fn spawn_player(mut commands: Commands) {
+    commands.spawn((
+        Player,
+        Velocity::default(),
+        Grounded::default(),
+        Collider(PLAYER_SIZE),
+        Sprite::from_color(Color::srgb(0.95, 0.75, 0.3), PLAYER_SIZE),
+        Transform::from_translation(SPAWN_POINT),
+    ));
+}
+
+fn spawn_level(mut commands: Commands) {
+    let ground_size = Vec2::new(1200., 60.);
+    commands.spawn((
+        Collider(ground_size),
+        Sprite::from_color(Color::srgb(0.22, 0.24, 0.32), ground_size),
+        Transform::from_xyz(0., -260., 0.),
+    ));
+}</code></pre></figure><figure class="snip"><figcaption class="snip-bar"><span class="snip-file">src/main.rs</span><span class="snip-lang">rust</span><button class="snip-copy" type="button">copy</button></figcaption><pre class="snip-body"><code data-lang="rust">.add_systems(Startup, (spawn_camera, spawn_player, spawn_level))
+.add_systems(Update, read_input)
+.add_systems(FixedUpdate, (apply_input, move_and_collide).chain())</code></pre></figure><div class="check"><div class="check-cmd"><span class="check-dot"></span>cargo run</div><p class="check-text">The box falls, lands on the grey slab, and stops. A / D walks it along the surface, and it can no longer leave the platform through the side.</p></div><p class="note note--info">Why <code>.chain()</code>? Systems run in parallel by default. Chaining forces <code>apply_input</code> to finish before <code>move_and_collide</code> starts, so velocity is always set before it's used.</p></div>
+</section>
+<section class="step" id="jump">
+  <header class="step-head">
+    <span class="step-num">06</span>
+    <h2 class="step-title">Jumping</h2>
+    <span class="step-tag">input buffering</span>
+  </header>
+  <p class="step-blurb">One line of physics and one genuinely subtle problem.</p>
+  <div class="step-body"><figure class="snip"><figcaption class="snip-bar"><span class="snip-file">src/main.rs</span><span class="snip-lang">rust</span><button class="snip-copy" type="button">copy</button></figcaption><pre class="snip-body"><code data-lang="rust">const JUMP_SPEED: f32 = 680.;</code></pre></figure><figure class="snip"><figcaption class="snip-bar"><span class="snip-file">src/main.rs</span><span class="snip-lang">rust</span><button class="snip-copy" type="button">copy</button></figcaption><pre class="snip-body"><code data-lang="rust">fn apply_input(
+    mut input: ResMut&lt;PlayerInput&gt;,
+    player: Single&lt;(&amp;mut Velocity, &amp;Grounded), With&lt;Player&gt;&gt;,
+) {
+    let (mut velocity, grounded) = player.into_inner();
+
+    velocity.0.x = input.direction * MOVE_SPEED;
+
+    if input.jump_queued &amp;&amp; grounded.0 {
+        velocity.0.y = JUMP_SPEED;
+    }
+
+    // Consume the request whether or not we could act on it.
+    input.jump_queued = false;
+}</code></pre></figure><div class="check"><div class="check-cmd"><span class="check-dot"></span>cargo run</div><p class="check-text">Space or W launches the box upward; it arcs back down and lands. Holding Space doesn't make it fly — <code>just_pressed</code> is one frame only.</p></div><p class="note note--info"><strong>Why the <code>jump_queued</code> flag exists.</strong> <code>Update</code> runs once per frame; <code>FixedUpdate</code> runs zero, one, or several times per frame depending on how the frame rate lines up with the fixed rate. If you called <code>keys.just_pressed(..)</code> directly inside <code>FixedUpdate</code>, a jump would be dropped on frames with no fixed step and fire twice on frames with two. Sampling in <code>Update</code> and consuming in <code>FixedUpdate</code> fixes both. This is the single most common source of “my jump sometimes doesn't register”.</p><p class="note note--info">Feel worth tuning: raise <code>GRAVITY</code> for a snappier arc, raise <code>JUMP_SPEED</code> to go higher. Real platformers also apply extra gravity while falling, and allow a jump for a few frames after leaving a ledge (“coyote time”). Both are small additions to <code>apply_input</code> once the basics work.</p></div>
+</section>
+<section class="step" id="level">
+  <header class="step-head">
+    <span class="step-num">07</span>
+    <h2 class="step-title">Build a level</h2>
+    <span class="step-tag">iteration</span>
+  </header>
+  <p class="step-blurb">The collision code already handles any number of solids. Adding a level is now just adding entities.</p>
+  <div class="step-body"><figure class="snip"><figcaption class="snip-bar"><span class="snip-file">src/main.rs</span><span class="snip-lang">rust</span><button class="snip-copy" type="button">copy</button></figcaption><pre class="snip-body"><code data-lang="rust">fn spawn_level(mut commands: Commands) {
+    // (centre position, size)
+    let platforms = [
+        (Vec2::new(0., -260.), Vec2::new(1200., 60.)),
+        (Vec2::new(-300., -130.), Vec2::new(260., 28.)),
+        (Vec2::new(60., -20.), Vec2::new(240., 28.)),
+        (Vec2::new(-180., 110.), Vec2::new(200., 28.)),
+        (Vec2::new(320., 150.), Vec2::new(180., 28.)),
+    ];
+
+    for (position, size) in platforms {
+        commands.spawn((
+            Collider(size),
+            Sprite::from_color(Color::srgb(0.22, 0.24, 0.32), size),
+            Transform::from_xyz(position.x, position.y, 0.),
+        ));
+    }
+}</code></pre></figure><p class="prose">And catch the player if they fall off the world.</p><figure class="snip"><figcaption class="snip-bar"><span class="snip-file">src/main.rs</span><span class="snip-lang">rust</span><button class="snip-copy" type="button">copy</button></figcaption><pre class="snip-body"><code data-lang="rust">const FALL_LIMIT: f32 = -600.;
+
+fn respawn_if_fallen(player: Single&lt;(&amp;mut Transform, &amp;mut Velocity), With&lt;Player&gt;&gt;) {
+    let (mut transform, mut velocity) = player.into_inner();
+
+    if transform.translation.y &lt; FALL_LIMIT {
+        transform.translation = SPAWN_POINT;
+        velocity.0 = Vec2::ZERO;
+    }
+}</code></pre></figure><figure class="snip"><figcaption class="snip-bar"><span class="snip-file">src/main.rs</span><span class="snip-lang">rust</span><button class="snip-copy" type="button">copy</button></figcaption><pre class="snip-body"><code data-lang="rust">.add_systems(
+    FixedUpdate,
+    (apply_input, move_and_collide, respawn_if_fallen).chain(),
+)</code></pre></figure><div class="check"><div class="check-cmd"><span class="check-dot"></span>cargo run</div><p class="check-text">Five platforms. You can hop between them, land on the tops, bump your head on the undersides, and falling off the edge puts you back at the start.</p></div><p class="note note--info">That array is a level format. Loading it from a RON or JSON file in <code>assets/</code> instead of hardcoding it is a good next exercise, and the loading code is about ten lines.</p></div>
+</section>
+<section class="step" id="states">
+  <header class="step-head">
+    <span class="step-num">08</span>
+    <h2 class="step-title">Add app states</h2>
+    <span class="step-tag">bevy::state</span>
+  </header>
+  <p class="step-blurb">A menu and a game are two modes. States give you “run this only while playing” and “clean this up on the way out” for free.</p>
+  <div class="step-body"><figure class="snip"><figcaption class="snip-bar"><span class="snip-file">src/main.rs</span><span class="snip-lang">rust</span><button class="snip-copy" type="button">copy</button></figcaption><pre class="snip-body"><code data-lang="rust">#[derive(States, Default, Debug, Clone, PartialEq, Eq, Hash)]
+enum AppState {
+    #[default]
+    Menu,
+    Playing,
+}</code></pre></figure><p class="prose">Tag everything the gameplay spawns so it disappears when you leave. <code>DespawnOnExit</code> does the bookkeeping.</p><figure class="snip"><figcaption class="snip-bar"><span class="snip-file">src/main.rs</span><span class="snip-lang">rust</span><button class="snip-copy" type="button">copy</button></figcaption><pre class="snip-body"><code data-lang="rust">fn spawn_player(mut commands: Commands) {
+    commands.spawn((
+        Player,
+        Velocity::default(),
+        Grounded::default(),
+        Collider(PLAYER_SIZE),
+        Sprite::from_color(Color::srgb(0.95, 0.75, 0.3), PLAYER_SIZE),
+        Transform::from_translation(SPAWN_POINT),
+        DespawnOnExit(AppState::Playing),
+    ));
+}</code></pre></figure><p class="prose">Do the same inside the <code>spawn_level</code> loop, adding <code>DespawnOnExit(AppState::Playing)</code> to each platform. Then rewire <code>main</code>: level and player move off <code>Startup</code> and onto <code>OnEnter</code>, and the gameplay systems get a run condition.</p><figure class="snip"><figcaption class="snip-bar"><span class="snip-file">src/main.rs</span><span class="snip-lang">rust</span><button class="snip-copy" type="button">copy</button></figcaption><pre class="snip-body"><code data-lang="rust">.init_state::&lt;AppState&gt;()
+.init_resource::&lt;PlayerInput&gt;()
+.add_systems(Startup, spawn_camera)
+.add_systems(OnEnter(AppState::Playing), (spawn_level, spawn_player))
+.add_systems(Update, read_input.run_if(in_state(AppState::Playing)))
+.add_systems(
+    FixedUpdate,
+    (apply_input, move_and_collide, respawn_if_fallen)
+        .chain()
+        .run_if(in_state(AppState::Playing)),
+)</code></pre></figure><p class="prose">The camera stays on <code>Startup</code> — it belongs to the app, not to either mode.</p><div class="check"><div class="check-cmd"><span class="check-dot"></span>cargo run</div><p class="check-text">An empty window. The app starts in <code>Menu</code>, so nothing spawns. That's correct — the menu is the next step.</p></div><p class="note note--info">Systems that use <code>Single&lt;.. With&lt;Player&gt;&gt;</code> would already skip themselves without a player around, so the run conditions here are belt and braces. They're still worth writing: they document intent, and they cost nothing.</p></div>
+</section>
+<section class="step" id="menu">
+  <header class="step-head">
+    <span class="step-num">09</span>
+    <h2 class="step-title">The menu</h2>
+    <span class="step-tag">bevy::ui</span>
+  </header>
+  <p class="step-blurb">Bevy UI is flexbox. <code>Node</code> is the box; colour and text are separate components on the same entity. This layout is one full-screen column, centred.</p>
+  <div class="step-body"><figure class="snip"><figcaption class="snip-bar"><span class="snip-file">src/main.rs</span><span class="snip-lang">rust</span><button class="snip-copy" type="button">copy</button></figcaption><pre class="snip-body"><code data-lang="rust">const BUTTON_IDLE: Color = Color::srgb(0.20, 0.22, 0.28);
+const BUTTON_HOVER: Color = Color::srgb(0.28, 0.31, 0.39);
+
+fn spawn_menu(mut commands: Commands) {
+    let root = commands
+        .spawn((
+            DespawnOnExit(AppState::Menu),
+            Node {
+                width: percent(100),
+                height: percent(100),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                row_gap: px(24),
+                ..default()
+            },
+            children![
+                (
+                    Text::new(&quot;BOX RUNNER&quot;),
+                    TextFont { font_size: FontSize::Px(56.), ..default() },
+                    TextColor(Color::srgb(0.95, 0.75, 0.3)),
+                ),
+                (
+                    Text::new(&quot;A / D to move    Space to jump&quot;),
+                    TextFont { font_size: FontSize::Px(17.), ..default() },
+                    TextColor(Color::srgb(0.52, 0.55, 0.63)),
+                ),
+            ],
+        ))
+        .id();
+
+    commands
+        .spawn((
+            ChildOf(root),
+            Button,
+            Node {
+                width: px(220),
+                height: px(60),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            BackgroundColor(BUTTON_IDLE),
+            children![(
+                Text::new(&quot;Play&quot;),
+                TextFont { font_size: FontSize::Px(22.), ..default() },
+                TextColor(Color::WHITE),
+                // Let pointer events reach the button underneath.
+                Pickable::IGNORE,
+            )],
+        ))
+        .observe(|_: On&lt;Pointer&lt;Click&gt;&gt;, mut next: ResMut&lt;NextState&lt;AppState&gt;&gt;| {
+            next.set(AppState::Playing);
+        })
+        .observe(|over: On&lt;Pointer&lt;Over&gt;&gt;, mut colors: Query&lt;&amp;mut BackgroundColor&gt;| {
+            if let Ok(mut color) = colors.get_mut(over.entity) {
+                *color = BackgroundColor(BUTTON_HOVER);
+            }
+        })
+        .observe(|out: On&lt;Pointer&lt;Out&gt;&gt;, mut colors: Query&lt;&amp;mut BackgroundColor&gt;| {
+            if let Ok(mut color) = colors.get_mut(out.entity) {
+                *color = BackgroundColor(BUTTON_IDLE);
+            }
+        });
+}</code></pre></figure><figure class="snip"><figcaption class="snip-bar"><span class="snip-file">src/main.rs</span><span class="snip-lang">rust</span><button class="snip-copy" type="button">copy</button></figcaption><pre class="snip-body"><code data-lang="rust">.add_systems(OnEnter(AppState::Menu), spawn_menu)</code></pre></figure><div class="check"><div class="check-cmd"><span class="check-dot"></span>cargo run</div><p class="check-text">A title, a hint line, and a Play button that lightens on hover. Clicking it clears the menu and drops you into the level.</p></div><p class="note note--info"><strong>Why the button is spawned separately.</strong> <code>children![..]</code> builds children inline, but you can't attach an observer to something inside that macro. Spawning the button as its own entity with <code>ChildOf(root)</code> gives the same layout while leaving room for <code>.observe(..)</code>. It still appears after the two text children, because <code>children!</code> ran first.</p><p class="note note--info">Observers are one way to handle a button. The other is polling <code>Query&lt;(&amp;Interaction, &amp;mut BackgroundColor), (Changed&lt;Interaction&gt;, With&lt;Button&gt;)&gt;</code> in a normal system. Observers suit one-off behaviour; polling suits “style every button the same way”.</p></div>
+</section>
+<section class="step" id="polish">
+  <header class="step-head">
+    <span class="step-num">10</span>
+    <h2 class="step-title">Close the loop</h2>
+    <span class="step-tag">HUD</span>
+  </header>
+  <p class="step-blurb">A way back out, and an on-screen reminder of the controls.</p>
+  <div class="step-body"><figure class="snip"><figcaption class="snip-bar"><span class="snip-file">src/main.rs</span><span class="snip-lang">rust</span><button class="snip-copy" type="button">copy</button></figcaption><pre class="snip-body"><code data-lang="rust">fn spawn_hud(mut commands: Commands) {
+    commands.spawn((
+        DespawnOnExit(AppState::Playing),
+        Text::new(&quot;A / D  move      Space  jump      Esc  menu&quot;),
+        TextFont { font_size: FontSize::Px(16.), ..default() },
+        TextColor(Color::srgb(0.5, 0.53, 0.6)),
+        Node {
+            position_type: PositionType::Absolute,
+            top: px(16),
+            left: px(20),
+            ..default()
+        },
+    ));
+}
+
+fn leave_to_menu(keys: Res&lt;ButtonInput&lt;KeyCode&gt;&gt;, mut next: ResMut&lt;NextState&lt;AppState&gt;&gt;) {
+    if keys.just_pressed(KeyCode::Escape) {
+        next.set(AppState::Menu);
+    }
+}</code></pre></figure><figure class="snip"><figcaption class="snip-bar"><span class="snip-file">src/main.rs</span><span class="snip-lang">rust</span><button class="snip-copy" type="button">copy</button></figcaption><pre class="snip-body"><code data-lang="rust">.add_systems(OnEnter(AppState::Playing), (spawn_level, spawn_player, spawn_hud))
+.add_systems(
+    Update,
+    (read_input, leave_to_menu).run_if(in_state(AppState::Playing)),
+)</code></pre></figure><div class="check"><div class="check-cmd"><span class="check-dot"></span>cargo run</div><p class="check-text">Play → jump around → Esc → back at the menu with everything cleaned up → Play again spawns a fresh level. That's a complete game loop.</p></div><p class="note note--info">A <code>Text</code> entity carrying a <code>Node</code> is UI text, positioned in screen space. A <code>Text2d</code> entity is world text that moves with the camera. Reaching for the wrong one is a common half-hour.</p></div>
+</section>
+<section class="step" id="full">
+  <header class="step-head">
+    <span class="step-num">11</span>
+    <h2 class="step-title">The whole file</h2>
+    <span class="step-tag">src/main.rs</span>
+  </header>
+  <p class="step-blurb">Everything above, assembled. If a step drifted, diff against this.</p>
+  <div class="step-body"><figure class="snip"><figcaption class="snip-bar"><span class="snip-file">src/main.rs</span><span class="snip-lang">rust</span><button class="snip-copy" type="button">copy</button></figcaption><pre class="snip-body"><code data-lang="rust">use bevy::prelude::*;
+
+// ---------------------------------------------------------------- tuning
+const PLAYER_SIZE: Vec2 = Vec2::new(40., 56.);
+const SPAWN_POINT: Vec3 = Vec3::new(0., 200., 0.);
+const MOVE_SPEED: f32 = 320.;
+const JUMP_SPEED: f32 = 680.;
+const GRAVITY: f32 = 1800.;
+const FALL_LIMIT: f32 = -600.;
+
+const BUTTON_IDLE: Color = Color::srgb(0.20, 0.22, 0.28);
+const BUTTON_HOVER: Color = Color::srgb(0.28, 0.31, 0.39);
+
+// ---------------------------------------------------------------- state
+#[derive(States, Default, Debug, Clone, PartialEq, Eq, Hash)]
+enum AppState {
+    #[default]
+    Menu,
+    Playing,
+}
+
+// ---------------------------------------------------------------- data
+#[derive(Component)]
+struct Player;
+
+#[derive(Component, Default)]
+struct Velocity(Vec2);
+
+#[derive(Component, Default)]
+struct Grounded(bool);
+
+#[derive(Component)]
+struct Collider(Vec2);
+
+#[derive(Resource, Default)]
+struct PlayerInput {
+    direction: f32,
+    jump_queued: bool,
+}
+
+// ---------------------------------------------------------------- app
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: &quot;Box Runner&quot;.into(),
+                resolution: (960., 640.).into(),
+                ..default()
+            }),
+            ..default()
+        }))
+        .insert_resource(ClearColor(Color::srgb(0.09, 0.10, 0.13)))
+        .init_state::&lt;AppState&gt;()
+        .init_resource::&lt;PlayerInput&gt;()
+        .add_systems(Startup, spawn_camera)
+        .add_systems(OnEnter(AppState::Menu), spawn_menu)
+        .add_systems(OnEnter(AppState::Playing), (spawn_level, spawn_player, spawn_hud))
+        .add_systems(
+            Update,
+            (read_input, leave_to_menu).run_if(in_state(AppState::Playing)),
+        )
+        .add_systems(
+            FixedUpdate,
+            (apply_input, move_and_collide, respawn_if_fallen)
+                .chain()
+                .run_if(in_state(AppState::Playing)),
+        )
+        .run();
+}
+
+// ---------------------------------------------------------------- setup
+fn spawn_camera(mut commands: Commands) {
+    commands.spawn(Camera2d);
+}
+
+fn spawn_player(mut commands: Commands) {
+    commands.spawn((
+        Player,
+        Velocity::default(),
+        Grounded::default(),
+        Collider(PLAYER_SIZE),
+        Sprite::from_color(Color::srgb(0.95, 0.75, 0.3), PLAYER_SIZE),
+        Transform::from_translation(SPAWN_POINT),
+        DespawnOnExit(AppState::Playing),
+    ));
+}
+
+fn spawn_level(mut commands: Commands) {
+    let platforms = [
+        (Vec2::new(0., -260.), Vec2::new(1200., 60.)),
+        (Vec2::new(-300., -130.), Vec2::new(260., 28.)),
+        (Vec2::new(60., -20.), Vec2::new(240., 28.)),
+        (Vec2::new(-180., 110.), Vec2::new(200., 28.)),
+        (Vec2::new(320., 150.), Vec2::new(180., 28.)),
+    ];
+
+    for (position, size) in platforms {
+        commands.spawn((
+            Collider(size),
+            Sprite::from_color(Color::srgb(0.22, 0.24, 0.32), size),
+            Transform::from_xyz(position.x, position.y, 0.),
+            DespawnOnExit(AppState::Playing),
+        ));
+    }
+}
+
+fn spawn_hud(mut commands: Commands) {
+    commands.spawn((
+        DespawnOnExit(AppState::Playing),
+        Text::new(&quot;A / D  move      Space  jump      Esc  menu&quot;),
+        TextFont { font_size: FontSize::Px(16.), ..default() },
+        TextColor(Color::srgb(0.5, 0.53, 0.6)),
+        Node {
+            position_type: PositionType::Absolute,
+            top: px(16),
+            left: px(20),
+            ..default()
+        },
+    ));
+}
+
+// ---------------------------------------------------------------- menu
+fn spawn_menu(mut commands: Commands) {
+    let root = commands
+        .spawn((
+            DespawnOnExit(AppState::Menu),
+            Node {
+                width: percent(100),
+                height: percent(100),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                row_gap: px(24),
+                ..default()
+            },
+            children![
+                (
+                    Text::new(&quot;BOX RUNNER&quot;),
+                    TextFont { font_size: FontSize::Px(56.), ..default() },
+                    TextColor(Color::srgb(0.95, 0.75, 0.3)),
+                ),
+                (
+                    Text::new(&quot;A / D to move    Space to jump&quot;),
+                    TextFont { font_size: FontSize::Px(17.), ..default() },
+                    TextColor(Color::srgb(0.52, 0.55, 0.63)),
+                ),
+            ],
+        ))
+        .id();
+
+    commands
+        .spawn((
+            ChildOf(root),
+            Button,
+            Node {
+                width: px(220),
+                height: px(60),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            BackgroundColor(BUTTON_IDLE),
+            children![(
+                Text::new(&quot;Play&quot;),
+                TextFont { font_size: FontSize::Px(22.), ..default() },
+                TextColor(Color::WHITE),
+                Pickable::IGNORE,
+            )],
+        ))
+        .observe(|_: On&lt;Pointer&lt;Click&gt;&gt;, mut next: ResMut&lt;NextState&lt;AppState&gt;&gt;| {
+            next.set(AppState::Playing);
+        })
+        .observe(|over: On&lt;Pointer&lt;Over&gt;&gt;, mut colors: Query&lt;&amp;mut BackgroundColor&gt;| {
+            if let Ok(mut color) = colors.get_mut(over.entity) {
+                *color = BackgroundColor(BUTTON_HOVER);
+            }
+        })
+        .observe(|out: On&lt;Pointer&lt;Out&gt;&gt;, mut colors: Query&lt;&amp;mut BackgroundColor&gt;| {
+            if let Ok(mut color) = colors.get_mut(out.entity) {
+                *color = BackgroundColor(BUTTON_IDLE);
+            }
+        });
+}
+
+// ---------------------------------------------------------------- input
+fn read_input(keys: Res&lt;ButtonInput&lt;KeyCode&gt;&gt;, mut input: ResMut&lt;PlayerInput&gt;) {
+    let mut direction = 0.;
+    if keys.pressed(KeyCode::KeyA) || keys.pressed(KeyCode::ArrowLeft) {
+        direction -= 1.;
+    }
+    if keys.pressed(KeyCode::KeyD) || keys.pressed(KeyCode::ArrowRight) {
+        direction += 1.;
+    }
+    input.direction = direction;
+
+    if keys.just_pressed(KeyCode::Space) || keys.just_pressed(KeyCode::KeyW) {
+        input.jump_queued = true;
+    }
+}
+
+fn leave_to_menu(keys: Res&lt;ButtonInput&lt;KeyCode&gt;&gt;, mut next: ResMut&lt;NextState&lt;AppState&gt;&gt;) {
+    if keys.just_pressed(KeyCode::Escape) {
+        next.set(AppState::Menu);
+    }
+}
+
+// ---------------------------------------------------------------- physics
+fn apply_input(
+    mut input: ResMut&lt;PlayerInput&gt;,
+    player: Single&lt;(&amp;mut Velocity, &amp;Grounded), With&lt;Player&gt;&gt;,
+) {
+    let (mut velocity, grounded) = player.into_inner();
+
+    velocity.0.x = input.direction * MOVE_SPEED;
+
+    if input.jump_queued &amp;&amp; grounded.0 {
+        velocity.0.y = JUMP_SPEED;
+    }
+
+    input.jump_queued = false;
+}
+
+/// If the two boxes overlap, returns how deeply, on each axis.
+fn box_overlap(a_pos: Vec2, a_size: Vec2, b_pos: Vec2, b_size: Vec2) -&gt; Option&lt;Vec2&gt; {
+    let distance = (a_pos - b_pos).abs();
+    let touching = (a_size + b_size) * 0.5;
+
+    if distance.x &lt; touching.x &amp;&amp; distance.y &lt; touching.y {
+        Some(touching - distance)
+    } else {
+        None
+    }
+}
+
+fn move_and_collide(
+    time: Res&lt;Time&gt;,
+    player: Single&lt;(&amp;mut Transform, &amp;mut Velocity, &amp;mut Grounded, &amp;Collider), With&lt;Player&gt;&gt;,
+    solids: Query&lt;(&amp;Transform, &amp;Collider), Without&lt;Player&gt;&gt;,
+) {
+    let dt = time.delta_secs();
+    let (mut transform, mut velocity, mut grounded, collider) = player.into_inner();
+
+    transform.translation.x += velocity.0.x * dt;
+
+    for (solid, solid_collider) in &amp;solids {
+        let Some(overlap) = box_overlap(
+            transform.translation.truncate(),
+            collider.0,
+            solid.translation.truncate(),
+            solid_collider.0,
+        ) else {
+            continue;
+        };
+
+        if velocity.0.x &gt; 0. {
+            transform.translation.x -= overlap.x;
+        } else if velocity.0.x &lt; 0. {
+            transform.translation.x += overlap.x;
+        }
+        velocity.0.x = 0.;
+    }
+
+    velocity.0.y -= GRAVITY * dt;
+    transform.translation.y += velocity.0.y * dt;
+    grounded.0 = false;
+
+    for (solid, solid_collider) in &amp;solids {
+        let Some(overlap) = box_overlap(
+            transform.translation.truncate(),
+            collider.0,
+            solid.translation.truncate(),
+            solid_collider.0,
+        ) else {
+            continue;
+        };
+
+        if velocity.0.y &gt; 0. {
+            transform.translation.y -= overlap.y;
+        } else if velocity.0.y &lt; 0. {
+            transform.translation.y += overlap.y;
+            grounded.0 = true;
+        }
+        velocity.0.y = 0.;
+    }
+}
+
+fn respawn_if_fallen(player: Single&lt;(&amp;mut Transform, &amp;mut Velocity), With&lt;Player&gt;&gt;) {
+    let (mut transform, mut velocity) = player.into_inner();
+
+    if transform.translation.y &lt; FALL_LIMIT {
+        transform.translation = SPAWN_POINT;
+        velocity.0 = Vec2::ZERO;
+    }
+}</code></pre></figure><p class="note note--info">Around 240 lines, no dependencies beyond Bevy. Once it's working, splitting it into <code>player.rs</code>, <code>menu.rs</code> and <code>level.rs</code> — each exposing a plugin — is the natural next move.</p></div>
+</section>
+<section class="step" id="errors">
+  <header class="step-head">
+    <span class="step-num">12</span>
+    <h2 class="step-title">When it won't compile</h2>
+    <span class="step-tag">troubleshooting</span>
+  </header>
+  <p class="step-blurb">Bevy's type errors are long. These four cover most of what goes wrong early.</p>
+  <div class="step-body"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Error</th><th>Cause and fix</th></tr></thead><tbody><tr><td>temporary value dropped while borrowed</td><td>You wrote <code>let app = App::new().add_plugins(..);</code>. The chained methods return <code>&amp;mut App</code>, not <code>App</code>, so you bound a borrow of a temporary. Write <code>let mut app = App::new();</code> on its own line, then call the methods on <code>app</code>.</td></tr><tr><td>(A, B, C, ...) is not a Bundle</td><td>One member of a spawn tuple isn't a <code>Component</code>. The compiler writes the full type to a file in <code>target/debug/deps/*.long-type-*.txt</code> — read it. If it's still unclear, delete tuple members until it compiles, then add them back one at a time.</td></tr><tr><td>Query&lt;&amp;mut T&gt; conflicts with Query&lt;&amp;T&gt;</td><td>Two params in one system touch the same component and Bevy can't prove they're disjoint. Add <code>With</code>/<code>Without</code> filters that separate them — this is why <code>move_and_collide</code> uses <code>Without&lt;Player&gt;</code> on the solids query.</td></tr><tr><td>the trait bound ... FontSize is not satisfied</td><td><code>font_size</code> takes <code>FontSize::Px(24.)</code>, not a bare <code>24.</code>, as of 0.19. Likewise <code>font</code> takes a <code>FontSource</code>, so an asset handle needs <code>.into()</code>.</td></tr></tbody></table></div><p class="prose">And two that compile fine but produce nothing:</p><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Symptom</th><th>Cause</th></tr></thead><tbody><tr><td>Blank window, no errors</td><td>No camera. <code>Camera2d</code> for sprites and UI, <code>Camera3d</code> for meshes.</td></tr><tr><td>A system never runs</td><td>A <code>Single</code> or <code>Res</code> parameter didn't resolve, so Bevy skipped the system silently. Check the entity exists and the resource was inserted. Swapping <code>Single&lt;T&gt;</code> for <code>Query&lt;T&gt;</code> temporarily will tell you which.</td></tr></tbody></table></div><p class="note note--info">Compiler errors that mention types you didn't write usually come from a macro. Run <code>cargo build 2>&amp;1 | head -40</code> — the first error is nearly always the real one, and everything after it is fallout.</p></div>
+</section>
+<section class="step" id="next">
+  <header class="step-head">
+    <span class="step-num">13</span>
+    <h2 class="step-title">Where to take it</h2>
+    <span class="step-tag">next</span>
+  </header>
+  
+  <div class="step-body"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Add</th><th>Roughly what it takes</th></tr></thead><tbody><tr><td>Sprite art instead of boxes</td><td>Drop a PNG in <code>assets/sprites/</code>, swap <code>Sprite::from_color</code> for <code>Sprite::from_image(asset_server.load(..))</code>. Add <code>Res&lt;AssetServer&gt;</code> to the spawn system.</td></tr><tr><td>Walk / idle animation</td><td><code>TextureAtlasLayout::from_grid</code>, then step <code>sprite.texture_atlas.index</code> on a <code>Timer</code>.</td></tr><tr><td>A camera that follows</td><td>A system in <code>PostUpdate</code> that lerps the camera's <code>Transform</code> toward the player's.</td></tr><tr><td>Coyote time and jump buffering</td><td>Two <code>Timer</code>s on the player: one counting since last grounded, one since the jump was requested.</td></tr><tr><td>Collectibles and a score</td><td>A <code>Coin</code> component, a <code>Score</code> resource, and <code>box_overlap</code> again — you already have the collision maths.</td></tr><tr><td>A pause screen</td><td>A third <code>AppState</code> variant, or a separate <code>SubStates</code> that only exists while playing.</td></tr><tr><td>Real physics</td><td>The <a href="https://github.com/Jondolf/avian">Avian</a> crate. Replace <code>Collider</code>, <code>Velocity</code> and <code>move_and_collide</code> with its components — the rest of the project stays as-is.</td></tr></tbody></table></div><p class="note note--info">The most useful habit from here: when something doesn't work, find the matching official example at <a href="https://bevy.org/examples">bevy.org/examples</a> and read its source. They're pinned to the release you're on and they always compile.</p></div>
+</section>
+  </main>
+</div>
+
+<footer>
+  Written against bevy 0.19.0 · if a snippet fights you, the finished file in step 11 is authoritative ·
+  official examples live at <a href="https://bevy.org/examples">bevy.org/examples</a>
+</footer>
+
+<script>
+const KW = {
+  rust: /^(as|async|await|break|const|continue|crate|dyn|else|enum|extern|false|fn|for|if|impl|in|let|loop|match|mod|move|mut|pub|ref|return|self|Self|static|struct|super|trait|true|type|unsafe|use|where|while)$/,
+  toml: /^(true|false)$/,
+  sh: /^(cargo|cd|new|add|run)$/
+};
+const RE = /(\/\/[^\n]*|#(?!\[|!)[^\n]*)|(#!?\[[^\]]*\])|("(?:[^"\\]|\\.)*")|(\b[a-z_][A-Za-z0-9_]*!)|(\b\d[\d_]*(?:\.\d*)?(?:[eE][+-]?\d+)?(?:f32|f64|u\d+|i\d+|usize|isize)?\b)|(\b[A-Z][A-Za-z0-9_]*\b)|(\b[a-z_][A-Za-z0-9_]*\b)/g;
+
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function highlight(el){
+  const kw = KW[el.dataset.lang] || KW.rust;
+  const src = el.textContent;
+  let out = '', last = 0, m;
+  RE.lastIndex = 0;
+  while ((m = RE.exec(src)) !== null){
+    out += esc(src.slice(last, m.index));
+    const t = m[0];
+    let cls = null;
+    if (m[1]) cls = 'tok-comment';
+    else if (m[2]) cls = 'tok-attr';
+    else if (m[3]) cls = 'tok-string';
+    else if (m[4]) cls = 'tok-macro';
+    else if (m[5]) cls = 'tok-num';
+    else if (m[6]) cls = 'tok-type';
+    else if (m[7]) cls = kw.test(t) ? 'tok-kw' : null;
+    out += cls ? '<span class="' + cls + '">' + esc(t) + '</span>' : esc(t);
+    last = m.index + t.length;
+  }
+  out += esc(src.slice(last));
+  el.innerHTML = out;
+}
+document.querySelectorAll('.snip-body code').forEach(highlight);
+
+document.querySelectorAll('.snip-copy').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const text = btn.closest('.snip').querySelector('code').textContent;
+    try { await navigator.clipboard.writeText(text); }
+    catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); ta.remove();
+    }
+    btn.textContent = 'copied'; btn.classList.add('done');
+    setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('done'); }, 1400);
+  });
+});
+
+const links = [...document.querySelectorAll('.nav-link')];
+const byId = new Map(links.map(a => [a.getAttribute('href').slice(1), a]));
+const spy = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting){
+      links.forEach(a => a.classList.remove('on'));
+      const a = byId.get(e.target.id);
+      if (a) a.classList.add('on');
+    }
+  });
+}, { rootMargin: '-88px 0px -70% 0px', threshold: 0 });
+document.querySelectorAll('.step').forEach(s => spy.observe(s));
+</script>
+</body>
+</html>
