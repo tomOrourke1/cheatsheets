@@ -1,0 +1,10 @@
+<ul id="list"></ul>
+<script>
+  const sheets = [
+    { file: "regex.html",     title: "Regex",      desc: "Lookarounds, groups, flags" },
+    { file: "docker.html",    title: "Docker",     desc: "Common CLI + compose" },
+  ];
+  document.getElementById("list").innerHTML = sheets
+    .map(s => `<li><a href="${s.file}">${s.title}</a> — ${s.desc}</li>`)
+    .join("");
+</script>
