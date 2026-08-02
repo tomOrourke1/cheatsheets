@@ -1,10 +1,27 @@
-<ul id="list"></ul>
-<script>
-  const sheets = [
-    { file: "regex.html",     title: "Regex",      desc: "Lookarounds, groups, flags" },
-    { file: "docker.html",    title: "Docker",     desc: "Common CLI + compose" },
-  ];
-  document.getElementById("list").innerHTML = sheets
-    .map(s => `<li><a href="${s.file}">${s.title}</a> — ${s.desc}</li>`)
-    .join("");
-</script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Cheat Sheets</title>
+</head>
+<body>
+  <h1>Cheat Sheets</h1>
+  <ul id="list"></ul>
+
+  <script>
+    const sheets = [
+      { file: "regex.html",  title: "Regex",  desc: "Lookarounds, groups, flags" },
+      { file: "docker.html", title: "Docker", desc: "Common CLI + compose" },
+    ];
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const list = document.getElementById("list");
+      if (!list) return console.error("No #list element found");
+
+      list.innerHTML = sheets
+        .map(s => '<li><a href="' + s.file + '">' + s.title + '</a> — ' + s.desc + '</li>')
+        .join("");
+    });
+  </script>
+</body>
+</html>
