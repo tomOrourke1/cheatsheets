@@ -1,5 +1,5 @@
 # cheatsheets
-
+Warning: these were generated with claude
 
 https://tomorourke1.github.io/cheatsheets/
 
