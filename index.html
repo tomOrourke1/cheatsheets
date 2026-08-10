@@ -1,27 +1,627 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>Cheat Sheets</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cheatsheets — bevy · wgpu · wgsl · godot</title>
+<meta name="description" content="Cheat sheets for Bevy, Rust, WGPU, WGSL and Godot.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ─────────────────────────────────────────────────────────────
+   tokens
+   ───────────────────────────────────────────────────────────── */
+:root{
+  --void:#0d1018;      /* page */
+  --panel:#151a26;     /* cards */
+  --edge:#242b3d;      /* hairlines */
+  --ink:#e2e6f0;       /* primary text */
+  --dim:#858da6;       /* secondary text */
+  --flux:#b06ef7;      /* bevy / rust / wgpu */
+  --beam:#3adfc8;      /* added by you */
+  --port:#5aa9e6;      /* godot */
+  --warn:#e8b04b;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:"IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--void);color:var(--ink);
+  font-family:var(--sans);font-size:16px;line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+body.locked{overflow:hidden}
+a{color:inherit}
+::selection{background:var(--flux);color:#0d1018}
+:focus-visible{outline:2px solid var(--beam);outline-offset:2px}
+ 
+.wrap{max-width:1040px;margin:0 auto;padding:0 24px}
+ 
+/* ── hero ─────────────────────────────────────────────────── */
+.hero{position:relative;overflow:hidden;border-bottom:1px solid var(--edge)}
+#fx{
+  position:absolute;inset:0;width:100%;height:100%;display:block;
+  -webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 45%,transparent 100%);
+  mask-image:linear-gradient(to bottom,#000 0%,#000 45%,transparent 100%);
+}
+.hero .wrap{position:relative;padding-top:96px;padding-bottom:40px}
+h1{
+  font-family:var(--mono);font-weight:600;
+  font-size:clamp(2.5rem,9vw,4.75rem);line-height:.95;letter-spacing:-.045em;
+  margin:0;
+}
+h1 .caret{color:var(--flux)}
+.tagline{
+  font-family:var(--mono);font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--dim);margin:18px 0 0;
+}
+.warn{
+  display:inline-flex;align-items:center;gap:8px;margin-top:22px;
+  font-family:var(--mono);font-size:.72rem;letter-spacing:.08em;
+  color:var(--warn);border:1px dashed rgba(232,176,75,.45);
+  border-radius:3px;padding:6px 11px;background:rgba(232,176,75,.06);
+}
+ 
+/* ── toolbar ──────────────────────────────────────────────── */
+.tools{display:flex;gap:10px;flex-wrap:wrap;padding-top:34px}
+.field{
+  flex:1 1 240px;min-width:0;display:flex;align-items:center;gap:10px;
+  background:var(--panel);border:1px solid var(--edge);border-radius:4px;padding:0 12px;
+}
+.field svg{flex:none;color:var(--dim)}
+.field input{
+  flex:1;min-width:0;background:none;border:0;color:var(--ink);
+  font-family:var(--mono);font-size:.86rem;padding:11px 0;
+}
+.field input::placeholder{color:#5d6580}
+.field input:focus{outline:none}
+.field:focus-within{border-color:var(--flux)}
+.btn{
+  font-family:var(--mono);font-size:.78rem;letter-spacing:.06em;
+  background:var(--panel);color:var(--ink);border:1px solid var(--edge);
+  border-radius:4px;padding:0 16px;height:44px;cursor:pointer;white-space:nowrap;
+  transition:border-color .15s,color .15s;
+}
+.btn:hover{border-color:var(--beam);color:var(--beam)}
+.btn.go{border-color:var(--beam);color:var(--beam)}
+.addrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.hint{
+  font-family:var(--mono);font-size:.72rem;color:var(--dim);
+  margin:10px 0 0;flex-basis:100%;
+}
+.hint b{color:var(--beam);font-weight:500}
+ 
+/* ── shelf ────────────────────────────────────────────────── */
+main{padding-bottom:80px}
+.group{margin-top:52px}
+.ghead{display:flex;align-items:center;gap:16px;margin-bottom:16px}
+.ghead h2{
+  font-family:var(--mono);font-size:.76rem;font-weight:600;
+  letter-spacing:.2em;text-transform:uppercase;margin:0;white-space:nowrap;
+}
+.ghead .rule{flex:1;height:1px;background:var(--edge)}
+.ghead .count{font-family:var(--mono);font-size:.72rem;color:var(--dim)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(258px,1fr));gap:12px}
+.slot{position:relative}
+ 
+.card{
+  position:relative;display:block;text-decoration:none;overflow:hidden;
+  background:var(--panel);border:1px solid var(--edge);border-radius:4px;
+  padding:16px 18px 18px 22px;
+  transition:transform .15s ease,border-color .15s ease,background .15s ease;
+}
+.card::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:var(--accent);opacity:.55;transition:width .15s ease,opacity .15s ease;
+}
+.card:hover,.card:focus-visible{
+  transform:translateY(-2px);border-color:var(--accent);background:#19202f;
+}
+.card:hover::before,.card:focus-visible::before{width:6px;opacity:1}
+.card .file{
+  font-family:var(--mono);font-size:.68rem;color:var(--dim);
+  letter-spacing:.02em;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.card .name{display:block;margin-top:9px;font-size:1.02rem;font-weight:500;line-height:1.3}
+.card .arrow{
+  position:absolute;right:14px;bottom:14px;color:var(--accent);
+  opacity:0;transform:translateX(-4px);transition:opacity .15s,transform .15s;
+}
+.card:hover .arrow,.card:focus-visible .arrow{opacity:1;transform:none}
+.drop{
+  position:absolute;right:8px;top:8px;z-index:2;width:24px;height:24px;line-height:1;padding:0;
+  border:1px solid var(--edge);background:var(--void);color:var(--dim);
+  border-radius:3px;cursor:pointer;font-family:var(--mono);font-size:.8rem;
+  opacity:0;transition:opacity .15s;
+}
+.slot:hover .drop,.drop:focus-visible{opacity:1}
+.drop:hover{color:#ff6b6b;border-color:#ff6b6b}
+ 
+.empty{
+  font-family:var(--mono);font-size:.85rem;color:var(--dim);
+  border:1px dashed var(--edge);border-radius:4px;padding:28px;text-align:center;margin-top:52px;
+}
+ 
+footer{
+  border-top:1px solid var(--edge);padding:24px 0 40px;
+  font-family:var(--mono);font-size:.72rem;color:var(--dim);
+}
+kbd{
+  font-family:var(--mono);font-size:.68rem;border:1px solid var(--edge);
+  border-bottom-width:2px;border-radius:3px;padding:1px 5px;color:var(--ink);
+}
+ 
+/* ── viewer (the back-button frame) ───────────────────────── */
+#viewer{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;background:var(--void)}
+.vbar{
+  display:flex;align-items:center;gap:12px;flex:none;height:52px;padding:0 12px;
+  background:var(--panel);border-bottom:1px solid var(--edge);
+}
+.vbar .back{
+  display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 14px;
+  font-family:var(--mono);font-size:.8rem;background:var(--void);color:var(--ink);
+  border:1px solid var(--edge);border-radius:3px;cursor:pointer;
+}
+.vbar .back:hover{border-color:var(--flux);color:var(--flux)}
+.vbar .meta{min-width:0;flex:1}
+.vbar .vname{
+  font-size:.9rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2;
+}
+.vbar .vfile{
+  font-family:var(--mono);font-size:.66rem;color:var(--dim);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.vbar .pop{
+  font-family:var(--mono);font-size:.75rem;color:var(--dim);text-decoration:none;
+  border:1px solid var(--edge);border-radius:3px;padding:8px 12px;white-space:nowrap;
+}
+.vbar .pop:hover{color:var(--beam);border-color:var(--beam)}
+#frame{flex:1;width:100%;border:0;background:var(--void)}
+@media (max-width:560px){
+  .vbar .vfile{display:none}
+  .vbar .pop span{display:none}
+  .hero .wrap{padding-top:64px}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important}
+  .card:hover{transform:none}
+}
+</style>
 </head>
 <body>
-  <h1>Cheat Sheets</h1>
-  <ul id="list"></ul>
-
-  <script>
-    const sheets = [
-      { file: "regex.html",  title: "Regex",  desc: "Lookarounds, groups, flags" },
-      { file: "docker.html", title: "Docker", desc: "Common CLI + compose" },
-    ];
-
-    document.addEventListener("DOMContentLoaded", () => {
-      const list = document.getElementById("list");
-      if (!list) return console.error("No #list element found");
-
-      list.innerHTML = sheets
-        .map(s => '<li><a href="' + s.file + '">' + s.title + '</a> — ' + s.desc + '</li>')
-        .join("");
+ 
+<header class="hero">
+  <canvas id="fx" aria-hidden="true"></canvas>
+  <div class="wrap">
+    <h1>cheatsheets<span class="caret">_</span></h1>
+    <p class="tagline" id="tagline">bevy · rust · wgpu · wgsl · godot</p>
+    <p class="warn">⚠ Written by Claude. Check anything before you ship it.</p>
+  </div>
+</header>
+ 
+<main class="wrap">
+  <div class="tools">
+    <label class="field" for="filter">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg>
+      <input id="filter" type="search" placeholder="Filter pages…" autocomplete="off" aria-label="Filter pages">
+    </label>
+    <button class="btn" id="toggleAdd" aria-expanded="false" aria-controls="addrow">+ Add link</button>
+  </div>
+ 
+  <div class="addrow" id="addrow" hidden>
+    <label class="field" for="newurl" style="flex:1 1 320px">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M6.5 9.5 9.5 6.5M7 4.5 8.6 2.9a2.7 2.7 0 0 1 3.8 3.8L10.8 8.3M9 11.5l-1.6 1.6a2.7 2.7 0 0 1-3.8-3.8L5.2 7.7"/></svg>
+      <input id="newurl" type="url" placeholder="Paste a URL, then press Enter" autocomplete="off" aria-label="URL to add">
+    </label>
+    <button class="btn go" id="addBtn">Add link</button>
+    <p class="hint">Saved in this browser only. To publish a link for everyone, paste it into the <b>LINKS</b> list near the top of index.html.</p>
+  </div>
+ 
+  <div id="shelf"></div>
+  <p class="empty" id="empty" hidden>Nothing matches that. Try <b>wgsl</b>, <b>bevy</b> or <b>godot</b>.</p>
+</main>
+ 
+<footer class="wrap">
+  Press <kbd>/</kbd> to filter · <kbd>Esc</kbd> to leave a page
+</footer>
+ 
+<div id="viewer" hidden role="dialog" aria-modal="true" aria-label="Page viewer">
+  <div class="vbar">
+    <button class="back" id="backBtn">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M10 2 4 8l6 6"/></svg>
+      Back
+    </button>
+    <div class="meta">
+      <div class="vname" id="vname"></div>
+      <div class="vfile" id="vfile"></div>
+    </div>
+    <a class="pop" id="popout" href="#" target="_blank" rel="noopener">Open in new tab <span>↗</span></a>
+  </div>
+  <iframe id="frame" title="Cheat sheet" src="about:blank"></iframe>
+</div>
+ 
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   YOUR LINKS — this is the only part you need to edit.
+ 
+   Add a page by pasting its URL as a new line in quotes, with a
+   comma after it. A title is generated from the file name, so
+   "bevy-0.19-cheatsheet.html" becomes "Bevy 0.19 Cheat Sheet".
+ 
+   Want a different title? Use  {url:"file.html", title:"My Title"}
+   Want a new section? Add a new "Section name": [ ... ] block.
+   ═══════════════════════════════════════════════════════════════ */
+const LINKS = {
+  "Bevy · Rust · WGPU": [
+    "bevy-0.19-cheatsheet.html",
+    "bevy-0.19-first-project.html",
+    "bevy-0.19-raytracing-cheatsheet.html",
+    "bevy-character-controller-cheatsheet.html",
+    "bevy-rapier-character-guide.html",
+    "wgpu-winit-hello-triangle-macos.html",
+    "wgsl-cheatsheet.html",
+    "raymarching-wgsl-cheatsheet.html"
+  ],
+  "Godot": [
+    "godot-gdscript-cheatsheet.html"
+  ]
+};
+ 
+/* ═══════════════════════════════════════════════════════════════
+   Below here is machinery. You shouldn't need to touch it.
+   ═══════════════════════════════════════════════════════════════ */
+(function () {
+  "use strict";
+ 
+  var ACCENTS = ["var(--flux)", "var(--port)", "var(--warn)"];
+  var ADDED_ACCENT = "var(--beam)";
+  var ADDED_GROUP = "Added by you";
+  var KEY = "cheatsheets:extra-links";
+ 
+  var shelf = document.getElementById("shelf");
+  var empty = document.getElementById("empty");
+  var filter = document.getElementById("filter");
+ 
+  /* ---- storage (falls back to memory if localStorage is blocked) ---- */
+  var memory = [];
+  function loadExtra() {
+    try { return JSON.parse(localStorage.getItem(KEY) || "[]"); }
+    catch (e) { return memory; }
+  }
+  function saveExtra(list) {
+    memory = list;
+    try { localStorage.setItem(KEY, JSON.stringify(list)); } catch (e) {}
+  }
+ 
+  /* ---- url + title helpers ---- */
+  function baseHref() { return location.href.split(/[?#]/)[0].replace(/[^/]*$/, ""); }
+ 
+  function normalize(raw) {
+    var u = String(raw || "").trim();
+    if (!u) return "";
+    try {
+      var abs = new URL(u, location.href);
+      if (abs.origin !== location.origin) return abs.href;
+      var base = baseHref();
+      return abs.href.indexOf(base) === 0 ? abs.href.slice(base.length) : abs.pathname + abs.search;
+    } catch (e) { return u; }
+  }
+ 
+  function isLocal(u) { return !/^([a-z]+:)?\/\//i.test(u); }
+ 
+  var CAPS = {
+    wgsl: "WGSL", wgpu: "WGPU", gpu: "GPU", cpu: "CPU", api: "API", ui: "UI",
+    ecs: "ECS", sdf: "SDF", pbr: "PBR", gdscript: "GDScript", macos: "macOS",
+    ios: "iOS", "2d": "2D", "3d": "3D", cheatsheet: "Cheat Sheet",
+    bevy: "Bevy", godot: "Godot", rust: "Rust", rapier: "Rapier", winit: "winit"
+  };
+ 
+  function titleFrom(url) {
+    var s = String(url).split(/[?#]/)[0].replace(/\/+$/, "");
+    s = s.split("/").pop() || url;
+    s = s.replace(/\.(x?html?|md|php)$/i, "").replace(/[-_+]+/g, " ").trim();
+    if (!s) return url;
+    return s.split(/\s+/).map(function (w) {
+      var k = w.toLowerCase();
+      if (CAPS[k]) return CAPS[k];
+      if (/^[\d.]/.test(w)) return w;
+      return w.charAt(0).toUpperCase() + w.slice(1);
+    }).join(" ");
+  }
+ 
+  function entry(raw) {
+    var o = (typeof raw === "string") ? { url: raw } : Object.assign({}, raw);
+    o.url = o.url || "";
+    o.title = o.title || titleFrom(o.url);
+    o.file = o.url.split(/[?#]/)[0].split("/").pop() || o.url;
+    return o;
+  }
+ 
+  /* ---- build the model ---- */
+  function model() {
+    var groups = [];
+    Object.keys(LINKS).forEach(function (name) {
+      groups.push({ name: name, items: LINKS[name].map(entry), accent: null, added: false });
     });
-  </script>
+    groups.forEach(function (g, i) { g.accent = ACCENTS[i % ACCENTS.length]; });
+    var extra = loadExtra();
+    if (extra.length) {
+      groups.push({
+        name: ADDED_GROUP, accent: ADDED_ACCENT, added: true,
+        items: extra.map(entry)
+      });
+    }
+    return groups;
+  }
+ 
+  /* ---- render ---- */
+  var ARROW = '<svg class="arrow" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 12 12 4M6 4h6v6"/></svg>';
+ 
+  function render() {
+    var q = filter.value.trim().toLowerCase();
+    var groups = model();
+    var shown = 0;
+    shelf.innerHTML = "";
+ 
+    groups.forEach(function (g) {
+      var hits = g.items.filter(function (it) {
+        return !q || (it.title + " " + it.url).toLowerCase().indexOf(q) > -1;
+      });
+      if (!hits.length) return;
+      shown += hits.length;
+ 
+      var sec = document.createElement("section");
+      sec.className = "group";
+ 
+      var head = document.createElement("div");
+      head.className = "ghead";
+      head.innerHTML = '<h2>' + esc(g.name) + '</h2><span class="rule"></span>' +
+        '<span class="count">' + hits.length + (hits.length === 1 ? " page" : " pages") + '</span>';
+      sec.appendChild(head);
+ 
+      var grid = document.createElement("div");
+      grid.className = "grid";
+ 
+      hits.forEach(function (it) {
+        var slot = document.createElement("div");
+        slot.className = "slot";
+ 
+        var a = document.createElement("a");
+        a.className = "card";
+        a.href = it.url;
+        a.style.setProperty("--accent", g.accent);
+        a.innerHTML =
+          '<span class="file">' + esc(it.file) + '</span>' +
+          '<span class="name">' + esc(it.title) + '</span>' + ARROW;
+ 
+        a.addEventListener("click", function (ev) {
+          if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey || ev.button !== 0) return;
+          if (!isLocal(it.url)) return;   // off-site pages can't be framed — let them open normally
+          ev.preventDefault();
+          openPage(it, true);
+        });
+        slot.appendChild(a);
+ 
+        if (g.added) {
+          var drop = document.createElement("button");
+          drop.className = "drop";
+          drop.type = "button";
+          drop.innerHTML = "&times;";
+          drop.title = "Remove this link";
+          drop.setAttribute("aria-label", "Remove " + it.title);
+          drop.addEventListener("click", function () { removeExtra(it.url); });
+          slot.appendChild(drop);
+        }
+        grid.appendChild(slot);
+      });
+ 
+      sec.appendChild(grid);
+      shelf.appendChild(sec);
+    });
+ 
+    empty.hidden = shown > 0;
+ 
+    var total = groups.reduce(function (n, g) { return n + g.items.length; }, 0);
+    var tag = document.getElementById("tagline");
+    tag.textContent = total + (total === 1 ? " page · " : " pages · ") + "bevy · rust · wgpu · wgsl · godot";
+  }
+ 
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+ 
+  /* ---- add / remove ---- */
+  var addRow = document.getElementById("addrow");
+  var newurl = document.getElementById("newurl");
+ 
+  document.getElementById("toggleAdd").addEventListener("click", function () {
+    var open = addRow.hidden;
+    addRow.hidden = !open;
+    this.setAttribute("aria-expanded", String(open));
+    this.textContent = open ? "− Hide" : "+ Add link";
+    if (open) newurl.focus();
+  });
+ 
+  function addExtra() {
+    var u = normalize(newurl.value);
+    if (!u) { newurl.focus(); return; }
+    var list = loadExtra();
+    var known = [];
+    Object.keys(LINKS).forEach(function (k) {
+      LINKS[k].forEach(function (x) { known.push(typeof x === "string" ? x : x.url); });
+    });
+    if (known.indexOf(u) > -1 || list.indexOf(u) > -1) { newurl.value = ""; return; }
+    list.push(u);
+    saveExtra(list);
+    newurl.value = "";
+    filter.value = "";
+    render();
+  }
+ 
+  function removeExtra(url) {
+    saveExtra(loadExtra().filter(function (u) { return u !== url; }));
+    render();
+  }
+ 
+  document.getElementById("addBtn").addEventListener("click", addExtra);
+  newurl.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); addExtra(); } });
+  filter.addEventListener("input", render);
+ 
+  /* ---- viewer: frames a sub-page and adds a back bar,
+          without changing the sub-page itself ---- */
+  var viewer = document.getElementById("viewer");
+  var frame = document.getElementById("frame");
+  var vname = document.getElementById("vname");
+  var vfile = document.getElementById("vfile");
+  var popout = document.getElementById("popout");
+  var lastFocus = null;
+ 
+  function openPage(it, push) {
+    lastFocus = document.activeElement;
+    vname.textContent = it.title;
+    vfile.textContent = it.file;
+    popout.href = it.url;
+    frame.src = it.url;
+    viewer.hidden = false;
+    document.body.classList.add("locked");
+    document.getElementById("backBtn").focus();
+    openUrl = it.url;
+    if (push) history.pushState({ page: it.url }, "", "#p=" + encodeURIComponent(it.url));
+  }
+ 
+  function closePage(pop) {
+    openUrl = null;
+    viewer.hidden = true;
+    frame.src = "about:blank";
+    document.body.classList.remove("locked");
+    if (pop && location.hash.indexOf("#p=") === 0) history.back();
+    else if (location.hash.indexOf("#p=") === 0) history.replaceState(null, "", location.pathname + location.search);
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+ 
+  document.getElementById("backBtn").addEventListener("click", function () { closePage(true); });
+ 
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !viewer.hidden) { closePage(true); return; }
+    if (e.key === "/" && viewer.hidden && document.activeElement === document.body) {
+      e.preventDefault(); filter.focus();
+    }
+  });
+ 
+  var openUrl = null;
+  function fromHash() {
+    var m = /^#p=(.+)$/.exec(location.hash);
+    if (!m) { openUrl = null; if (!viewer.hidden) closePage(false); return; }
+    var url = decodeURIComponent(m[1]);
+    if (!isLocal(url)) return;
+    if (openUrl === url && !viewer.hidden) return;   // popstate + hashchange both fire
+    openUrl = url;
+    openPage(entry(url), false);
+  }
+  window.addEventListener("popstate", fromHash);
+  window.addEventListener("hashchange", fromHash);
+ 
+  /* ---- header shader: raymarched blobs (WGSL cheat sheet, in the flesh) ---- */
+  function shader() {
+    var c = document.getElementById("fx");
+    var gl;
+    try { gl = c.getContext("webgl", { antialias: false, alpha: true }); } catch (e) {}
+    if (!gl) { c.style.background = "radial-gradient(120% 140% at 20% 0%,#241a3d 0%,#0d1018 62%)"; return; }
+ 
+    var VS = "attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}";
+    var FS = [
+      "precision highp float;",
+      "uniform vec2 res;uniform float t;",
+      "float smin(float a,float b,float k){float h=clamp(.5+.5*(b-a)/k,0.,1.);return mix(b,a,h)-k*h*(1.-h);}",
+      "float map(vec3 p){",
+      " float d=1e5;",
+      " for(int i=0;i<3;i++){float f=float(i);",
+      "  vec3 c=vec3(sin(t*.45+f*2.2)*1.35,sin(t*.33+f*1.7)*.45,cos(t*.39+f*2.7)*.9);",
+      "  d=smin(d,length(p-c)-.72,.95);}",
+      " return smin(d,p.y+1.35,.7);}",
+      "vec3 nrm(vec3 p){vec2 e=vec2(.0015,0.);return normalize(vec3(map(p+e.xyy)-map(p-e.xyy),map(p+e.yxy)-map(p-e.yxy),map(p+e.yyx)-map(p-e.yyx)));}",
+      "void main(){",
+      " vec2 uv=(gl_FragCoord.xy-.5*res)/res.y;",
+      " vec3 ro=vec3(0.,.35,4.3),rd=normalize(vec3(uv,-1.6));",
+      " float d=0.,s=0.;bool hit=false;",
+      " for(int i=0;i<64;i++){s=map(ro+rd*d);if(s<.002){hit=true;break;}d+=s*.9;if(d>12.)break;}",
+      " vec3 col=vec3(0.);",
+      " if(hit){vec3 p=ro+rd*d,n=nrm(p);",
+      "  float lam=max(dot(n,normalize(vec3(.6,.8,.4))),0.);",
+      "  float fres=pow(1.-max(dot(n,-rd),0.),2.5);",
+      "  vec3 a=vec3(.69,.43,.97),b=vec3(.23,.87,.78);",
+      "  col=mix(a,b,clamp(n.y*.5+.5,0.,1.))*(.12+lam*.55)+fres*b*.6;",
+      "  col*=clamp(1.-d*.085,0.,1.);}",
+      " float g=exp(-length(uv-vec2(-.35,.15))*1.5)*.16;",
+      " col+=vec3(.55,.35,.9)*g;",
+      " float al=clamp(max(max(col.r,col.g),col.b)*2.4,0.,1.);",
+      " gl_FragColor=vec4(col,al);}"
+    ].join("\n");
+ 
+    function sh(type, src) {
+      var s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+      return gl.getShaderParameter(s, gl.COMPILE_STATUS) ? s : null;
+    }
+    var vs = sh(gl.VERTEX_SHADER, VS), fs = sh(gl.FRAGMENT_SHADER, FS);
+    if (!vs || !fs) { c.style.background = "radial-gradient(120% 140% at 20% 0%,#241a3d 0%,#0d1018 62%)"; return; }
+    var pr = gl.createProgram();
+    gl.attachShader(pr, vs); gl.attachShader(pr, fs); gl.linkProgram(pr); gl.useProgram(pr);
+ 
+    var buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    var loc = gl.getAttribLocation(pr, "p");
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+ 
+    var uRes = gl.getUniformLocation(pr, "res"), uT = gl.getUniformLocation(pr, "t");
+    var still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+ 
+    function size() {
+      var scale = Math.min(window.devicePixelRatio || 1, 1.5) * (innerWidth < 700 ? .5 : .68);
+      var w = Math.max(1, Math.round(c.clientWidth * scale));
+      var h = Math.max(1, Math.round(c.clientHeight * scale));
+      if (c.width !== w || c.height !== h) { c.width = w; c.height = h; gl.viewport(0, 0, w, h); }
+      gl.uniform2f(uRes, c.width, c.height);
+    }
+ 
+    var start = performance.now(), running = true;
+    function draw(now) {
+      size();
+      gl.uniform1f(uT, still ? 6.2 : (now - start) / 1000);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      if (still || !running) return;
+      requestAnimationFrame(draw);
+    }
+    requestAnimationFrame(draw);
+ 
+    addEventListener("resize", function () { if (still) requestAnimationFrame(draw); });
+    document.addEventListener("visibilitychange", function () {
+      if (still) return;
+      if (document.hidden) { running = false; }
+      else if (!running) { running = true; start = performance.now() - 6200; requestAnimationFrame(draw); }
+    });
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(function (es) {
+        if (still) return;
+        var vis = es[0].isIntersecting;
+        if (!vis) running = false;
+        else if (!running) { running = true; requestAnimationFrame(draw); }
+      }).observe(c);
+    }
+  }
+ 
+  render();
+  fromHash();
+  try { shader(); } catch (e) {}
+})();
+</script>
 </body>
 </html>
