@@ -19,7 +19,7 @@
   --ink:#e2e6f0;       /* primary text */
   --dim:#858da6;       /* secondary text */
   --flux:#b06ef7;      /* bevy / rust / wgpu */
-  --beam:#3adfc8;      /* added by you */
+  --beam:#3adfc8;      /* focus */
   --port:#5aa9e6;      /* godot */
   --warn:#e8b04b;
   --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
@@ -65,10 +65,10 @@ h1 .caret{color:var(--flux)}
   border-radius:3px;padding:6px 11px;background:rgba(232,176,75,.06);
 }
 
-/* ── toolbar ──────────────────────────────────────────────── */
-.tools{display:flex;gap:10px;flex-wrap:wrap;padding-top:34px}
+/* ── filter ───────────────────────────────────────────────── */
+.tools{padding-top:34px}
 .field{
-  flex:1 1 240px;min-width:0;display:flex;align-items:center;gap:10px;
+  display:flex;align-items:center;gap:10px;max-width:420px;
   background:var(--panel);border:1px solid var(--edge);border-radius:4px;padding:0 12px;
 }
 .field svg{flex:none;color:var(--dim)}
@@ -79,23 +79,9 @@ h1 .caret{color:var(--flux)}
 .field input::placeholder{color:#5d6580}
 .field input:focus{outline:none}
 .field:focus-within{border-color:var(--flux)}
-.btn{
-  font-family:var(--mono);font-size:.78rem;letter-spacing:.06em;
-  background:var(--panel);color:var(--ink);border:1px solid var(--edge);
-  border-radius:4px;padding:0 16px;height:44px;cursor:pointer;white-space:nowrap;
-  transition:border-color .15s,color .15s;
-}
-.btn:hover{border-color:var(--beam);color:var(--beam)}
-.btn.go{border-color:var(--beam);color:var(--beam)}
-.addrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
-.hint{
-  font-family:var(--mono);font-size:.72rem;color:var(--dim);
-  margin:10px 0 0;flex-basis:100%;
-}
-.hint b{color:var(--beam);font-weight:500}
 
 /* ── shelf ────────────────────────────────────────────────── */
-main{padding-bottom:80px}
+main{padding-bottom:96px}
 .group{margin-top:52px}
 .ghead{display:flex;align-items:center;gap:16px;margin-bottom:16px}
 .ghead h2{
@@ -105,7 +91,6 @@ main{padding-bottom:80px}
 .ghead .rule{flex:1;height:1px;background:var(--edge)}
 .ghead .count{font-family:var(--mono);font-size:.72rem;color:var(--dim)}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(258px,1fr));gap:12px}
-.slot{position:relative}
 
 .card{
   position:relative;display:block;text-decoration:none;overflow:hidden;
@@ -131,27 +116,25 @@ main{padding-bottom:80px}
   opacity:0;transform:translateX(-4px);transition:opacity .15s,transform .15s;
 }
 .card:hover .arrow,.card:focus-visible .arrow{opacity:1;transform:none}
-.drop{
-  position:absolute;right:8px;top:8px;z-index:2;width:24px;height:24px;line-height:1;padding:0;
-  border:1px solid var(--edge);background:var(--void);color:var(--dim);
-  border-radius:3px;cursor:pointer;font-family:var(--mono);font-size:.8rem;
-  opacity:0;transition:opacity .15s;
-}
-.slot:hover .drop,.drop:focus-visible{opacity:1}
-.drop:hover{color:#ff6b6b;border-color:#ff6b6b}
 
 .empty{
   font-family:var(--mono);font-size:.85rem;color:var(--dim);
   border:1px dashed var(--edge);border-radius:4px;padding:28px;text-align:center;margin-top:52px;
 }
+.empty b{color:var(--ink);font-weight:500}
 
-footer{
-  border-top:1px solid var(--edge);padding:24px 0 40px;
-  font-family:var(--mono);font-size:.72rem;color:var(--dim);
+/* ── footer ───────────────────────────────────────────────── */
+footer{border-top:1px solid var(--edge);margin-top:24px}
+footer .wrap{
+  display:flex;flex-wrap:wrap;gap:14px 28px;align-items:center;
+  padding-top:40px;padding-bottom:72px;
+  font-family:var(--mono);font-size:.72rem;letter-spacing:.04em;color:var(--dim);
 }
+footer .keys{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center}
+footer .sep{flex:1}
 kbd{
   font-family:var(--mono);font-size:.68rem;border:1px solid var(--edge);
-  border-bottom-width:2px;border-radius:3px;padding:1px 5px;color:var(--ink);
+  border-bottom-width:2px;border-radius:3px;padding:2px 6px;margin-right:6px;color:var(--ink);
 }
 
 /* ── viewer (the back-button frame) ───────────────────────── */
@@ -180,10 +163,12 @@ kbd{
 }
 .vbar .pop:hover{color:var(--beam);border-color:var(--beam)}
 #frame{flex:1;width:100%;border:0;background:var(--void)}
+
 @media (max-width:560px){
   .vbar .vfile{display:none}
   .vbar .pop span{display:none}
   .hero .wrap{padding-top:64px}
+  footer .wrap{padding-bottom:56px}
 }
 @media (prefers-reduced-motion:reduce){
   *{animation:none!important;transition:none!important}
@@ -208,24 +193,21 @@ kbd{
       <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg>
       <input id="filter" type="search" placeholder="Filter pages…" autocomplete="off" aria-label="Filter pages">
     </label>
-    <button class="btn" id="toggleAdd" aria-expanded="false" aria-controls="addrow">+ Add link</button>
-  </div>
-
-  <div class="addrow" id="addrow" hidden>
-    <label class="field" for="newurl" style="flex:1 1 320px">
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M6.5 9.5 9.5 6.5M7 4.5 8.6 2.9a2.7 2.7 0 0 1 3.8 3.8L10.8 8.3M9 11.5l-1.6 1.6a2.7 2.7 0 0 1-3.8-3.8L5.2 7.7"/></svg>
-      <input id="newurl" type="url" placeholder="Paste a URL, then press Enter" autocomplete="off" aria-label="URL to add">
-    </label>
-    <button class="btn go" id="addBtn">Add link</button>
-    <p class="hint">Saved in this browser only. To publish a link for everyone, paste it into the <b>LINKS</b> list near the top of index.html.</p>
   </div>
 
   <div id="shelf"></div>
   <p class="empty" id="empty" hidden>Nothing matches that. Try <b>wgsl</b>, <b>bevy</b> or <b>godot</b>.</p>
 </main>
 
-<footer class="wrap">
-  Press <kbd>/</kbd> to filter · <kbd>Esc</kbd> to leave a page
+<footer>
+  <div class="wrap">
+    <div class="keys">
+      <span><kbd>/</kbd>filter</span>
+      <span><kbd>Esc</kbd>leave a page</span>
+    </div>
+    <span class="sep"></span>
+    <span>Add pages in the LINKS list at the top of index.html</span>
+  </div>
 </footer>
 
 <div id="viewer" hidden role="dialog" aria-modal="true" aria-label="Page viewer">
@@ -276,39 +258,11 @@ const LINKS = {
 (function () {
   "use strict";
 
-  var ACCENTS = ["var(--flux)", "var(--port)", "var(--warn)"];
-  var ADDED_ACCENT = "var(--beam)";
-  var ADDED_GROUP = "Added by you";
-  var KEY = "cheatsheets:extra-links";
+  var ACCENTS = ["var(--flux)", "var(--port)", "var(--warn)", "var(--beam)"];
 
   var shelf = document.getElementById("shelf");
   var empty = document.getElementById("empty");
   var filter = document.getElementById("filter");
-
-  /* ---- storage (falls back to memory if localStorage is blocked) ---- */
-  var memory = [];
-  function loadExtra() {
-    try { return JSON.parse(localStorage.getItem(KEY) || "[]"); }
-    catch (e) { return memory; }
-  }
-  function saveExtra(list) {
-    memory = list;
-    try { localStorage.setItem(KEY, JSON.stringify(list)); } catch (e) {}
-  }
-
-  /* ---- url + title helpers ---- */
-  function baseHref() { return location.href.split(/[?#]/)[0].replace(/[^/]*$/, ""); }
-
-  function normalize(raw) {
-    var u = String(raw || "").trim();
-    if (!u) return "";
-    try {
-      var abs = new URL(u, location.href);
-      if (abs.origin !== location.origin) return abs.href;
-      var base = baseHref();
-      return abs.href.indexOf(base) === 0 ? abs.href.slice(base.length) : abs.pathname + abs.search;
-    } catch (e) { return u; }
-  }
 
   function isLocal(u) { return !/^([a-z]+:)?\/\//i.test(u); }
 
@@ -340,25 +294,19 @@ const LINKS = {
     return o;
   }
 
-  /* ---- build the model ---- */
   function model() {
-    var groups = [];
-    Object.keys(LINKS).forEach(function (name) {
-      groups.push({ name: name, items: LINKS[name].map(entry), accent: null, added: false });
+    return Object.keys(LINKS).map(function (name, i) {
+      return { name: name, accent: ACCENTS[i % ACCENTS.length], items: LINKS[name].map(entry) };
     });
-    groups.forEach(function (g, i) { g.accent = ACCENTS[i % ACCENTS.length]; });
-    var extra = loadExtra();
-    if (extra.length) {
-      groups.push({
-        name: ADDED_GROUP, accent: ADDED_ACCENT, added: true,
-        items: extra.map(entry)
-      });
-    }
-    return groups;
   }
 
-  /* ---- render ---- */
   var ARROW = '<svg class="arrow" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 12 12 4M6 4h6v6"/></svg>';
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
 
   function render() {
     var q = filter.value.trim().toLowerCase();
@@ -386,9 +334,6 @@ const LINKS = {
       grid.className = "grid";
 
       hits.forEach(function (it) {
-        var slot = document.createElement("div");
-        slot.className = "slot";
-
         var a = document.createElement("a");
         a.className = "card";
         a.href = it.url;
@@ -403,19 +348,7 @@ const LINKS = {
           ev.preventDefault();
           openPage(it, true);
         });
-        slot.appendChild(a);
-
-        if (g.added) {
-          var drop = document.createElement("button");
-          drop.className = "drop";
-          drop.type = "button";
-          drop.innerHTML = "&times;";
-          drop.title = "Remove this link";
-          drop.setAttribute("aria-label", "Remove " + it.title);
-          drop.addEventListener("click", function () { removeExtra(it.url); });
-          slot.appendChild(drop);
-        }
-        grid.appendChild(slot);
+        grid.appendChild(a);
       });
 
       sec.appendChild(grid);
@@ -425,51 +358,10 @@ const LINKS = {
     empty.hidden = shown > 0;
 
     var total = groups.reduce(function (n, g) { return n + g.items.length; }, 0);
-    var tag = document.getElementById("tagline");
-    tag.textContent = total + (total === 1 ? " page · " : " pages · ") + "bevy · rust · wgpu · wgsl · godot";
+    document.getElementById("tagline").textContent =
+      total + (total === 1 ? " page · " : " pages · ") + "bevy · rust · wgpu · wgsl · godot";
   }
 
-  function esc(s) {
-    return String(s).replace(/[&<>"']/g, function (c) {
-      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
-    });
-  }
-
-  /* ---- add / remove ---- */
-  var addRow = document.getElementById("addrow");
-  var newurl = document.getElementById("newurl");
-
-  document.getElementById("toggleAdd").addEventListener("click", function () {
-    var open = addRow.hidden;
-    addRow.hidden = !open;
-    this.setAttribute("aria-expanded", String(open));
-    this.textContent = open ? "− Hide" : "+ Add link";
-    if (open) newurl.focus();
-  });
-
-  function addExtra() {
-    var u = normalize(newurl.value);
-    if (!u) { newurl.focus(); return; }
-    var list = loadExtra();
-    var known = [];
-    Object.keys(LINKS).forEach(function (k) {
-      LINKS[k].forEach(function (x) { known.push(typeof x === "string" ? x : x.url); });
-    });
-    if (known.indexOf(u) > -1 || list.indexOf(u) > -1) { newurl.value = ""; return; }
-    list.push(u);
-    saveExtra(list);
-    newurl.value = "";
-    filter.value = "";
-    render();
-  }
-
-  function removeExtra(url) {
-    saveExtra(loadExtra().filter(function (u) { return u !== url; }));
-    render();
-  }
-
-  document.getElementById("addBtn").addEventListener("click", addExtra);
-  newurl.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); addExtra(); } });
   filter.addEventListener("input", render);
 
   /* ---- viewer: frames a sub-page and adds a back bar,
@@ -480,6 +372,7 @@ const LINKS = {
   var vfile = document.getElementById("vfile");
   var popout = document.getElementById("popout");
   var lastFocus = null;
+  var openUrl = null;
 
   function openPage(it, push) {
     lastFocus = document.activeElement;
@@ -513,20 +406,18 @@ const LINKS = {
     }
   });
 
-  var openUrl = null;
   function fromHash() {
     var m = /^#p=(.+)$/.exec(location.hash);
     if (!m) { openUrl = null; if (!viewer.hidden) closePage(false); return; }
     var url = decodeURIComponent(m[1]);
     if (!isLocal(url)) return;
     if (openUrl === url && !viewer.hidden) return;   // popstate + hashchange both fire
-    openUrl = url;
     openPage(entry(url), false);
   }
   window.addEventListener("popstate", fromHash);
   window.addEventListener("hashchange", fromHash);
 
-  /* ---- header shader: raymarched blobs (WGSL cheat sheet, in the flesh) ---- */
+  /* ---- header shader: raymarched blobs ---- */
   function shader() {
     var c = document.getElementById("fx");
     var gl;
