@@ -1,0 +1,1532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bevy 0.19 · glTF → Raytracing → Buffers</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ─────────────────────────────────────────────────────────────
+   TOKENS
+   The page is split by *world*: pale slate = CPU / main world,
+   dark slab = GPU. Accents encode which side of the PCIe bus
+   a given block of code actually executes on.
+   ───────────────────────────────────────────────────────────── */
+:root{
+  --paper:      #e8ecf2;
+  --paper-2:    #f3f6fa;
+  --ink:        #151b2d;
+  --ink-soft:   #4d5871;
+  --rule:       #c4ccda;
+  --slab:       #171e33;
+  --slab-2:     #10162a;
+
+  --cpu:        #5b44d9;   /* main world / Rust  */
+  --gpu:        #0d8f8e;   /* render world / WGSL */
+  --warn:       #a8500b;   /* breaking change    */
+
+  --c-base:     #c9d2e6;
+  --c-comment:  #626f8f;
+  --c-key:      #a48bff;
+  --c-type:     #46c4be;
+  --c-str:      #e3b778;
+  --c-num:      #f0866b;
+  --c-attr:     #e8b84b;
+  --c-fn:       #7fa6f0;
+
+  --f-display:  "Bricolage Grotesque", "Helvetica Neue", sans-serif;
+  --f-body:     "IBM Plex Sans", system-ui, sans-serif;
+  --f-mono:     "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --rail-w: 244px;
+  --pad:    clamp(1.1rem, 4vw, 2.75rem);
+}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth; scroll-padding-top:96px}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--f-body);
+  font-size:16px;
+  line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ── Masthead ─────────────────────────────────────────────── */
+.masthead{
+  position:sticky; top:0; z-index:60;
+  display:flex; align-items:center; gap:.9rem;
+  padding:.7rem var(--pad);
+  background:rgba(232,236,242,.88);
+  backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--rule);
+}
+.mark{
+  font-family:var(--f-mono); font-size:.7rem; font-weight:700;
+  letter-spacing:.14em; text-transform:uppercase;
+  color:var(--ink);
+  border:1.5px solid var(--ink); border-radius:2px;
+  padding:.24rem .46rem; white-space:nowrap;
+}
+.masthead h1{
+  font-family:var(--f-display); font-size:.98rem; font-weight:600;
+  margin:0; letter-spacing:-.01em; line-height:1.2;
+}
+.masthead h1 span{color:var(--ink-soft); font-weight:400}
+.ver{
+  margin-left:auto; font-family:var(--f-mono); font-size:.68rem;
+  font-weight:700; letter-spacing:.06em;
+  background:var(--cpu); color:#fff;
+  padding:.28rem .55rem; border-radius:2px; white-space:nowrap;
+}
+
+/* ── Shell ────────────────────────────────────────────────── */
+.shell{
+  display:grid; grid-template-columns:var(--rail-w) minmax(0,1fr);
+  gap:clamp(1.5rem,4vw,3.5rem);
+  max-width:1420px; margin:0 auto; padding:0 var(--pad) 6rem;
+}
+
+/* ── Binding rail (the signature) ─────────────────────────── */
+.rail{position:sticky; top:74px; align-self:start; padding-top:2.4rem}
+.rail-hd{
+  font-family:var(--f-mono); font-size:.62rem; font-weight:700;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--ink-soft);
+  padding-bottom:.55rem; margin-bottom:.55rem;
+  border-bottom:1.5px solid var(--ink);
+}
+.slot{
+  display:grid; grid-template-columns:2.6rem 1fr; align-items:baseline;
+  gap:.5rem; padding:.5rem .4rem .5rem 0;
+  border-bottom:1px solid var(--rule);
+  color:var(--ink); text-decoration:none;
+  transition:background .16s ease, padding-left .16s ease;
+}
+.slot:hover{background:var(--paper-2); padding-left:.35rem}
+.slot-n{
+  font-family:var(--f-mono); font-size:.64rem; font-weight:700;
+  color:var(--ink-soft); letter-spacing:.02em;
+}
+.slot-t{font-size:.83rem; font-weight:500; line-height:1.35}
+.slot.is-active{background:var(--ink); padding-left:.35rem}
+.slot.is-active .slot-t{color:var(--paper)}
+.slot.is-active .slot-n{color:var(--c-type)}
+.rail-foot{
+  margin-top:1.4rem; font-size:.72rem; color:var(--ink-soft);
+  line-height:1.5;
+}
+.rail-foot b{display:block; font-family:var(--f-mono); font-size:.6rem;
+  letter-spacing:.14em; text-transform:uppercase; margin-bottom:.4rem}
+.key{display:flex; align-items:center; gap:.4rem; margin-bottom:.22rem}
+.dot{width:9px; height:9px; border-radius:1px; flex:none}
+
+/* ── Hero ─────────────────────────────────────────────────── */
+.hero{padding:3.2rem 0 2.2rem}
+.eyebrow{
+  font-family:var(--f-mono); font-size:.66rem; font-weight:700;
+  letter-spacing:.18em; text-transform:uppercase; color:var(--gpu);
+  margin-bottom:1rem;
+}
+.hero h2{
+  font-family:var(--f-display);
+  font-size:clamp(2.1rem, 6.2vw, 4.1rem);
+  font-weight:800; line-height:.98; letter-spacing:-.035em;
+  margin:0 0 1.2rem; max-width:17ch;
+}
+.hero h2 em{font-style:normal; color:var(--cpu)}
+.lede{font-size:clamp(1rem,1.9vw,1.16rem); max-width:60ch; color:var(--ink-soft); margin:0}
+.lede strong{color:var(--ink); font-weight:600}
+
+/* group(0) diagram */
+.layout{
+  margin:2.6rem 0 0; border:1.5px solid var(--ink); border-radius:3px;
+  background:var(--paper-2); overflow:hidden;
+}
+.layout-hd{
+  display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;
+  font-family:var(--f-mono); font-size:.68rem; font-weight:700;
+  letter-spacing:.06em;
+  padding:.5rem .8rem; background:var(--ink); color:var(--paper);
+}
+.layout-hd i{font-style:normal; color:var(--c-type)}
+.layout-hd small{margin-left:auto; font-weight:400; color:#98a3bd; letter-spacing:.02em}
+.bindings{display:grid; grid-template-columns:repeat(auto-fit,minmax(168px,1fr))}
+.binding{
+  padding:.85rem .9rem; border-right:1px solid var(--rule);
+  border-top:1px solid var(--rule);
+  text-decoration:none; color:var(--ink); display:block;
+  transition:background .16s ease;
+}
+.binding:hover{background:#fff}
+.binding:last-child{border-right:0}
+.binding b{
+  display:block; font-family:var(--f-mono); font-size:.63rem;
+  color:var(--gpu); font-weight:700; margin-bottom:.3rem; letter-spacing:.02em;
+}
+.binding span{font-size:.83rem; font-weight:500; line-height:1.35; display:block}
+.binding i{display:block; font-style:normal; font-size:.72rem; color:var(--ink-soft); margin-top:.22rem}
+
+/* ── Sections ─────────────────────────────────────────────── */
+.sec{padding:3.4rem 0 .5rem; border-top:1.5px solid var(--ink); margin-top:2.6rem}
+.sec-n{
+  font-family:var(--f-mono); font-size:.66rem; font-weight:700;
+  letter-spacing:.14em; color:var(--ink-soft); margin-bottom:.5rem;
+}
+.sec h3{
+  font-family:var(--f-display); font-size:clamp(1.5rem,3.6vw,2.3rem);
+  font-weight:800; letter-spacing:-.028em; line-height:1.06;
+  margin:0 0 .85rem; max-width:22ch;
+}
+.sec h4{
+  font-family:var(--f-display); font-size:1.06rem; font-weight:600;
+  letter-spacing:-.012em; margin:2.4rem 0 .7rem;
+  padding-bottom:.3rem; border-bottom:1px solid var(--rule);
+}
+.sec p{max-width:68ch; margin:0 0 1rem}
+.sec ul,.sec ol{max-width:66ch; margin:0 0 1.1rem; padding-left:1.15rem}
+.sec li{margin-bottom:.34rem}
+.sec a{color:var(--cpu); text-underline-offset:2px}
+
+code.inl{
+  font-family:var(--f-mono); font-size:.86em;
+  background:#dde3ed; border:1px solid var(--rule);
+  padding:.05em .3em; border-radius:2px; white-space:nowrap;
+}
+
+/* ── Code figures ─────────────────────────────────────────── */
+figure.code{margin:1.3rem 0 1.5rem; border-radius:3px; overflow:hidden;
+  border:1px solid var(--slab-2); background:var(--slab)}
+.code-hd{
+  display:flex; align-items:center; gap:.55rem; flex-wrap:wrap;
+  padding:.42rem .7rem; background:var(--slab-2);
+  border-bottom:1px solid #232c47;
+}
+.tag{
+  font-family:var(--f-mono); font-size:.6rem; font-weight:700;
+  letter-spacing:.11em; text-transform:uppercase;
+  padding:.2rem .42rem; border-radius:2px; color:#fff; white-space:nowrap;
+}
+.tag.main{background:var(--cpu)}
+.tag.render{background:#2f6fd0}
+.tag.gpu{background:var(--gpu)}
+.tag.manifest{background:#5b6478}
+.fname{font-family:var(--f-mono); font-size:.7rem; color:#8b97b5; white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis}
+.copy{
+  margin-left:auto; font-family:var(--f-mono); font-size:.62rem; font-weight:700;
+  letter-spacing:.08em; text-transform:uppercase;
+  background:transparent; color:#8b97b5; cursor:pointer;
+  border:1px solid #2e3855; border-radius:2px;
+  padding:.2rem .45rem; transition:color .15s, border-color .15s;
+}
+.copy:hover{color:var(--c-type); border-color:var(--c-type)}
+.copy.done{color:#6ede8a; border-color:#6ede8a}
+figure.code pre{
+  margin:0; padding:.95rem 1rem; overflow-x:auto;
+  font-family:var(--f-mono); font-size:.795rem; line-height:1.62;
+  color:var(--c-base); tab-size:4;
+}
+.t-c{color:var(--c-comment); font-style:italic}
+.t-k{color:var(--c-key)}
+.t-y{color:var(--c-type)}
+.t-s{color:var(--c-str)}
+.t-n{color:var(--c-num)}
+.t-a{color:var(--c-attr)}
+.t-f{color:var(--c-fn)}
+
+/* ── Callouts ─────────────────────────────────────────────── */
+.note,.warn,.req{
+  margin:1.3rem 0; padding:.85rem 1rem;
+  border-left:3px solid; border-radius:0 3px 3px 0;
+  font-size:.9rem; max-width:70ch;
+}
+.note{background:#e0e7f1; border-color:var(--cpu)}
+.warn{background:#f5e7d8; border-color:var(--warn)}
+.req{background:#dcefee; border-color:var(--gpu)}
+.note p,.warn p,.req p{margin:0 0 .5rem; max-width:none}
+.note p:last-child,.warn p:last-child,.req p:last-child{margin-bottom:0}
+.cl-hd{
+  display:block; font-family:var(--f-mono); font-size:.62rem; font-weight:700;
+  letter-spacing:.13em; text-transform:uppercase; margin-bottom:.4rem;
+}
+.note .cl-hd{color:var(--cpu)}
+.warn .cl-hd{color:var(--warn)}
+.req .cl-hd{color:var(--gpu)}
+.note ul,.warn ul,.req ul{margin:.4rem 0 0; max-width:none}
+
+/* ── Tables ───────────────────────────────────────────────── */
+.tw{overflow-x:auto; margin:1.3rem 0 1.6rem;
+  border:1px solid var(--rule); border-radius:3px; background:var(--paper-2)}
+table{border-collapse:collapse; width:100%; font-size:.845rem; min-width:520px}
+th{
+  text-align:left; font-family:var(--f-mono); font-size:.62rem; font-weight:700;
+  letter-spacing:.11em; text-transform:uppercase;
+  padding:.6rem .8rem; background:var(--ink); color:var(--paper);
+  white-space:nowrap;
+}
+td{padding:.55rem .8rem; border-top:1px solid var(--rule); vertical-align:top}
+tbody tr:nth-child(even){background:#eef2f7}
+td code,th code{font-family:var(--f-mono); font-size:.88em}
+.old{color:var(--warn); text-decoration:line-through; text-decoration-thickness:1px}
+.new{color:var(--cpu); font-weight:600}
+
+/* ── Footer ───────────────────────────────────────────────── */
+.foot{
+  grid-column:1/-1; margin-top:4rem; padding-top:1.4rem;
+  border-top:1.5px solid var(--ink);
+  font-size:.78rem; color:var(--ink-soft); max-width:74ch;
+}
+.foot a{color:var(--cpu)}
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width:1040px){
+  .shell{grid-template-columns:minmax(0,1fr); gap:0}
+  .rail{
+    position:sticky; top:53px; padding:0; margin:0 calc(var(--pad)*-1);
+    background:var(--paper); border-bottom:1px solid var(--rule); z-index:50;
+  }
+  .rail-hd,.rail-foot{display:none}
+  .rail nav{display:flex; overflow-x:auto; scrollbar-width:none; padding:0 var(--pad)}
+  .rail nav::-webkit-scrollbar{display:none}
+  .slot{
+    grid-template-columns:auto; gap:0; border-bottom:0;
+    border-right:1px solid var(--rule); padding:.55rem .8rem; white-space:nowrap;
+  }
+  .slot:first-child{padding-left:0}
+  .slot-n{display:none}
+  .slot.is-active{padding-left:.8rem}
+  .slot:first-child.is-active{padding-left:.5rem}
+  .hero{padding:2.2rem 0 1.4rem}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *{transition:none !important; animation:none !important}
+}
+:focus-visible{outline:2.5px solid var(--cpu); outline-offset:2px}
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <span class="mark">Bevy</span>
+  <h1>Blank project → glTF → raytracing <span>· a working reference</span></h1>
+  <span class="ver">0.19</span>
+</header>
+
+<div class="shell">
+
+  <aside class="rail">
+    <div class="rail-hd">@group(0)</div>
+    <nav>
+      <a class="slot" href="#s0"><span class="slot-n">@0</span><span class="slot-t">Project setup</span></a>
+      <a class="slot" href="#s1"><span class="slot-n">@1</span><span class="slot-t">Loading .glb models</span></a>
+      <a class="slot" href="#s2"><span class="slot-n">@2</span><span class="slot-t">Raytracing with Solari</span></a>
+      <a class="slot" href="#s3"><span class="slot-n">@3</span><span class="slot-t">Your own WGSL raytracer</span></a>
+      <a class="slot" href="#s4"><span class="slot-n">@4</span><span class="slot-t">Pushing data to buffers</span></a>
+      <a class="slot" href="#s5"><span class="slot-n">@5</span><span class="slot-t">0.18 → 0.19 renames</span></a>
+    </nav>
+    <div class="rail-foot">
+      <b>Code runs in</b>
+      <div class="key"><span class="dot" style="background:var(--cpu)"></span>Main world</div>
+      <div class="key"><span class="dot" style="background:#2f6fd0"></span>Render world</div>
+      <div class="key"><span class="dot" style="background:var(--gpu)"></span>GPU / WGSL</div>
+      <div class="key"><span class="dot" style="background:#5b6478"></span>Manifest</div>
+    </div>
+  </aside>
+
+  <main>
+
+  <!-- ══════════════ HERO ══════════════ -->
+  <section class="hero">
+    <div class="eyebrow">Rust · Bevy 0.19 · wgpu</div>
+    <h2>Four bindings between <em>cargo new</em> and a raytraced frame.</h2>
+    <p class="lede">Every block on this page is tagged with the world it executes in — <strong>main</strong>, <strong>render</strong>, or <strong>GPU</strong>. That distinction is the thing people get wrong, and 0.19 moved the boundary: the render graph is now a schedule, and half the scene API changed its name.</p>
+
+    <div class="layout">
+      <div class="layout-hd">
+        <span>var&lt;layout&gt; <i>guide</i>: BindGroupLayout</span>
+        <small>tap a slot to jump</small>
+      </div>
+      <div class="bindings">
+        <a class="binding" href="#s1"><b>@binding(1)</b><span>glTF / GLB</span><i>Asset → entity hierarchy</i></a>
+        <a class="binding" href="#s2"><b>@binding(2)</b><span>Solari</span><i>Hardware RT, batteries included</i></a>
+        <a class="binding" href="#s3"><b>@binding(3)</b><span>Compute raytracer</span><i>Your WGSL, your pipeline</i></a>
+        <a class="binding" href="#s4"><b>@binding(4)</b><span>Buffers</span><i>CPU → GPU, four ways</i></a>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ══════════════ 0 · SETUP ══════════════ -->
+  <section class="sec" id="s0">
+    <div class="sec-n">@binding(0) · foundation</div>
+    <h3>Project setup</h3>
+    <p>Bevy compiles slowly if you leave the defaults alone. The two profile overrides below matter more than anything else you will do this week — they build your dependencies optimised while keeping your own crate fast to recompile.</p>
+
+    <figure class="code" data-lang="toml" data-world="manifest" data-file="Cargo.toml">
+<script type="text/plain">
+[package]
+name = "rt_demo"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# bevy_solari is opt-in: it pulls in hardware raytracing support.
+bevy = { version = "0.19", features = ["bevy_solari"] }
+
+# Build dependencies with full optimisation, our own crate with a little.
+# Without this, Bevy runs at single-digit FPS in a debug build.
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.dev]
+opt-level = 1
+</script>
+    </figure>
+
+    <p>For fast iteration, link Bevy dynamically instead of statically. Do not ship a release build with this flag — it requires the <code class="inl">.so</code>/<code class="inl">.dll</code> to sit next to your binary.</p>
+
+    <figure class="code" data-lang="bash" data-world="manifest" data-file="terminal">
+<script type="text/plain">
+cargo run --features bevy/dynamic_linking
+</script>
+    </figure>
+
+    <div class="warn">
+      <span class="cl-hd">Changed in 0.19 — feature collections</span>
+      <p>The <code class="inl">3d</code>, <code class="inl">2d</code> and <code class="inl">ui</code> collections no longer imply <code class="inl">audio</code>, and <code class="inl">3d</code>/<code class="inl">2d</code> no longer imply <code class="inl">ui</code>. If you build with <code class="inl">default-features = false</code> and your audio or UI silently vanished, add those features back explicitly.</p>
+    </div>
+
+    <h4>The smallest app that draws something</h4>
+    <p>A 3D scene needs three things on screen: a camera, a light, and geometry. Everything else in Bevy is a component you add to those.</p>
+
+    <figure class="code" data-lang="rust" data-world="main" data-file="src/main.rs">
+<script type="text/plain">
+use bevy::prelude::*;
+
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .add_systems(Startup, setup)
+        .run();
+}
+
+fn setup(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(3.0, 3.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
+
+    commands.spawn((
+        DirectionalLight {
+            illuminance: light_consts::lux::OVERCAST_DAY,
+            shadow_maps_enabled: true,   // renamed from `shadows_enabled` in 0.19
+            ..default()
+        },
+        Transform::from_xyz(4.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
+
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::srgb(0.8, 0.75, 0.7),
+            perceptual_roughness: 0.4,
+            ..default()
+        })),
+    ));
+}
+</script>
+    </figure>
+
+    <div class="note">
+      <span class="cl-hd">Required components</span>
+      <p>You never spawn a <code class="inl">Transform</code> alongside <code class="inl">Mesh3d</code> because you have to — <code class="inl">Mesh3d</code> requires it, so Bevy inserts a default one. Same for <code class="inl">Camera3d</code> and its <code class="inl">Camera</code>, <code class="inl">Projection</code>, <code class="inl">Msaa</code>. Spawn a component explicitly only when you want to override the default.</p>
+    </div>
+  </section>
+
+
+  <!-- ══════════════ 1 · GLTF ══════════════ -->
+  <section class="sec" id="s1">
+    <div class="sec-n">@binding(1) · assets</div>
+    <h3>Loading .glb models</h3>
+    <p>Bevy reads <code class="inl">.gltf</code> and <code class="inl">.glb</code> out of the box. A single glTF file is not one asset — it is a bundle of sub-assets (scenes, meshes, materials, animations) that you address individually with a label.</p>
+
+    <p>Assets resolve relative to an <code class="inl">assets/</code> folder next to <code class="inl">Cargo.toml</code>:</p>
+
+    <figure class="code" data-lang="bash" data-world="manifest" data-file="project layout">
+<script type="text/plain">
+rt_demo/
+├── Cargo.toml
+├── assets/
+│   ├── models/
+│   │   └── helmet.glb
+│   └── shaders/
+│       └── raytrace.wgsl
+└── src/
+    └── main.rs
+</script>
+    </figure>
+
+    <div class="warn">
+      <span class="cl-hd">Changed in 0.19 — this is the big one</span>
+      <p>The old <code class="inl">bevy_scene</code> crate was renamed to <code class="inl">bevy_world_serialization</code> to make room for the new BSN scene system, and its types were renamed with it. To spawn a glTF scene you now use <span class="new">WorldAssetRoot</span>, not <span class="old">SceneRoot</span>. Nearly every tutorial online still shows the old name.</p>
+    </div>
+
+    <figure class="code" data-lang="rust" data-world="main" data-file="src/main.rs">
+<script type="text/plain">
+use bevy::prelude::*;
+
+fn spawn_model(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.spawn((
+        // 0.18 and earlier: SceneRoot(...)
+        WorldAssetRoot(
+            asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/helmet.glb")),
+        ),
+        Transform::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::splat(1.0)),
+    ));
+}
+</script>
+    </figure>
+
+    <p>Loading is asynchronous. The entity exists immediately; its children appear a frame or several later. That is why anything that inspects the model has to wait for a signal rather than run in <code class="inl">Startup</code>.</p>
+
+    <h4>Addressing sub-assets</h4>
+    <p><code class="inl">GltfAssetLabel</code> builds the <code class="inl">path#Label</code> string for you. Use the enum rather than hand-writing the string — it survives renames.</p>
+
+    <div class="tw">
+      <table>
+        <thead><tr><th>Label</th><th>Resolves to</th><th>Use it for</th></tr></thead>
+        <tbody>
+          <tr><td><code>GltfAssetLabel::Scene(0)</code></td><td><code>WorldAsset</code></td><td>Spawning the whole model</td></tr>
+          <tr><td><code>GltfAssetLabel::Mesh(0)</code></td><td><code>GltfMesh</code></td><td>A named mesh and its primitives</td></tr>
+          <tr><td><code>GltfAssetLabel::Primitive { .. }</code></td><td><code>Mesh</code></td><td>One drawable chunk of geometry</td></tr>
+          <tr><td><code>GltfAssetLabel::Node(0)</code></td><td><code>GltfNode</code></td><td>Transform hierarchy nodes</td></tr>
+          <tr><td><code>GltfAssetLabel::Animation(0)</code></td><td><code>AnimationClip</code></td><td>Driving an <code>AnimationPlayer</code></td></tr>
+          <tr><td><code>"file.glb#Material0"</code></td><td><code>GltfMaterial</code></td><td>Raw glTF material data</td></tr>
+          <tr><td><code>"file.glb#Material0/std"</code></td><td><code>StandardMaterial</code></td><td>The PBR material Bevy renders</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="warn">
+      <span class="cl-hd">Changed in 0.19 — material sub-assets</span>
+      <p>Loading a material label used to hand you a <code class="inl">Handle&lt;StandardMaterial&gt;</code>. It now gives you a <code class="inl">Handle&lt;GltfMaterial&gt;</code>, which faithfully mirrors the file. Append <code class="inl">/std</code> to get the renderable <code class="inl">StandardMaterial</code>. Also gone: the <code class="inl">MorphTarget</code> label — morph targets live inside the <code class="inl">Mesh</code> now, via <code class="inl">Mesh::get_morph_targets</code>.</p>
+    </div>
+
+    <h4>Reacting once the model is actually in the world</h4>
+    <p>Attach an observer to the spawned entity. <code class="inl">WorldInstanceReady</code> fires when the hierarchy has been built, which is the only safe moment to walk it. This pattern is the backbone of everything else on this page — adding colliders, swapping materials, and tagging meshes for raytracing all hang off it.</p>
+
+    <figure class="code" data-lang="rust" data-world="main" data-file="src/main.rs">
+<script type="text/plain">
+use bevy::{prelude::*, world_serialization::WorldInstanceReady};
+
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands
+        .spawn(WorldAssetRoot(
+            asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/helmet.glb")),
+        ))
+        .observe(on_model_ready);   // scoped to this entity only
+}
+
+fn on_model_ready(
+    ready: On<WorldInstanceReady>,
+    children: Query<&Children>,
+    mesh_query: Query<(&Mesh3d, &MeshMaterial3d<StandardMaterial>)>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands,
+) {
+    // iter_descendants walks the entire subtree, not just direct children.
+    for entity in children.iter_descendants(ready.entity) {
+        let Ok((Mesh3d(_mesh), MeshMaterial3d(mat_handle))) = mesh_query.get(entity) else {
+            continue;
+        };
+
+        commands.entity(entity).insert(Name::new("gltf_mesh"));
+
+        // get_mut returns AssetMut in 0.19 — it only fires a Modified event
+        // if you actually change something, so guard your writes.
+        let Some(mut material) = materials.get_mut(mat_handle) else { continue };
+        if material.perceptual_roughness > 0.9 {
+            material.perceptual_roughness = 0.9;
+        }
+    }
+}
+</script>
+    </figure>
+
+    <h4>Playing an animation</h4>
+    <figure class="code" data-lang="rust" data-world="main" data-file="src/animate.rs">
+<script type="text/plain">
+#[derive(Resource)]
+struct Clip(AnimationNodeIndex, Handle<AnimationGraph>);
+
+fn load_clip(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut graphs: ResMut<Assets<AnimationGraph>>,
+) {
+    let clip = asset_server.load(GltfAssetLabel::Animation(0).from_asset("models/fox.glb"));
+    let (graph, index) = AnimationGraph::from_clip(clip);
+    commands.insert_resource(Clip(index, graphs.add(graph)));
+}
+
+// AnimationPlayer is added to a descendant of the scene root by the loader,
+// so look for it as it appears rather than assuming where it lives.
+fn play(
+    mut commands: Commands,
+    clip: Res<Clip>,
+    mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
+) {
+    for (entity, mut player) in &mut players {
+        player.play(clip.0).repeat();
+        commands
+            .entity(entity)
+            .insert(AnimationGraphHandle(clip.1.clone()));
+    }
+}
+</script>
+    </figure>
+
+    <div class="note">
+      <span class="cl-hd">If your model is invisible</span>
+      <ul>
+        <li>No light in the scene, or the model is behind the camera. Add an <code class="inl">AmbientLight</code> resource while you debug.</li>
+        <li>Scale mismatch — glTF is metres, and CAD exports are frequently 100× or 0.01× off. Try <code class="inl">Transform::from_scale(Vec3::splat(0.01))</code>.</li>
+        <li><code class="inl">.gltf</code> files reference external <code class="inl">.bin</code> and texture files by relative path. Copy the whole folder, or use <code class="inl">.glb</code>, which embeds everything.</li>
+        <li>Check for load errors — run with <code class="inl">RUST_LOG=bevy_asset=debug</code>.</li>
+      </ul>
+    </div>
+  </section>
+
+
+  <!-- ══════════════ 2 · SOLARI ══════════════ -->
+  <section class="sec" id="s2">
+    <div class="sec-n">@binding(2) · hardware raytracing</div>
+    <h3>Full raytracing with Solari</h3>
+    <p><code class="inl">bevy_solari</code> is Bevy's realtime pathtraced lighting system. It replaces shadow maps, screen-space AO and screen-space reflections with actual traced rays, using ReSTIR for direct and indirect light plus a world-space radiance cache for further bounces. You do not write any WGSL to use it — you swap two components and delete your shadow maps.</p>
+
+    <div class="req">
+      <span class="cl-hd">Hardware requirements — read before you start</span>
+      <ul>
+        <li>A GPU with hardware ray query support: roughly RTX 20-series and up, RX 6000 and up, Arc A-series.</li>
+        <li>Vulkan or DirectX 12 backend. <strong>No macOS, no web, no mobile.</strong></li>
+        <li>The <code class="inl">bevy_solari</code> cargo feature. It is not in the default feature set.</li>
+        <li>Solari is explicitly experimental and its API moves every release.</li>
+      </ul>
+    </div>
+
+    <figure class="code" data-lang="rust" data-world="main" data-file="src/main.rs">
+<script type="text/plain">
+use bevy::{
+    camera::CameraMainTextureUsages,
+    prelude::*,
+    render::render_resource::TextureUsages,
+    solari::prelude::{RaytracingMesh3d, SolariLighting, SolariPlugins},
+};
+
+fn main() {
+    App::new()
+        .add_plugins((DefaultPlugins, SolariPlugins))
+        .add_systems(Startup, setup)
+        .run();
+}
+
+fn setup(mut commands: Commands) {
+    commands.spawn((
+        Camera3d::default(),
+        Camera {
+            clear_color: ClearColorConfig::Custom(Color::BLACK),
+            ..default()
+        },
+        Transform::from_xyz(0.0, 2.5, 7.0).looking_at(Vec3::new(0.0, 1.0, 0.0), Vec3::Y),
+
+        // Both of these are REQUIRED. Solari writes into the view target with a
+        // compute shader, and it cannot resolve MSAA samples.
+        CameraMainTextureUsages::default().with(TextureUsages::STORAGE_BINDING),
+        Msaa::Off,
+
+        SolariLighting::default(),
+    ));
+
+    commands.spawn((
+        DirectionalLight {
+            illuminance: light_consts::lux::FULL_DAYLIGHT,
+            // Solari traces its own shadows. Leaving maps on burns time for nothing.
+            shadow_maps_enabled: false,
+            ..default()
+        },
+        Transform::from_rotation(Quat::from_euler(EulerRot::YXZ, -0.9, -1.0, 0.0)),
+    ));
+}
+</script>
+    </figure>
+
+    <h4>Meshes have to opt in — and meet strict rules</h4>
+    <p>Solari builds a bottom-level acceleration structure per mesh and a TLAS per frame. Geometry that does not match the expected layout is silently skipped or rejected, so this is where most people stall.</p>
+
+    <div class="req">
+      <span class="cl-hd">RaytracingMesh3d contract</span>
+      <ul>
+        <li>Vertex attributes exactly <code class="inl">POSITION</code>, <code class="inl">NORMAL</code>, <code class="inl">UV_0</code>, <code class="inl">TANGENT</code> — no <code class="inl">UV_1</code>, no vertex colours.</li>
+        <li><code class="inl">PrimitiveTopology::TriangleList</code>, and <code class="inl">Indices::U32</code>. 16-bit indices are rejected.</li>
+        <li><code class="inl">Mesh::enable_raytracing</code> must be <code class="inl">true</code> (it defaults to true).</li>
+        <li>The material must be <code class="inl">MeshMaterial3d&lt;StandardMaterial&gt;</code>. Custom materials are not traced.</li>
+        <li><code class="inl">RaytracingMesh3d</code> is a <em>separate</em> component from <code class="inl">Mesh3d</code>. Keep both: the rasteriser fills the GBuffer, Solari lights it.</li>
+      </ul>
+    </div>
+
+    <p>Real glTF files rarely satisfy that contract, so fix them up in the same <code class="inl">WorldInstanceReady</code> observer you already have:</p>
+
+    <figure class="code" data-lang="rust" data-world="main" data-file="src/raytracing.rs">
+<script type="text/plain">
+use bevy::{
+    mesh::Indices,
+    prelude::*,
+    solari::prelude::RaytracingMesh3d,
+    world_serialization::WorldInstanceReady,
+};
+
+fn add_raytracing_meshes(
+    ready: On<WorldInstanceReady>,
+    children: Query<&Children>,
+    mesh_query: Query<&Mesh3d>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut commands: Commands,
+) {
+    for entity in children.iter_descendants(ready.entity) {
+        let Ok(Mesh3d(handle)) = mesh_query.get(entity) else { continue };
+
+        // Trace this mesh, and keep Mesh3d so it still rasterises into the GBuffer.
+        commands.entity(entity).insert(RaytracingMesh3d(handle.clone()));
+
+        let Some(mut mesh) = meshes.get_mut(handle) else { continue };
+
+        // Solari needs UVs and tangents even if the material does not use them.
+        if !mesh.contains_attribute(Mesh::ATTRIBUTE_UV_0) {
+            let n = mesh.count_vertices();
+            mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0]; n]);
+            mesh.insert_attribute(Mesh::ATTRIBUTE_TANGENT, vec![[0.0; 4]; n]);
+        }
+        if !mesh.contains_attribute(Mesh::ATTRIBUTE_TANGENT) {
+            mesh.generate_tangents().unwrap();
+        }
+        // A second UV set breaks the expected vertex layout.
+        if mesh.contains_attribute(Mesh::ATTRIBUTE_UV_1) {
+            mesh.remove_attribute(Mesh::ATTRIBUTE_UV_1);
+        }
+        // BLAS construction requires 32-bit indices.
+        if let Some(indices) = mesh.indices_mut()
+            && let Indices::U16(_) = indices
+        {
+            *indices = Indices::U32(indices.iter().map(|i| i as u32).collect());
+        }
+    }
+}
+</script>
+    </figure>
+
+    <h4>Lights</h4>
+    <p>Solari draws light from two sources only: <code class="inl">DirectionalLight</code>, and emissive meshes. There are no traced point or spot lights. To make an object glow, crank its emissive far past 1.0 — these are physical radiance values, so five- and six-figure numbers are normal.</p>
+
+    <figure class="code" data-lang="rust" data-world="main" data-file="src/lights.rs">
+<script type="text/plain">
+// An area light is just a mesh with a large emissive value.
+let panel = materials.add(StandardMaterial {
+    emissive: LinearRgba::from(Color::srgb(1.0, 0.76, 0.4)) * 200_000.0,
+    // Emissive geometry must be opaque, or it will not be sampled as a light.
+    alpha_mode: AlphaMode::Opaque,
+    ..default()
+});
+
+commands.spawn((
+    Mesh3d(quad.clone()),
+    RaytracingMesh3d(quad),
+    MeshMaterial3d(panel),
+    Transform::from_xyz(0.0, 3.0, 0.0).looking_at(Vec3::ZERO, Vec3::Z),
+));
+</script>
+    </figure>
+
+    <h4>Reference mode: the offline pathtracer</h4>
+    <p>Solari ships a brute-force pathtracer for validating the realtime result. It converges over several seconds while the camera is still, and is far too slow to play in — but it is the ground truth you compare against when the realtime image looks wrong.</p>
+
+    <figure class="code" data-lang="rust" data-world="main" data-file="src/main.rs">
+<script type="text/plain">
+use bevy::solari::pathtracer::{Pathtracer, PathtracingPlugin};
+
+app.add_plugins((DefaultPlugins, SolariPlugins, PathtracingPlugin));
+
+// On the camera, swap SolariLighting for Pathtracer:
+camera.insert(Pathtracer::default());
+
+// In pathtracer mode, remove Mesh3d from your geometry so it does not
+// rasterise on top of the traced image — keep only RaytracingMesh3d.
+commands.entity(entity).remove::<Mesh3d>();
+</script>
+    </figure>
+
+    <div class="note">
+      <span class="cl-hd">Denoising</span>
+      <p>Solari's raw output is noisy by design — it leans on temporal accumulation. With the <code class="inl">dlss</code> feature and an NVIDIA RTX card you can attach <code class="inl">Dlss&lt;DlssRayReconstructionFeature&gt;</code> to the camera, which denoises and upscales in one pass. It is strongly recommended and it also makes the whole thing considerably cheaper. Check <code class="inl">DlssRayReconstructionSupported</code> exists as a resource before inserting the component.</p>
+    </div>
+  </section>
+
+
+  <!-- ══════════════ 3 · CUSTOM WGSL ══════════════ -->
+  <section class="sec" id="s3">
+    <div class="sec-n">@binding(3) · custom pipeline</div>
+    <h3>Writing your own raytracer in WGSL</h3>
+    <p>If you want your own intersection code, your own sampling, or you are targeting hardware Solari cannot run on, drop to a compute pipeline: dispatch one thread per pixel, trace rays in WGSL, write into a storage texture, display that texture as a sprite or fullscreen quad.</p>
+
+    <div class="warn">
+      <span class="cl-hd">Changed in 0.19 — render graph as systems</span>
+      <p>The <code class="inl">RenderGraph</code> node API is gone. <span class="old">impl ViewNode / add_render_graph_node</span> becomes <span class="new">an ordinary system</span> added to the <code class="inl">Core3d</code>, <code class="inl">Core2d</code> or <code class="inl">RenderGraph</code> schedule. <code class="inl">RenderContext</code> is now a system parameter instead of an argument, and you order passes with <code class="inl">.before()</code>/<code class="inl">.after()</code> against the <em>actual system functions</em> rather than against label enums.</p>
+    </div>
+
+    <h4>The plugin: four registrations</h4>
+    <p>A custom GPU pass always has the same shape. Extract data from the main world into the render world; build the pipeline once at startup; build a bind group each frame; record commands in the graph.</p>
+
+    <figure class="code" data-lang="rust" data-world="render" data-file="src/raytracer/mod.rs">
+<script type="text/plain">
+use bevy::{
+    core_pipeline::schedule::camera_driver,
+    prelude::*,
+    render::{
+        extract_resource::{ExtractResource, ExtractResourcePlugin},
+        render_asset::RenderAssets,
+        render_resource::{
+            binding_types::{storage_buffer_read_only, texture_storage_2d, uniform_buffer},
+            *,
+        },
+        renderer::{RenderContext, RenderDevice, RenderGraph, RenderQueue},
+        texture::GpuImage,
+        Render, RenderApp, RenderStartup, RenderSystems,
+    },
+};
+
+const WORKGROUP: u32 = 8;
+
+pub struct RaytracerPlugin;
+
+impl Plugin for RaytracerPlugin {
+    fn build(&self, app: &mut App) {
+        // 1. Main world -> render world, once per frame.
+        app.add_plugins((
+            ExtractResourcePlugin::<RayTarget>::default(),
+            ExtractResourcePlugin::<SceneData>::default(),
+        ));
+
+        let render_app = app.sub_app_mut(RenderApp);
+        render_app
+            // 2. Build layout + queue pipeline compilation, once.
+            .add_systems(RenderStartup, init_pipeline)
+            // 3. Upload buffers and build the bind group, every frame.
+            .add_systems(
+                Render,
+                prepare_bind_group.in_set(RenderSystems::PrepareBindGroups),
+            )
+            // 4. Record the compute pass. In 0.19 this is just a system.
+            .add_systems(RenderGraph, raytrace_pass.before(camera_driver));
+    }
+}
+</script>
+    </figure>
+
+    <h4>Resources on both sides of the boundary</h4>
+    <p><code class="inl">ExtractResource</code> copies a main-world resource into the render world each frame. The render world is wiped and rebuilt every frame, so anything the GPU needs has to be extracted or created there.</p>
+
+    <figure class="code" data-lang="rust" data-world="main" data-file="src/raytracer/data.rs">
+<script type="text/plain">
+// Mirrors the WGSL `Camera` struct exactly. ShaderType computes the
+// std140/std430 offsets for you — see the alignment note below.
+#[derive(ShaderType, Clone, Copy, Default)]
+pub struct GpuCamera {
+    pub origin: Vec3,
+    pub aspect: f32,
+    pub forward: Vec3,
+    pub tan_half_fov: f32,
+    pub right: Vec3,
+    pub _pad0: f32,
+    pub up: Vec3,
+    pub _pad1: f32,
+}
+
+#[derive(ShaderType, Clone, Copy, Default)]
+pub struct GpuSphere {
+    pub center: Vec3,
+    pub radius: f32,
+    pub albedo: Vec3,
+    pub emissive: f32,
+}
+
+#[derive(Resource, Clone, ExtractResource)]
+pub struct SceneData {
+    pub camera: GpuCamera,
+    pub spheres: Vec<GpuSphere>,
+}
+
+// The storage texture the compute shader writes into.
+#[derive(Resource, Clone, ExtractResource, Deref)]
+pub struct RayTarget(pub Handle<Image>);
+</script>
+    </figure>
+
+    <p>Create the target image in the main world, with the usage flags the compute pass needs. <code class="inl">STORAGE_BINDING</code> lets the shader write to it; <code class="inl">TEXTURE_BINDING</code> lets the sprite read it.</p>
+
+    <figure class="code" data-lang="rust" data-world="main" data-file="src/raytracer/setup.rs">
+<script type="text/plain">
+use bevy::asset::RenderAssetUsages;
+
+fn setup_target(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+    let size = UVec2::new(1280, 720);
+
+    let mut image = Image::new_target_texture(size.x, size.y, TextureFormat::Rgba16Float);
+    image.asset_usage = RenderAssetUsages::RENDER_WORLD;   // never keep a CPU copy
+    image.texture_descriptor.usage =
+        TextureUsages::COPY_DST | TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING;
+
+    let handle = images.add(image);
+
+    commands.spawn(Sprite {
+        image: handle.clone(),
+        custom_size: Some(size.as_vec2()),
+        ..default()
+    });
+    commands.spawn(Camera2d);
+    commands.insert_resource(RayTarget(handle));
+}
+</script>
+    </figure>
+
+    <h4>Pipeline creation</h4>
+    <p><code class="inl">RenderStartup</code> runs once, in the render world, with <code class="inl">RenderDevice</code> available. <code class="inl">queue_compute_pipeline</code> returns an id immediately and compiles in the background — you check for readiness later.</p>
+
+    <figure class="code" data-lang="rust" data-world="render" data-file="src/raytracer/pipeline.rs">
+<script type="text/plain">
+#[derive(Resource)]
+struct RaytracePipeline {
+    layout: BindGroupLayout,
+    id: CachedComputePipelineId,
+}
+
+fn init_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    asset_server: Res<AssetServer>,
+    pipeline_cache: Res<PipelineCache>,
+) {
+    // Slot order here must match @binding(0..2) in the WGSL, exactly.
+    let layout = render_device.create_bind_group_layout(
+        "raytrace_layout",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::COMPUTE,
+            (
+                texture_storage_2d(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly),
+                uniform_buffer::<GpuCamera>(false),
+                storage_buffer_read_only::<Vec<GpuSphere>>(false),
+            ),
+        ),
+    );
+
+    let id = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+        layout: vec![layout.clone()],
+        shader: asset_server.load("shaders/raytrace.wgsl"),
+        entry_point: Some("trace".into()),
+        ..default()
+    });
+
+    commands.insert_resource(RaytracePipeline { layout, id });
+}
+</script>
+    </figure>
+
+    <h4>Uploading and binding, per frame</h4>
+    <figure class="code" data-lang="rust" data-world="render" data-file="src/raytracer/prepare.rs">
+<script type="text/plain">
+#[derive(Resource)]
+struct RaytraceBindGroup(BindGroup);
+
+fn prepare_bind_group(
+    mut commands: Commands,
+    pipeline: Res<RaytracePipeline>,
+    gpu_images: Res<RenderAssets<GpuImage>>,
+    target: Res<RayTarget>,
+    scene: Res<SceneData>,
+    render_device: Res<RenderDevice>,
+    queue: Res<RenderQueue>,
+) {
+    // The image may not have been uploaded yet on the first frames.
+    let Some(view) = gpu_images.get(&target.0) else { return };
+
+    // This is the actual CPU -> GPU write. write_buffer allocates on first
+    // call, reuses the allocation afterwards, and skips the copy if nothing
+    // changed. Call it every frame; it is cheap when data is stable.
+    let mut camera = UniformBuffer::from(scene.camera);
+    camera.write_buffer(&render_device, &queue);
+
+    let mut spheres = StorageBuffer::from(scene.spheres.clone());
+    spheres.write_buffer(&render_device, &queue);
+
+    let bind_group = render_device.create_bind_group(
+        "raytrace_bind_group",
+        &pipeline.layout,
+        &BindGroupEntries::sequential((&view.texture_view, &camera, &spheres)),
+    );
+
+    commands.insert_resource(RaytraceBindGroup(bind_group));
+}
+</script>
+    </figure>
+
+    <h4>Recording the pass</h4>
+    <p>Bail out cleanly while the shader is still compiling — <code class="inl">get_compute_pipeline</code> returns <code class="inl">None</code> until it is ready, and this system runs from frame one.</p>
+
+    <figure class="code" data-lang="rust" data-world="render" data-file="src/raytracer/pass.rs">
+<script type="text/plain">
+fn raytrace_pass(
+    mut render_context: RenderContext,
+    bind_group: Option<Res<RaytraceBindGroup>>,
+    pipeline_cache: Res<PipelineCache>,
+    pipeline: Res<RaytracePipeline>,
+) {
+    let Some(bind_group) = bind_group else { return };
+    let Some(compute) = pipeline_cache.get_compute_pipeline(pipeline.id) else {
+        return;   // shader still compiling
+    };
+
+    let mut pass = render_context
+        .command_encoder()
+        .begin_compute_pass(&ComputePassDescriptor {
+            label: Some("raytrace"),
+            ..default()
+        });
+
+    pass.set_pipeline(compute);
+    pass.set_bind_group(0, &bind_group.0, &[]);
+    // div_ceil, not integer division — otherwise you leave a strip of the
+    // image untraced whenever the resolution is not a multiple of 8.
+    pass.dispatch_workgroups(1280u32.div_ceil(WORKGROUP), 720u32.div_ceil(WORKGROUP), 1);
+}
+</script>
+    </figure>
+
+    <h4>The shader</h4>
+    <p>A minimal ray generation kernel. Note that the struct field order and the binding indices mirror the Rust side one for one — that correspondence is the entire contract between the two worlds.</p>
+
+    <figure class="code" data-lang="wgsl" data-world="gpu" data-file="assets/shaders/raytrace.wgsl">
+<script type="text/plain">
+struct Camera {
+    origin: vec3<f32>,
+    aspect: f32,
+    forward: vec3<f32>,
+    tan_half_fov: f32,
+    right: vec3<f32>,
+    _pad0: f32,
+    up: vec3<f32>,
+    _pad1: f32,
+};
+
+struct Sphere {
+    center: vec3<f32>,
+    radius: f32,
+    albedo: vec3<f32>,
+    emissive: f32,
+};
+
+@group(0) @binding(0) var output: texture_storage_2d<rgba16float, write>;
+@group(0) @binding(1) var<uniform> camera: Camera;
+@group(0) @binding(2) var<storage, read> spheres: array<Sphere>;
+
+// Returns the near hit distance, or -1.0 for a miss.
+fn hit_sphere(s: Sphere, ro: vec3<f32>, rd: vec3<f32>) -> f32 {
+    let oc = ro - s.center;
+    let b = dot(oc, rd);
+    let c = dot(oc, oc) - s.radius * s.radius;
+    let disc = b * b - c;
+    if disc < 0.0 {
+        return -1.0;
+    }
+    return -b - sqrt(disc);
+}
+
+@compute @workgroup_size(8, 8, 1)
+fn trace(@builtin(global_invocation_id) id: vec3<u32>) {
+    let dims = textureDimensions(output);
+    // Guard: div_ceil dispatch means some threads fall outside the image.
+    if id.x >= dims.x || id.y >= dims.y {
+        return;
+    }
+
+    // Pixel centre -> NDC in [-1, 1], y flipped for texture space.
+    let ndc = (vec2<f32>(id.xy) + 0.5) / vec2<f32>(dims) * 2.0 - 1.0;
+
+    let ro = camera.origin;
+    let rd = normalize(
+        camera.forward
+        + camera.right * ndc.x * camera.aspect * camera.tan_half_fov
+        - camera.up    * ndc.y * camera.tan_half_fov
+    );
+
+    var closest = 1e30;
+    var color = vec3<f32>(0.02, 0.03, 0.06);   // sky
+
+    let count = arrayLength(&spheres);
+    for (var i = 0u; i < count; i = i + 1u) {
+        let s = spheres[i];
+        let t = hit_sphere(s, ro, rd);
+        if t > 0.001 && t < closest {
+            closest = t;
+            let p = ro + rd * t;
+            let n = normalize(p - s.center);
+            let l = normalize(vec3<f32>(0.6, 1.0, 0.4));
+            color = s.albedo * (max(dot(n, l), 0.0) + 0.08) + vec3<f32>(s.emissive);
+        }
+    }
+
+    textureStore(output, vec2<i32>(id.xy), vec4<f32>(color, 1.0));
+}
+</script>
+    </figure>
+
+    <div class="note">
+      <span class="cl-hd">Where to go from here</span>
+      <p>Add bounces by looping the trace and accumulating throughput; add a frame counter uniform to seed a PCG hash for stochastic sampling; accumulate into a second storage texture and divide by sample count for progressive refinement. For hardware-accelerated intersection instead of a brute-force loop, you need an acceleration structure — at which point Solari is already doing that work for you.</p>
+    </div>
+  </section>
+
+
+  <!-- ══════════════ 4 · BUFFERS ══════════════ -->
+  <section class="sec" id="s4">
+    <div class="sec-n">@binding(4) · data upload</div>
+    <h3>Pushing data to buffers</h3>
+    <p>Bevy gives you four routes from CPU memory to a GPU binding, at descending levels of abstraction. Pick the highest one that fits — each step down costs you render-world boilerplate.</p>
+
+    <div class="tw">
+      <table>
+        <thead><tr><th>Route</th><th>Reach for it when</th><th>Lives in</th></tr></thead>
+        <tbody>
+          <tr><td><code>AsBindGroup</code> derive</td><td>Per-material data on meshes</td><td>Main world</td></tr>
+          <tr><td><code>Assets&lt;ShaderBuffer&gt;</code></td><td>Sharing a buffer between a material and a compute pass</td><td>Main world</td></tr>
+          <tr><td><code>UniformBuffer</code> / <code>StorageBuffer</code> / <code>BufferVec</code></td><td>Per-frame data for a custom pipeline</td><td>Render world</td></tr>
+          <tr><td><code>Readback</code></td><td>Getting results back from the GPU</td><td>Main world</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="warn">
+      <span class="cl-hd">Changed in 0.19</span>
+      <p><span class="old">ShaderStorageBuffer</span> is now <span class="new">ShaderBuffer</span>, still at <code class="inl">bevy::render::storage</code>. Also renamed: <span class="old">PipelineCacheError</span> → <span class="new">ShaderCacheError</span>.</p>
+    </div>
+
+    <h4>Route 1 — AsBindGroup on a material</h4>
+    <p>The derive generates the layout and the bind group. Attribute indices become <code class="inl">@binding</code> numbers in your shader.</p>
+
+    <figure class="code" data-lang="rust" data-world="main" data-file="src/palette.rs">
+<script type="text/plain">
+use bevy::{
+    mesh::MeshTag,
+    prelude::*,
+    reflect::TypePath,
+    render::{render_resource::AsBindGroup, storage::ShaderBuffer},
+    shader::ShaderRef,
+};
+
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
+struct PaletteMaterial {
+    // #[uniform(n)]  -> var<uniform>          small, fixed size, fastest
+    // #[storage(n)]  -> var<storage, read>    large, runtime-sized
+    // #[texture(n)] + #[sampler(n+1)]         images
+    #[uniform(0)]
+    tint: LinearRgba,
+
+    #[storage(1, read_only)]
+    colors: Handle<ShaderBuffer>,
+}
+
+impl Material for PaletteMaterial {
+    fn fragment_shader() -> ShaderRef {
+        "shaders/palette.wgsl".into()
+    }
+}
+
+fn setup(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut buffers: ResMut<Assets<ShaderBuffer>>,
+    mut materials: ResMut<Assets<PaletteMaterial>>,
+) {
+    let colors = buffers.add(ShaderBuffer::from(vec![
+        [1.0f32, 0.2, 0.2, 1.0],
+        [0.2, 1.0, 0.4, 1.0],
+        [0.3, 0.4, 1.0, 1.0],
+    ]));
+
+    let material = materials.add(PaletteMaterial {
+        tint: LinearRgba::WHITE,
+        colors,
+    });
+
+    let mesh = meshes.add(Cuboid::from_size(Vec3::splat(0.4)));
+
+    for i in 0..3 {
+        commands.spawn((
+            Mesh3d(mesh.clone()),
+            MeshMaterial3d(material.clone()),
+            // MeshTag is a free per-instance u32 readable from the shader.
+            MeshTag(i),
+            Transform::from_xyz(i as f32 - 1.0, 0.0, 0.0),
+        ));
+    }
+}
+</script>
+    </figure>
+
+    <figure class="code" data-lang="wgsl" data-world="gpu" data-file="assets/shaders/palette.wgsl">
+<script type="text/plain">
+#import bevy_pbr::{
+    forward_io::VertexOutput,
+    mesh_functions,
+}
+
+// Never hardcode the group index. Group 0 is view data, group 1 is mesh data,
+// and the material group moves between releases.
+@group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> tint: vec4<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(1) var<storage, read> colors: array<vec4<f32>>;
+
+@fragment
+fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
+    let tag = mesh_functions::get_tag(in.instance_index);
+    return colors[tag % arrayLength(&colors)] * tint;
+}
+</script>
+    </figure>
+
+    <h4>Route 2 — updating a ShaderBuffer every frame</h4>
+    <p>Mutating the asset re-uploads it. This is the easiest way to stream changing data to the GPU without touching the render world at all.</p>
+
+    <figure class="code" data-lang="rust" data-world="main" data-file="src/palette.rs">
+<script type="text/plain">
+fn animate_palette(
+    time: Res<Time>,
+    handle: Res<PaletteHandle>,
+    materials: Res<Assets<PaletteMaterial>>,
+    mut buffers: ResMut<Assets<ShaderBuffer>>,
+) {
+    let Some(material) = materials.get(&handle.0) else { return };
+    let Some(mut buffer) = buffers.get_mut(&material.colors) else { return };
+
+    buffer.set_data(
+        (0..3)
+            .map(|i| {
+                let t = time.elapsed_secs() * 2.0 + i as f32;
+                [
+                    ops::sin(t) * 0.5 + 0.5,
+                    ops::sin(t + 2.0) * 0.5 + 0.5,
+                    ops::sin(t + 4.0) * 0.5 + 0.5,
+                    1.0,
+                ]
+            })
+            .collect::<Vec<[f32; 4]>>(),
+    );
+}
+
+// Creating an empty buffer to be filled by a compute shader, with the extra
+// usage flags a readback needs:
+let mut buffer = ShaderBuffer::from(vec![0u32; 1024]);
+buffer.buffer_description.usage |= BufferUsages::COPY_SRC;
+let handle = buffers.add(buffer);
+</script>
+    </figure>
+
+    <h4>Route 3 — raw buffers in the render world</h4>
+    <figure class="code" data-lang="rust" data-world="render" data-file="src/raytracer/prepare.rs">
+<script type="text/plain">
+// UniformBuffer<T>: one struct, read-only, ~64 KB ceiling, lowest latency.
+let mut ub = UniformBuffer::from(my_struct);
+ub.write_buffer(&render_device, &queue);
+
+// StorageBuffer<T>: runtime-sized, optionally writable from the shader.
+let mut sb = StorageBuffer::from(my_vec);
+sb.write_buffer(&render_device, &queue);
+
+// BufferVec<T>: you own the Vec and control when it uploads. Best when you
+// rebuild a list every frame — clear, push, write once.
+let mut bv = BufferVec::<GpuSphere>::new(BufferUsages::STORAGE);
+bv.clear();
+for s in &scene.spheres {
+    bv.push(*s);
+}
+bv.write_buffer(&render_device, &queue);
+
+// Bind them positionally, matching your layout's slot order.
+let bind_group = render_device.create_bind_group(
+    "my_bind_group",
+    &pipeline.layout,
+    &BindGroupEntries::sequential((&ub, &sb, bv.binding().unwrap())),
+);
+</script>
+    </figure>
+
+    <h4>Route 4 — reading results back</h4>
+    <p>Readback is asynchronous and costs a GPU stall plus at least one frame of latency. Use it for tooling, screenshots and offline bakes — not in your frame loop.</p>
+
+    <figure class="code" data-lang="rust" data-world="main" data-file="src/readback.rs">
+<script type="text/plain">
+use bevy::render::gpu_readback::{Readback, ReadbackComplete};
+
+fn request_readback(mut commands: Commands, buffer: Res<MyBuffer>) {
+    commands
+        .spawn(Readback::buffer(buffer.0.clone()))
+        .observe(|event: On<ReadbackComplete>| {
+            let data: Vec<u32> = event.to_shader_type();
+            info!("got {} values back from the GPU", data.len());
+        });
+}
+</script>
+    </figure>
+
+    <h4>Alignment: the rule that breaks everything</h4>
+    <div class="req">
+      <span class="cl-hd">std140 / std430 in one box</span>
+      <ul>
+        <li><code class="inl">vec3&lt;f32&gt;</code> occupies 12 bytes but <strong>aligns to 16</strong>. A <code class="inl">vec3</code> followed by an <code class="inl">f32</code> packs perfectly; two <code class="inl">vec3</code>s in a row waste 4 bytes each. Order your fields so every <code class="inl">vec3</code> is trailed by a scalar.</li>
+        <li>In <em>uniform</em> buffers (std140), array elements are padded up to 16 bytes. <code class="inl">array&lt;f32, 64&gt;</code> silently becomes 1024 bytes. Use <code class="inl">array&lt;vec4&lt;f32&gt;, 16&gt;</code>, or a storage buffer.</li>
+        <li>Derive <code class="inl">ShaderType</code> on the Rust struct and it computes offsets for you — but it cannot check your WGSL. Field order and types must match by hand.</li>
+        <li>Struct sizes round up to their largest member's alignment. A struct ending in an <code class="inl">f32</code> after a <code class="inl">vec3</code> is 32 bytes, not 28.</li>
+      </ul>
+    </div>
+
+    <div class="note">
+      <span class="cl-hd">Targeting the web</span>
+      <p>WebGL2 has no storage buffers at all — <code class="inl">var&lt;storage&gt;</code> will not compile, and uniform buffers are capped near 16 KB. If you need storage buffers or compute shaders in a browser you need WebGPU, which means shipping a WebGPU build and accepting narrower browser support. Bevy's own examples are published in both flavours for exactly this reason.</p>
+    </div>
+  </section>
+
+
+  <!-- ══════════════ 5 · MIGRATION ══════════════ -->
+  <section class="sec" id="s5">
+    <div class="sec-n">@binding(5) · reference</div>
+    <h3>What 0.19 renamed</h3>
+    <p>The changes most likely to break code copied from an older tutorial or an LLM trained before June 2026.</p>
+
+    <div class="tw">
+      <table>
+        <thead><tr><th>Was (0.18)</th><th>Is now (0.19)</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><code class="old">SceneRoot</code></td><td><code class="new">WorldAssetRoot</code></td><td>Spawning a glTF scene</td></tr>
+          <tr><td><code class="old">Scene</code></td><td><code class="new">WorldAsset</code></td><td>It was always a World wrapper</td></tr>
+          <tr><td><code class="old">SceneInstanceReady</code></td><td><code class="new">WorldInstanceReady</code></td><td>Observer event</td></tr>
+          <tr><td><code class="old">DynamicScene</code></td><td><code class="new">DynamicWorld</code></td><td>Also needs a <code>&amp;TypeRegistry</code> now</td></tr>
+          <tr><td><code class="old">bevy_scene</code></td><td><code class="new">bevy_world_serialization</code></td><td>The name <code>bevy_scene</code> now means BSN</td></tr>
+          <tr><td><code class="old">ShaderStorageBuffer</code></td><td><code class="new">ShaderBuffer</code></td><td>Same module</td></tr>
+          <tr><td><code class="old">PipelineCacheError</code></td><td><code class="new">ShaderCacheError</code></td><td></td></tr>
+          <tr><td><code class="old">shadows_enabled</code></td><td><code class="new">shadow_maps_enabled</code></td><td>Lights gained contact shadows</td></tr>
+          <tr><td><code class="old">ViewNode</code> + render graph nodes</td><td><code class="new">systems in Core3d / RenderGraph</code></td><td>Order against system fns, not labels</td></tr>
+          <tr><td><code class="old">DefaultErrorHandler</code></td><td><code class="new">FallbackErrorHandler</code></td><td></td></tr>
+          <tr><td><code class="old">Replace</code> lifecycle event</td><td><code class="new">Discard</code></td><td><code>on_replace</code> → <code>on_discard</code></td></tr>
+          <tr><td><code class="old">ExecutorKind</code></td><td><code class="new">Schedule::set_executor</code></td><td>Pass an executor instance</td></tr>
+          <tr><td><code class="old">WgpuSettingsPriority::Compatibility</code></td><td><code class="new">::WebGPU</code></td><td>Env var value is now <code>webgpu</code></td></tr>
+          <tr><td><code>Atmosphere</code> on the camera</td><td><code class="new">Atmosphere</code> as its own entity</td><td><code>AtmosphereSettings</code> stays on the camera</td></tr>
+          <tr><td><code>Assets::get_mut</code> → <code>&amp;mut T</code></td><td><code class="new">AssetMut&lt;T&gt;</code></td><td>Only flags Modified if you write</td></tr>
+          <tr><td><code>Skybox { image: h }</code></td><td><code class="new">image: Option&lt;Handle&lt;Image&gt;&gt;</code></td><td>Moved to <code>bevy_light</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h4>Resources are components now</h4>
+    <p>The change with the widest blast radius is quiet: <code class="inl">Resource</code> is a subtrait of <code class="inl">Component</code>, and <code class="inl">#[derive(Resource)]</code> implements both. You can no longer derive both on one type, and broad queries such as <code class="inl">Query&lt;EntityMut&gt;</code> now see resource entities — filter them out with <code class="inl">Without&lt;IsResource&gt;</code> if a system suddenly reports a conflict.</p>
+
+    <figure class="code" data-lang="rust" data-world="main" data-file="src/lib.rs">
+<script type="text/plain">
+// 0.18 — a type used as both
+#[derive(Component, Resource)]
+struct Config(f32);
+
+// 0.19 — split them
+#[derive(Component)]
+struct ConfigOverride(f32);
+
+#[derive(Resource)]
+struct GlobalConfig(f32);
+
+// Broad queries now collide with resource access:
+fn broken(q: Query<EntityMut>, cfg: Res<GlobalConfig>) {}          // conflict
+fn fixed(q: Query<EntityMut, Without<IsResource>>, cfg: Res<GlobalConfig>) {}
+</script>
+    </figure>
+  </section>
+
+  <footer class="foot">
+    <p>Written against <strong>Bevy 0.19</strong> (released 19 June 2026). Bevy is pre-1.0 and ships breaking changes roughly quarterly — check the <a href="https://bevy.org/learn/migration-guides/introduction/">migration guides</a> and the <a href="https://bevy.org/examples/">official examples</a>, which are the only sources that track the release you actually have. Solari in particular is experimental and changes shape every cycle.</p>
+    <p>Two spots to watch if you are on <code class="inl">main</code> rather than 0.19: bind group layouts are moving from <code class="inl">RenderDevice::create_bind_group_layout</code> to <code class="inl">BindGroupLayoutDescriptor::new</code> plus <code class="inl">PipelineCache::get_bind_group_layout</code>, and <code class="inl">Image::new_target_texture</code> has gained an extra argument.</p>
+  </footer>
+
+  </main>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ── Syntax highlighting ──────────────────────────────────
+     Single-pass tokeniser: one master regex per language with
+     ordered alternation, so nothing re-matches inside a span
+     we already emitted. */
+
+  var RUST_KW = "as|async|await|break|const|continue|crate|dyn|else|enum|extern|false|fn|for|if|impl|in|let|loop|match|mod|move|mut|pub|ref|return|self|Self|static|struct|super|trait|true|type|unsafe|use|where|while";
+  var WGSL_KW = "alias|break|case|const|continue|default|discard|else|enable|false|fn|for|if|let|loop|override|return|struct|switch|true|var|while";
+
+  function esc(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function build(lang) {
+    var comment, kw, types;
+    if (lang === "toml" || lang === "bash") {
+      comment = "#[^\\n]*";
+      kw = "true|false";
+      types = "[A-Z][A-Za-z0-9_]*";
+    } else if (lang === "wgsl") {
+      comment = "\\/\\/[^\\n]*|\\/\\*[\\s\\S]*?\\*\\/";
+      kw = WGSL_KW;
+      types = "[A-Z][A-Za-z0-9_]*|f32|u32|i32|f16|bool|vec[234]|mat[234]x[234]|atomic|array|ptr|sampler|texture_[a-z_0-9]+|rgba(?:8|16|32)(?:float|unorm|uint|sint)|r32(?:float|uint|sint)";
+    } else {
+      comment = "\\/\\/[^\\n]*|\\/\\*[\\s\\S]*?\\*\\/";
+      kw = RUST_KW;
+      types = "[A-Z][A-Za-z0-9_]*|f32|f64|u8|u16|u32|u64|i8|i16|i32|i64|usize|isize|bool|str";
+    }
+    return new RegExp(
+      "(" + comment + ")" +                                   // 1 comment
+      "|(\"(?:[^\"\\\\]|\\\\.)*\")" +                         // 2 string
+      "|(#\\[[^\\]]*\\]|@[A-Za-z_][\\w]*|#\\{[^}]*\\}|#import)" + // 3 attribute
+      "|\\b(0[xb][0-9a-fA-F_]+|\\d[\\d_]*\\.?[\\d_]*(?:[eE][+-]?\\d+)?(?:f32|f64|u32|i32|u8|usize)?)\\b" + // 4 number
+      "|\\b(" + kw + ")\\b" +                                 // 5 keyword
+      "|\\b(" + types + ")\\b" +                              // 6 type
+      "|\\b([a-z_]\\w*)(?=\\s*\\()",                          // 7 fn call
+      "g"
+    );
+  }
+
+  var CACHE = {};
+  function highlight(code, lang) {
+    var re = CACHE[lang] || (CACHE[lang] = build(lang));
+    re.lastIndex = 0;
+    return esc(code).replace(re, function (m, c, s, a, n, k, t, f) {
+      if (c) return '<span class="t-c">' + c + "</span>";
+      if (s) return '<span class="t-s">' + s + "</span>";
+      if (a) return '<span class="t-a">' + a + "</span>";
+      if (n) return '<span class="t-n">' + n + "</span>";
+      if (k) return '<span class="t-k">' + k + "</span>";
+      if (t) return '<span class="t-y">' + t + "</span>";
+      if (f) return '<span class="t-f">' + f + "</span>";
+      return m;
+    });
+  }
+
+  function dedent(src) {
+    var lines = src.replace(/\t/g, "    ").split("\n");
+    while (lines.length && !lines[0].trim()) lines.shift();
+    while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
+    var min = Infinity;
+    lines.forEach(function (l) {
+      if (!l.trim()) return;
+      min = Math.min(min, l.match(/^ */)[0].length);
+    });
+    if (!isFinite(min)) min = 0;
+    return lines.map(function (l) { return l.slice(min); }).join("\n");
+  }
+
+  var WORLD_LABEL = {
+    main: "Main world",
+    render: "Render world",
+    gpu: "GPU · WGSL",
+    manifest: "Manifest"
+  };
+
+  document.querySelectorAll("figure.code").forEach(function (fig) {
+    var holder = fig.querySelector('script[type="text/plain"]');
+    if (!holder) return;
+
+    var code = dedent(holder.textContent);
+    var lang = fig.dataset.lang || "rust";
+    var world = fig.dataset.world || "main";
+
+    var hd = document.createElement("div");
+    hd.className = "code-hd";
+    hd.innerHTML =
+      '<span class="tag ' + world + '">' + (WORLD_LABEL[world] || world) + "</span>" +
+      '<span class="fname">' + esc(fig.dataset.file || "") + "</span>";
+
+    var btn = document.createElement("button");
+    btn.className = "copy";
+    btn.type = "button";
+    btn.textContent = "Copy";
+    btn.setAttribute("aria-label", "Copy code to clipboard");
+    hd.appendChild(btn);
+
+    var pre = document.createElement("pre");
+    var el = document.createElement("code");
+    el.innerHTML = highlight(code, lang);
+    pre.appendChild(el);
+
+    holder.remove();
+    fig.appendChild(hd);
+    fig.appendChild(pre);
+
+    btn.addEventListener("click", function () {
+      var done = function () {
+        btn.textContent = "Copied";
+        btn.classList.add("done");
+        setTimeout(function () {
+          btn.textContent = "Copy";
+          btn.classList.remove("done");
+        }, 1400);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).then(done, function () {});
+      } else {
+        var ta = document.createElement("textarea");
+        ta.value = code;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand("copy"); done(); } catch (e) {}
+        ta.remove();
+      }
+    });
+  });
+
+  /* ── Scroll spy on the binding rail ────────────────────── */
+  var slots = Array.prototype.slice.call(document.querySelectorAll(".slot"));
+  var sections = slots
+    .map(function (a) { return document.querySelector(a.getAttribute("href")); })
+    .filter(Boolean);
+
+  if ("IntersectionObserver" in window && sections.length) {
+    var visible = new Set();
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) visible.add(e.target.id);
+        else visible.delete(e.target.id);
+      });
+      var current = null;
+      for (var i = 0; i < sections.length; i++) {
+        if (visible.has(sections[i].id)) { current = sections[i].id; break; }
+      }
+      slots.forEach(function (a) {
+        a.classList.toggle("is-active", a.getAttribute("href") === "#" + current);
+      });
+    }, { rootMargin: "-88px 0px -55% 0px", threshold: 0 });
+    sections.forEach(function (s) { io.observe(s); });
+  }
+})();
+</script>
+</body>
+</html>
