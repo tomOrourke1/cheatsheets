@@ -58,12 +58,29 @@ h1 .caret{color:var(--flux)}
   font-family:var(--mono);font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;
   color:var(--dim);margin:18px 0 0;
 }
+.herobar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:22px}
 .warn{
-  display:inline-flex;align-items:center;gap:8px;margin-top:22px;
+  display:inline-flex;align-items:center;gap:8px;
   font-family:var(--mono);font-size:.72rem;letter-spacing:.08em;
   color:var(--warn);border:1px dashed rgba(232,176,75,.45);
   border-radius:3px;padding:6px 11px;background:rgba(232,176,75,.06);
+  margin:0;
 }
+.fxbtn{
+  display:inline-flex;align-items:center;gap:8px;
+  font-family:var(--mono);font-size:.72rem;letter-spacing:.08em;
+  color:var(--dim);background:rgba(21,26,38,.72);border:1px solid var(--edge);
+  border-radius:3px;padding:6px 11px;cursor:pointer;
+  transition:color .15s,border-color .15s;
+  -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);
+}
+.fxbtn:hover{color:var(--ink);border-color:var(--flux)}
+.fxbtn .dot{
+  width:7px;height:7px;border-radius:50%;flex:none;
+  background:var(--dim);box-shadow:none;transition:background .15s,box-shadow .15s;
+}
+.fxbtn[aria-pressed="true"]{color:var(--flux);border-color:rgba(176,110,247,.55)}
+.fxbtn[aria-pressed="true"] .dot{background:var(--flux);box-shadow:0 0 8px var(--flux)}
 
 /* ── filter ───────────────────────────────────────────────── */
 .tools{padding-top:34px}
@@ -183,7 +200,13 @@ kbd{
   <div class="wrap">
     <h1>cheatsheets<span class="caret">_</span></h1>
     <p class="tagline" id="tagline">bevy · rust · wgpu · wgsl · godot</p>
-    <p class="warn">⚠ Warning: Guides written by Clog(claude). Might or might not be helpful.</p>
+    <div class="herobar">
+      <p class="warn">⚠ Warning: Guides written by Clog(claude). Might or might not be helpful.</p>
+      <button class="fxbtn" id="fxToggle" type="button" aria-pressed="false" hidden>
+        <span class="dot" aria-hidden="true"></span>
+        <span id="fxLabel">Animate header</span>
+      </button>
+    </div>
   </div>
 </header>
 
@@ -251,6 +274,10 @@ const LINKS = {
     "godot-gdscript-cheatsheet.html"
   ]
 };
+
+/* The frozen frame the header shows before you press Animate.
+   Change this number to pick a different pose. */
+const FX_START_TIME = 30.0;
 
 /* ═══════════════════════════════════════════════════════════════
    Below here is machinery. You shouldn't need to touch it.
@@ -417,12 +444,22 @@ const LINKS = {
   window.addEventListener("popstate", fromHash);
   window.addEventListener("hashchange", fromHash);
 
-  /* ---- header shader: raymarched blobs ---- */
+  /* ---- header shader: raymarched blobs.
+          Draws ONE frame on load. The Animate button starts and
+          stops the clock; stopping leaves the pose where it was. ---- */
   function shader() {
     var c = document.getElementById("fx");
+    var btn = document.getElementById("fxToggle");
+    var label = document.getElementById("fxLabel");
     var gl;
+
+    function fallback() {
+      c.style.background = "radial-gradient(120% 140% at 20% 0%,#241a3d 0%,#0d1018 62%)";
+      btn.hidden = true;
+    }
+
     try { gl = c.getContext("webgl", { antialias: false, alpha: true }); } catch (e) {}
-    if (!gl) { c.style.background = "radial-gradient(120% 140% at 20% 0%,#241a3d 0%,#0d1018 62%)"; return; }
+    if (!gl) { fallback(); return; }
 
     var VS = "attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}";
     var FS = [
@@ -459,7 +496,7 @@ const LINKS = {
       return gl.getShaderParameter(s, gl.COMPILE_STATUS) ? s : null;
     }
     var vs = sh(gl.VERTEX_SHADER, VS), fs = sh(gl.FRAGMENT_SHADER, FS);
-    if (!vs || !fs) { c.style.background = "radial-gradient(120% 140% at 20% 0%,#241a3d 0%,#0d1018 62%)"; return; }
+    if (!vs || !fs) { fallback(); return; }
     var pr = gl.createProgram();
     gl.attachShader(pr, vs); gl.attachShader(pr, fs); gl.linkProgram(pr); gl.useProgram(pr);
 
@@ -473,7 +510,6 @@ const LINKS = {
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
     var uRes = gl.getUniformLocation(pr, "res"), uT = gl.getUniformLocation(pr, "t");
-    var still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     function size() {
       var scale = Math.min(window.devicePixelRatio || 1, 1.5) * (innerWidth < 700 ? .5 : .68);
@@ -483,28 +519,54 @@ const LINKS = {
       gl.uniform2f(uRes, c.width, c.height);
     }
 
-    var start = performance.now(), running = true;
-    function draw(now) {
-      size();
-      gl.uniform1f(uT, still ? 6.2 : (now - start) / 1000);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
-      if (still || !running) return;
-      requestAnimationFrame(draw);
-    }
-    requestAnimationFrame(draw);
+    /* clock: `clock` is the shader's t. It only advances while playing. */
+    var clock = (typeof FX_START_TIME === "number") ? FX_START_TIME : 6.2;
+    var playing = false;     // what the button says
+    var onScreen = true;     // header is in view
+    var raf = null;
+    var prev = 0;
 
-    addEventListener("resize", function () { if (still) requestAnimationFrame(draw); });
+    function shouldLoop() { return playing && onScreen && !document.hidden; }
+
+    function frameStep(now) {
+      raf = null;
+      size();
+      if (playing && prev) clock += Math.min((now - prev) / 1000, 0.1);
+      prev = now;
+      gl.uniform1f(uT, clock);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      if (shouldLoop()) raf = requestAnimationFrame(frameStep);
+    }
+
+    /* draw a single frame (also restarts the loop if playing) */
+    function kick() {
+      if (raf === null) { prev = 0; raf = requestAnimationFrame(frameStep); }
+    }
+
+    function setPlaying(on) {
+      playing = on;
+      btn.setAttribute("aria-pressed", String(on));
+      label.textContent = on ? "Pause header" : "Animate header";
+      btn.title = on ? "Stop the raymarcher (it will hold this pose)" : "Run the raymarcher (uses your GPU)";
+      if (on) kick();
+    }
+
+    btn.hidden = false;
+    btn.addEventListener("click", function () { setPlaying(!playing); });
+
+    /* one frame on load, paused */
+    kick();
+
+    addEventListener("resize", kick);
+
     document.addEventListener("visibilitychange", function () {
-      if (still) return;
-      if (document.hidden) { running = false; }
-      else if (!running) { running = true; start = performance.now() - 6200; requestAnimationFrame(draw); }
+      if (!document.hidden && shouldLoop()) kick();
     });
+
     if ("IntersectionObserver" in window) {
       new IntersectionObserver(function (es) {
-        if (still) return;
-        var vis = es[0].isIntersecting;
-        if (!vis) running = false;
-        else if (!running) { running = true; requestAnimationFrame(draw); }
+        onScreen = es[0].isIntersecting;
+        if (shouldLoop()) kick();
       }).observe(c);
     }
   }
