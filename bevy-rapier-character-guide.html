@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Collide and slide — a Rust + Bevy + Rapier walkthrough</title>
+<meta name="description" content="Step-by-step: a sphere character in Bevy 0.19 with bevy_rapier3d's kinematic character controller — collide and slide, autostep, slope handling, jumping, and a ray-cast camera.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box}
+:root{
+  --paper:#E4E8EC;
+  --card:#F4F6F8;
+  --ink:#12161A;
+  --muted:#666F79;
+  --line:rgba(18,22,26,.14);
+  --panel:#141A20;
+  --panel-ink:#D6DEE6;
+  --panel-line:rgba(255,255,255,.09);
+  --x:#CE4249;
+  --y:#3E9853;
+  --z:#2A66DE;
+}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--paper);color:var(--ink);
+  font-family:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-size:17px;line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+img,svg{max-width:100%}
+a{color:var(--z);text-underline-offset:3px;text-decoration-thickness:1px}
+a:hover{color:#1A4EB4}
+.wrap{max-width:1140px;margin:0 auto;padding:0 clamp(18px,4vw,40px)}
+
+/* ---------- hero ---------- */
+.hero{position:relative;overflow:hidden;border-bottom:1px solid var(--line)}
+.hero-grid{
+  display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);
+  gap:clamp(24px,5vw,64px);align-items:center;
+  padding:clamp(40px,7vw,88px) 0 clamp(36px,6vw,72px);
+}
+.eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:.72rem;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--muted);display:flex;align-items:center;gap:10px;margin:0 0 22px;
+}
+.eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--z)}
+h1{
+  font-family:"Bricolage Grotesque","IBM Plex Sans",sans-serif;
+  font-weight:800;font-size:clamp(2.7rem,7.4vw,5.1rem);line-height:.94;
+  letter-spacing:-.035em;margin:0 0 20px;
+}
+h1 em{font-style:normal;color:var(--z)}
+.lede{font-size:clamp(1.02rem,1.7vw,1.2rem);color:#39424C;max-width:46ch;margin:0 0 28px}
+.facts{display:flex;flex-wrap:wrap;gap:10px 28px;margin:0;padding:0;list-style:none;
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.78rem;color:var(--muted)}
+.facts b{display:block;color:var(--ink);font-weight:500;font-size:.86rem;letter-spacing:-.01em}
+.keys{display:flex;flex-wrap:wrap;gap:8px;margin:30px 0 0;padding:0;list-style:none}
+.keys li{display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--muted)}
+kbd{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.74rem;
+  background:var(--card);border:1px solid var(--line);border-bottom-width:2px;
+  border-radius:5px;padding:3px 7px;color:var(--ink);
+}
+
+/* ---------- signature: wireframe ball on a grid ---------- */
+.viewport{
+  position:relative;aspect-ratio:1/.86;border:1px solid var(--line);
+  border-radius:14px;background:
+    radial-gradient(120% 90% at 50% 8%,#F2F4F6 0%,#DFE4E9 62%,#D3D9E0 100%);
+  overflow:hidden;
+}
+.viewport svg{position:absolute;inset:0;width:100%;height:100%}
+.viewport .tag{
+  position:absolute;left:14px;top:12px;font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);
+}
+.axis-key{position:absolute;right:14px;bottom:12px;display:flex;gap:12px;
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.66rem;color:var(--muted)}
+.axis-key i{font-style:normal;font-weight:600}
+.ball{animation:bob 3.4s cubic-bezier(.4,0,.3,1) infinite}
+.shadow{animation:shade 3.4s cubic-bezier(.4,0,.3,1) infinite;transform-origin:center}
+.meridian{animation:spin 5.2s linear infinite}
+@keyframes bob{
+  0%,100%{transform:translateY(0)}
+  38%{transform:translateY(-34px)}
+  62%{transform:translateY(-34px)}
+}
+@keyframes shade{
+  0%,100%{opacity:.30;transform:scale(1)}
+  38%{opacity:.14;transform:scale(.72)}
+  62%{opacity:.14;transform:scale(.72)}
+}
+@keyframes spin{
+  0%{rx:56px;opacity:.95}
+  25%{rx:2px;opacity:.35}
+  50%{rx:56px;opacity:.95}
+  75%{rx:2px;opacity:.35}
+  100%{rx:56px;opacity:.95}
+}
+
+/* ---------- document ---------- */
+.doc{display:grid;grid-template-columns:172px minmax(0,1fr);gap:clamp(24px,5vw,60px);
+  padding:clamp(40px,6vw,72px) 0 40px}
+.rail{position:sticky;top:34px;align-self:start;border-left:1px solid var(--line);padding-left:0}
+.rail ol{list-style:none;margin:0;padding:0}
+.rail a{
+  display:block;padding:5px 0 5px 16px;margin-left:-1px;border-left:2px solid transparent;
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.72rem;letter-spacing:.02em;
+  color:var(--muted);text-decoration:none;transition:color .18s,border-color .18s;
+}
+.rail a:hover{color:var(--ink)}
+.rail a.on{color:var(--z);border-left-color:var(--z)}
+.rail .num{opacity:.55;margin-right:8px}
+
+article{max-width:none}
+.intro{border-bottom:1px solid var(--line);padding-bottom:34px;margin-bottom:12px}
+.intro h2{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:1.45rem;
+  letter-spacing:-.02em;margin:0 0 12px}
+.intro p{max-width:66ch}
+
+section.step{padding:38px 0;border-bottom:1px solid var(--line)}
+section.step:last-of-type{border-bottom:0}
+.step-head{display:flex;align-items:baseline;gap:14px;margin:0 0 6px}
+.gizmo{flex:none;width:22px;height:22px;transform:translateY(3px)}
+.step-n{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.72rem;
+  letter-spacing:.18em;text-transform:uppercase;color:var(--z)}
+h3{font-family:"Bricolage Grotesque","IBM Plex Sans",sans-serif;font-weight:700;
+  font-size:clamp(1.4rem,2.6vw,1.95rem);letter-spacing:-.025em;line-height:1.15;margin:0 0 14px}
+section.step p{max-width:66ch;margin:0 0 16px}
+
+/* ---------- code ---------- */
+.code{margin:22px 0;border-radius:11px;overflow:hidden;background:var(--panel);
+  box-shadow:0 1px 0 rgba(18,22,26,.06),0 14px 30px -22px rgba(18,22,26,.6)}
+.code figcaption{display:flex;justify-content:space-between;align-items:center;
+  gap:16px;padding:9px 12px 9px 15px;border-bottom:1px solid var(--panel-line)}
+.code .file{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.7rem;
+  letter-spacing:.12em;text-transform:uppercase;color:#7C8A97}
+.copy{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.68rem;
+  letter-spacing:.1em;text-transform:uppercase;color:#9DAAB7;background:transparent;
+  border:1px solid var(--panel-line);border-radius:6px;padding:4px 10px;cursor:pointer;
+  transition:color .15s,border-color .15s}
+.copy:hover{color:#fff;border-color:rgba(255,255,255,.3)}
+.copy.done{color:#8FD79F;border-color:rgba(143,215,159,.45)}
+.code pre{margin:0;padding:15px 18px 17px;overflow-x:auto;color:var(--panel-ink);
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.845rem;line-height:1.62;
+  tab-size:4}
+.code code{font:inherit}
+.c{color:#6C7A88;font-style:italic}
+.s{color:#8FD79F}
+.k{color:#7FB0F5}
+.t{color:#E9A96B}
+.m{color:#E58089}
+.n{color:#B8CBA0}
+.a{color:#8C7CC9}
+code.inl{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.86em;
+  background:rgba(18,22,26,.07);border-radius:4px;padding:2px 5px;white-space:nowrap}
+
+/* ---------- notes ---------- */
+.note{margin:22px 0;padding:14px 18px;border-left:3px solid var(--z);
+  background:rgba(42,102,222,.07);border-radius:0 9px 9px 0}
+.note p{margin:0;max-width:64ch}
+.note-label{display:block;font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:.66rem;letter-spacing:.18em;text-transform:uppercase;margin-bottom:5px;color:var(--z)}
+.check{border-left-color:var(--y);background:rgba(62,152,83,.09)}
+.check .note-label{color:var(--y)}
+.warn{border-left-color:var(--x);background:rgba(206,66,73,.08)}
+.warn .note-label{color:var(--x)}
+
+/* ---------- outro ---------- */
+.outro{padding:44px 0 12px}
+.outro h2{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;
+  font-size:clamp(1.5rem,3vw,2.1rem);letter-spacing:-.025em;margin:0 0 18px}
+.next{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+  margin:0;padding:0;list-style:none}
+.next li{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:16px 18px}
+.next h4{margin:0 0 6px;font-size:.95rem;font-weight:600;letter-spacing:-.01em}
+.next p{margin:0;font-size:.9rem;color:var(--muted);max-width:none}
+footer{border-top:1px solid var(--line);margin-top:44px;padding:26px 0 46px;
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.72rem;color:var(--muted)}
+footer a{color:var(--muted)}
+
+@media (max-width:940px){
+  .hero-grid{grid-template-columns:1fr;padding-top:34px}
+  .viewport{order:-1;aspect-ratio:1/.62}
+  .doc{grid-template-columns:1fr}
+  .rail{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important}
+}
+:focus-visible{outline:2px solid var(--z);outline-offset:3px;border-radius:3px}
+
+.legend{position:absolute;left:14px;bottom:12px;display:flex;flex-direction:column;gap:4px;
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.66rem;color:var(--muted)}
+.legend span{display:flex;align-items:center;gap:7px}
+.legend i{width:14px;height:0;border-top:2px solid currentColor;display:inline-block}
+.swap{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 26px;padding:0;list-style:none;
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.72rem}
+.swap li{border:1px solid var(--line);border-radius:999px;padding:5px 12px;color:var(--muted);
+  background:var(--card)}
+.swap li b{color:var(--ink);font-weight:500}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <p class="eyebrow"><span class="dot"></span> Rust &middot; Bevy 0.19 &middot; Rapier 0.35</p>
+      <h1>Collide<br>and slide<em>.</em></h1>
+      <p class="lede">The same rolling sphere, rebuilt on Rapier's kinematic character controller. It deflects along walls, climbs ramps, steps over ledges, shoves crates, and the camera ray-casts so it never ends up inside the scenery.</p>
+      <ul class="facts">
+        <li>Time<b>About 90 minutes</b></li>
+        <li>You need<b>Rust 1.85+</b></li>
+        <li>Result<b>~250 lines</b></li>
+      </ul>
+      <ul class="keys">
+        <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</li>
+        <li><kbd>Space</kbd> jump</li>
+        <li><kbd>Mouse</kbd> look</li>
+        <li><kbd>Scroll</kbd> zoom</li>
+        <li><kbd>Esc</kbd> release cursor</li>
+      </ul>
+    </div>
+    <div class="viewport">
+      <span class="tag">Preview</span>
+      
+<svg viewBox="0 0 520 450" role="img" aria-label="A sphere meeting a wall, its motion deflected along the surface instead of stopping">
+  <defs>
+    <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#12161A" stop-opacity=".02"/>
+      <stop offset="1" stop-color="#12161A" stop-opacity=".16"/>
+    </linearGradient>
+    <marker id="tip-x" viewBox="0 0 10 10" refX="8" refY="5"
+            markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#CE4249"/>
+    </marker>
+    <marker id="tip-z" viewBox="0 0 10 10" refX="8" refY="5"
+            markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#2A66DE"/>
+    </marker>
+  </defs>
+
+  <g stroke="url(#fade)" stroke-width="1" fill="none">
+    <path d="M-140 450 L215 296"/><path d="M-20 450 L232 296"/>
+    <path d="M100 450 L248 296"/><path d="M220 450 L264 296"/>
+    <path d="M340 450 L281 296"/><path d="M460 450 L297 296"/>
+    <path d="M580 450 L313 296"/><path d="M700 450 L330 296"/>
+  </g>
+  <g stroke="#12161A" fill="none">
+    <path d="M0 296 H520" stroke-opacity=".18"/>
+    <path d="M-30 320 H550" stroke-opacity=".14"/>
+    <path d="M-70 356 H590" stroke-opacity=".11"/>
+    <path d="M-120 404 H640" stroke-opacity=".08"/>
+  </g>
+
+  <!-- the wall the ball is sliding along -->
+  <g>
+    <path d="M366 150 L470 122 L470 268 L366 296 Z" fill="#12161A" fill-opacity=".10"
+          stroke="#12161A" stroke-opacity=".38"/>
+    <path d="M366 150 L470 122" stroke="#12161A" stroke-opacity=".38" fill="none"/>
+  </g>
+
+  <!-- desired motion, then the deflected result -->
+  <path d="M212 214 L344 190" stroke="#CE4249" stroke-width="2"
+        marker-end="url(#tip-x)" fill="none" stroke-dasharray="6 5"/>
+  <path d="M352 196 L392 262" stroke="#2A66DE" stroke-width="2.4"
+        marker-end="url(#tip-z)" fill="none"/>
+
+  <ellipse class="shadow" cx="190" cy="300" rx="58" ry="14" fill="#12161A" opacity=".3"/>
+
+  <g class="ball">
+    <circle cx="190" cy="238" r="56" fill="#EFA26B" fill-opacity=".16"
+            stroke="#12161A" stroke-opacity=".55"/>
+    <g fill="none" stroke="#12161A" stroke-opacity=".26">
+      <ellipse cx="190" cy="238" rx="56" ry="8"/>
+      <ellipse cx="190" cy="217" rx="51.8" ry="7.2"/>
+      <ellipse cx="190" cy="259" rx="51.8" ry="7.2"/>
+      <ellipse cx="190" cy="198" rx="41" ry="5.7"/>
+      <ellipse cx="190" cy="278" rx="41" ry="5.7"/>
+    </g>
+    <g fill="none" stroke="#CE4249" stroke-opacity=".5">
+      <ellipse class="meridian" cx="190" cy="238" rx="54" ry="56" style="animation-delay:0s"/>
+      <ellipse class="meridian" cx="190" cy="238" rx="32" ry="56" style="animation-delay:-1.3s"/>
+      <ellipse class="meridian" cx="190" cy="238" rx="32" ry="56" style="animation-delay:-2.6s"/>
+      <ellipse class="meridian" cx="190" cy="238" rx="32" ry="56" style="animation-delay:-3.9s"/>
+    </g>
+  </g>
+
+  <g transform="translate(60,394)" stroke-width="1.6" stroke-linecap="round">
+    <path d="M0 0 L44 -13" stroke="#CE4249"/>
+    <path d="M0 0 L0 -46" stroke="#3E9853"/>
+    <path d="M0 0 L-38 17" stroke="#2A66DE"/>
+    <circle cx="0" cy="0" r="2.6" fill="#12161A"/>
+  </g>
+</svg>
+
+      <div class="legend">
+        <span style="color:#CE4249"><i></i>movement requested</span>
+        <span style="color:#2A66DE"><i></i>movement resolved</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap doc">
+  <nav class="rail" aria-label="Steps">
+    <ol><li><a href="#step-1"><span class="num">01</span>Get the toolchain ready</a></li><li><a href="#step-2"><span class="num">02</span>Create the project</a></li><li><a href="#step-3"><span class="num">03</span>Turn the physics on</a></li><li><a href="#step-4"><span class="num">04</span>Build the level</a></li><li><a href="#step-5"><span class="num">05</span>The character controller</a></li><li><a href="#step-6"><span class="num">06</span>Camera rig and mouse capture</a></li><li><a href="#step-7"><span class="num">07</span>Look around</a></li><li><a href="#step-8"><span class="num">08</span>Ask for movement</a></li><li><a href="#step-9"><span class="num">09</span>Gravity and jumping</a></li><li><a href="#step-10"><span class="num">10</span>Follow the player, in the right order</a></li><li><a href="#step-11"><span class="num">11</span>Stop the camera clipping through walls</a></li><li><a href="#step-12"><span class="num">12</span>Roll the ball</a></li><li><a href="#step-13"><span class="num">13</span>The finished file</a></li></ol>
+  </nav>
+
+  <article>
+    <div class="intro">
+      <h2>What changes</h2>
+      <ul class="swap">
+        <li>height check <b>&rarr; shape cast</b></li>
+        <li>set the transform <b>&rarr; request a move</b></li>
+        <li>y &lt; radius <b>&rarr; grounded flag</b></li>
+        <li>Update <b>&rarr; PostUpdate</b></li>
+      </ul>
+      <p>A hand-rolled ground check gets you a ball on a floor. It does not get you walls, ramps, ledges or anything to push. Rapier's <strong>kinematic character controller</strong> does: you hand it the movement you want, it shape-casts that movement through the world, and returns the movement that actually fits — deflected along surfaces, stepped over small ledges, stopped by anything solid.</p>
+      <p>You keep authorship of how the character feels. Speed, gravity and jump height stay ordinary numbers in your own code. What you hand over is the geometry problem, which is the part that is genuinely hard to write well.</p>
+    </div>
+    <section class="step" id="step-1"><div class="step-head"><svg class="gizmo" viewBox="0 0 24 24" aria-hidden="true" stroke-width="1.7" stroke-linecap="round" fill="none"><path d="M12 20 L12 5" stroke="#3E9853"/><path d="M12 20 L22 15" stroke="#CE4249"/><path d="M12 20 L3 15" stroke="#2A66DE"/></svg><span class="step-n">Step 01</span></div><h3>Get the toolchain ready</h3><p>Rust 1.85 or newer, since Bevy 0.19 is on the 2024 edition. Check with <code class="inl">rustc --version</code>, and install from <a href="https://rustup.rs">rustup.rs</a> if it's missing.</p><p>Linux also needs a few system libraries:</p><figure class="code"><figcaption><span class="file">terminal</span><button class="copy" data-target="code-1" type="button">Copy</button></figcaption><pre id="code-1"><code><span class="c"># Debian / Ubuntu</span>
+sudo apt install build-essential pkg-config libx11-dev libasound2-dev libudev-dev
+
+<span class="c"># Fedora</span>
+sudo dnf install gcc-c++ alsa-lib-devel libX11-devel systemd-devel</code></pre></figure></section><section class="step" id="step-2"><div class="step-head"><svg class="gizmo" viewBox="0 0 24 24" aria-hidden="true" stroke-width="1.7" stroke-linecap="round" fill="none"><path d="M12 20 L12 5" stroke="#3E9853"/><path d="M12 20 L22 15" stroke="#CE4249"/><path d="M12 20 L3 15" stroke="#2A66DE"/></svg><span class="step-n">Step 02</span></div><h3>Create the project</h3><figure class="code"><figcaption><span class="file">terminal</span><button class="copy" data-target="code-2" type="button">Copy</button></figcaption><pre id="code-2"><code>cargo new sphere_controller
+cd sphere_controller</code></pre></figure><p>Two dependencies. The version pairing matters more than usual: each <code class="inl">bevy_rapier3d</code> release tracks exactly one Bevy release, and mixing them produces a wall of trait errors that never mentions the real problem.</p><figure class="code"><figcaption><span class="file">Cargo.toml</span><button class="copy" data-target="code-3" type="button">Copy</button></figcaption><pre id="code-3"><code>[package]
+name = <span class="s">"sphere_controller"</span>
+version = <span class="s">"0.1.0"</span>
+edition = <span class="s">"2024"</span>
+
+[dependencies]
+bevy = <span class="s">"0.19"</span>
+bevy_rapier3d = { version = <span class="s">"0.35"</span>, features = [<span class="s">"debug-render-3d"</span>] }
+
+<span class="c"># Physics in an unoptimised debug build is painful. Optimise dependencies</span>
+<span class="c"># hard, your own crate lightly.</span>
+[profile.dev]
+opt-level = <span class="n">1</span>
+
+[profile.dev.package.<span class="s">"*"</span>]
+opt-level = <span class="n">3</span></code></pre></figure><aside class="note tip"><span class="note-label">Note</span><p>The pairing used here is Bevy 0.19 with bevy_rapier3d 0.35. If you are reading this later, check the crate's page on crates.io and use whichever release lists your Bevy version as its dependency.</p></aside><aside class="note warn"><span class="note-label">Watch out</span><p>First build compiles Bevy and Rapier from scratch — expect several minutes. Later builds are incremental.</p></aside></section><section class="step" id="step-3"><div class="step-head"><svg class="gizmo" viewBox="0 0 24 24" aria-hidden="true" stroke-width="1.7" stroke-linecap="round" fill="none"><path d="M12 20 L12 5" stroke="#3E9853"/><path d="M12 20 L22 15" stroke="#CE4249"/><path d="M12 20 L3 15" stroke="#2A66DE"/></svg><span class="step-n">Step 03</span></div><h3>Turn the physics on</h3><p><code class="inl">RapierPhysicsPlugin</code> adds the simulation. <code class="inl">RapierDebugRenderPlugin</code> draws every collider as a wireframe, which is worth keeping on for the whole of this build: when something behaves oddly, it is almost always because a collider isn't where you think it is.</p><figure class="code"><figcaption><span class="file">src/main.rs</span><button class="copy" data-target="code-4" type="button">Copy</button></figcaption><pre id="code-4"><code><span class="k">use</span> bevy::prelude::*;
+<span class="k">use</span> bevy_rapier3d::prelude::*;
+
+<span class="k">fn</span> main() {
+    <span class="t">App</span>::new()
+        .add_plugins((
+            <span class="t">DefaultPlugins</span>,
+            <span class="t">RapierPhysicsPlugin</span>::&lt;<span class="t">NoUserData</span>&gt;::default(),
+            <span class="t">RapierDebugRenderPlugin</span>::default(),
+        ))
+        .add_systems(<span class="t">Startup</span>, setup)
+        .run();
+}
+
+<span class="k">fn</span> setup(<span class="k">mut</span> commands: <span class="t">Commands</span>) {
+    commands.spawn((
+        <span class="t">Camera3d</span>::default(),
+        <span class="t">Transform</span>::from_xyz(<span class="n">0.0</span>, <span class="n">6.0</span>, <span class="n">12.0</span>).looking_at(<span class="t">Vec3</span>::<span class="t">ZERO</span>, <span class="t">Vec3</span>::<span class="t">Y</span>),
+    ));
+
+    commands.spawn((
+        <span class="t">DirectionalLight</span> {
+            illuminance: <span class="n">10_000.0</span>,
+            shadow_maps_enabled: <span class="k">true</span>,
+            ..default()
+        },
+        <span class="t">Transform</span>::from_xyz(<span class="n">6.0</span>, <span class="n">12.0</span>, <span class="n">4.0</span>).looking_at(<span class="t">Vec3</span>::<span class="t">ZERO</span>, <span class="t">Vec3</span>::<span class="t">Y</span>),
+    ));
+
+    <span class="c">// A ball that falls onto a floor. No meshes yet - the debug renderer</span>
+    <span class="c">// draws the collider outlines for us.</span>
+    commands.spawn((
+        <span class="t">RigidBody</span>::<span class="t">Fixed</span>,
+        <span class="t">Collider</span>::cuboid(<span class="n">10.0</span>, <span class="n">0.2</span>, <span class="n">10.0</span>),
+        <span class="t">Transform</span>::from_xyz(<span class="n">0.0</span>, -<span class="n">0.2</span>, <span class="n">0.0</span>),
+    ));
+
+    commands.spawn((
+        <span class="t">RigidBody</span>::<span class="t">Dynamic</span>,
+        <span class="t">Collider</span>::ball(<span class="n">0.5</span>),
+        <span class="t">Transform</span>::from_xyz(<span class="n">0.0</span>, <span class="n">6.0</span>, <span class="n">0.0</span>),
+    ));
+}</code></pre></figure><figure class="code"><figcaption><span class="file">terminal</span><button class="copy" data-target="code-5" type="button">Copy</button></figcaption><pre id="code-5"><code>cargo run</code></pre></figure><aside class="note check"><span class="note-label">Checkpoint</span><p>A wireframe ball falls out of the air, hits a wireframe slab, and stops. No meshes yet — everything you can see is drawn by the debug renderer.</p></aside><aside class="note tip"><span class="note-label">Note</span><p>The <code class="inl">NoUserData</code> parameter is for custom physics hooks. You don't need any, so it stays as-is.</p></aside></section><section class="step" id="step-4"><div class="step-head"><svg class="gizmo" viewBox="0 0 24 24" aria-hidden="true" stroke-width="1.7" stroke-linecap="round" fill="none"><path d="M12 20 L12 5" stroke="#3E9853"/><path d="M12 20 L22 15" stroke="#CE4249"/><path d="M12 20 L3 15" stroke="#2A66DE"/></svg><span class="step-n">Step 04</span></div><h3>Build the level</h3><p>Every solid thing needs two components: a <code class="inl">RigidBody</code> that says how it moves, and a <code class="inl">Collider</code> that says what shape it is. <code class="inl">RigidBody::Fixed</code> means immovable, <code class="inl">RigidBody::Dynamic</code> means the simulation owns it.</p><p>The level is deliberately awkward: walls to slide along, a ramp to climb, steps to trip over, and crates to shove. Each one exercises a different setting on the character controller in the next step.</p><figure class="code"><figcaption><span class="file">src/main.rs</span><button class="copy" data-target="code-6" type="button">Copy</button></figcaption><pre id="code-6"><code><span class="k">const</span> <span class="t">PLAYER_RADIUS</span>: f32 = <span class="n">0.5</span>;
+<span class="k">const</span> <span class="t">MOVE_SPEED</span>: f32 = <span class="n">6.0</span>;
+<span class="k">const</span> <span class="t">JUMP_SPEED</span>: f32 = <span class="n">7.0</span>;
+<span class="k">const</span> <span class="t">GRAVITY</span>: f32 = -<span class="n">20.0</span>;
+
+<span class="k">fn</span> setup(
+    <span class="k">mut</span> commands: <span class="t">Commands</span>,
+    <span class="k">mut</span> meshes: <span class="t">ResMut</span>&lt;<span class="t">Assets</span>&lt;<span class="t">Mesh</span>&gt;&gt;,
+    <span class="k">mut</span> materials: <span class="t">ResMut</span>&lt;<span class="t">Assets</span>&lt;<span class="t">StandardMaterial</span>&gt;&gt;,
+) {
+    <span class="k">let</span> stone = materials.add(<span class="t">StandardMaterial</span> {
+        base_color: <span class="t">Color</span>::srgb(<span class="n">0.30</span>, <span class="n">0.33</span>, <span class="n">0.37</span>),
+        perceptual_roughness: <span class="n">0.9</span>,
+        ..default()
+    });
+
+    <span class="c">// Ground. A flat box rather than a plane, so it has real thickness.</span>
+    commands.spawn((
+        <span class="t">Mesh3d</span>(meshes.add(<span class="t">Cuboid</span>::new(<span class="n">40.0</span>, <span class="n">0.4</span>, <span class="n">40.0</span>))),
+        <span class="t">MeshMaterial3d</span>(stone.clone()),
+        <span class="t">Transform</span>::from_xyz(<span class="n">0.0</span>, -<span class="n">0.2</span>, <span class="n">0.0</span>),
+        <span class="t">RigidBody</span>::<span class="t">Fixed</span>,
+        <span class="t">Collider</span>::cuboid(<span class="n">20.0</span>, <span class="n">0.2</span>, <span class="n">20.0</span>),
+    ));
+
+    <span class="c">// Two walls to slide along.</span>
+    <span class="k">for</span> (position, size) <span class="k">in</span> [
+        (<span class="t">Vec3</span>::new(<span class="n">0.0</span>, <span class="n">1.0</span>, -<span class="n">12.0</span>), <span class="t">Vec3</span>::new(<span class="n">24.0</span>, <span class="n">2.0</span>, <span class="n">0.6</span>)),
+        (<span class="t">Vec3</span>::new(-<span class="n">12.0</span>, <span class="n">1.0</span>, <span class="n">0.0</span>), <span class="t">Vec3</span>::new(<span class="n">0.6</span>, <span class="n">2.0</span>, <span class="n">24.0</span>)),
+    ] {
+        commands.spawn((
+            <span class="t">Mesh3d</span>(meshes.add(<span class="t">Cuboid</span>::new(size.x, size.y, size.z))),
+            <span class="t">MeshMaterial3d</span>(stone.clone()),
+            <span class="t">Transform</span>::from_translation(position),
+            <span class="t">RigidBody</span>::<span class="t">Fixed</span>,
+            <span class="t">Collider</span>::cuboid(size.x / <span class="n">2.0</span>, size.y / <span class="n">2.0</span>, size.z / <span class="n">2.0</span>),
+        ));
+    }
+
+    <span class="c">// A ramp to climb.</span>
+    commands.spawn((
+        <span class="t">Mesh3d</span>(meshes.add(<span class="t">Cuboid</span>::new(<span class="n">6.0</span>, <span class="n">0.4</span>, <span class="n">6.0</span>))),
+        <span class="t">MeshMaterial3d</span>(stone.clone()),
+        <span class="t">Transform</span>::from_xyz(<span class="n">8.0</span>, <span class="n">1.0</span>, <span class="n">0.0</span>).with_rotation(<span class="t">Quat</span>::from_rotation_z(-<span class="n">0.4</span>)),
+        <span class="t">RigidBody</span>::<span class="t">Fixed</span>,
+        <span class="t">Collider</span>::cuboid(<span class="n">3.0</span>, <span class="n">0.2</span>, <span class="n">3.0</span>),
+    ));
+
+    <span class="c">// Three steps, each 0.3 units taller than the last.</span>
+    <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span>..<span class="n">3</span> {
+        <span class="k">let</span> height = <span class="n">0.3</span> * (i <span class="k">as</span> f32 + <span class="n">1.0</span>);
+        commands.spawn((
+            <span class="t">Mesh3d</span>(meshes.add(<span class="t">Cuboid</span>::new(<span class="n">4.0</span>, height, <span class="n">1.0</span>))),
+            <span class="t">MeshMaterial3d</span>(stone.clone()),
+            <span class="t">Transform</span>::from_xyz(-<span class="n">6.0</span>, height / <span class="n">2.0</span>, -<span class="n">3.0</span> - i <span class="k">as</span> f32),
+            <span class="t">RigidBody</span>::<span class="t">Fixed</span>,
+            <span class="t">Collider</span>::cuboid(<span class="n">2.0</span>, height / <span class="n">2.0</span>, <span class="n">0.5</span>),
+        ));
+    }
+
+    <span class="c">// Crates. These are dynamic, so they get shoved around.</span>
+    <span class="k">let</span> timber = materials.add(<span class="t">Color</span>::srgb(<span class="n">0.72</span>, <span class="n">0.52</span>, <span class="n">0.28</span>));
+    <span class="k">let</span> crate_mesh = meshes.add(<span class="t">Cuboid</span>::new(<span class="n">0.8</span>, <span class="n">0.8</span>, <span class="n">0.8</span>));
+    <span class="k">for</span> (x, z) <span class="k">in</span> [(<span class="n">3.0</span>, -<span class="n">4.0</span>), (<span class="n">4.2</span>, -<span class="n">4.8</span>), (<span class="n">3.4</span>, -<span class="n">6.0</span>)] {
+        commands.spawn((
+            <span class="t">Mesh3d</span>(crate_mesh.clone()),
+            <span class="t">MeshMaterial3d</span>(timber.clone()),
+            <span class="t">Transform</span>::from_xyz(x, <span class="n">0.4</span>, z),
+            <span class="t">RigidBody</span>::<span class="t">Dynamic</span>,
+            <span class="t">Collider</span>::cuboid(<span class="n">0.4</span>, <span class="n">0.4</span>, <span class="n">0.4</span>),
+        ));
+    }
+
+    <span class="c">// Sun</span>
+    commands.spawn((
+        <span class="t">DirectionalLight</span> {
+            illuminance: <span class="n">10_000.0</span>,
+            shadow_maps_enabled: <span class="k">true</span>,
+            ..default()
+        },
+        <span class="t">Transform</span>::from_xyz(<span class="n">6.0</span>, <span class="n">12.0</span>, <span class="n">4.0</span>).looking_at(<span class="t">Vec3</span>::<span class="t">ZERO</span>, <span class="t">Vec3</span>::<span class="t">Y</span>),
+    ));
+
+    <span class="c">// Camera</span>
+    commands.spawn((
+        <span class="t">Camera3d</span>::default(),
+        <span class="t">Transform</span>::from_xyz(<span class="n">0.0</span>, <span class="n">5.0</span>, <span class="n">9.0</span>).looking_at(<span class="t">Vec3</span>::<span class="t">ZERO</span>, <span class="t">Vec3</span>::<span class="t">Y</span>),
+    ));
+}</code></pre></figure><aside class="note check"><span class="note-label">Checkpoint</span><p>The scene renders with solid meshes, wireframes drawn over them, and the crates settle onto the floor under gravity. Mesh and collider outlines should line up exactly.</p></aside><aside class="note warn"><span class="note-label">Watch out</span><p><code class="inl">Collider::cuboid</code> takes half-extents, while <code class="inl">Cuboid::new</code> takes full sizes. A wireframe that comes out twice the size of its mesh is always this.</p></aside></section><section class="step" id="step-5"><div class="step-head"><svg class="gizmo" viewBox="0 0 24 24" aria-hidden="true" stroke-width="1.7" stroke-linecap="round" fill="none"><path d="M12 20 L12 5" stroke="#3E9853"/><path d="M12 20 L22 15" stroke="#CE4249"/><path d="M12 20 L3 15" stroke="#2A66DE"/></svg><span class="step-n">Step 05</span></div><h3>The character controller</h3><p>Now the player. Three components do the work together:</p><p><code class="inl">RigidBody::KinematicPositionBased</code> means the simulation never moves this body on its own — you set the position, and it pushes other things rather than being pushed. <code class="inl">Collider::ball</code> gives it a shape. <code class="inl">KinematicCharacterController</code> is the collide-and-slide solver: you hand it a movement you'd like, and it hands back the movement that actually fits.</p><figure class="code"><figcaption><span class="file">src/main.rs</span><button class="copy" data-target="code-7" type="button">Copy</button></figcaption><pre id="code-7"><code><span class="a">#[derive(Component)]</span>
+<span class="k">struct</span> <span class="t">Player</span> {
+    vertical_velocity: f32,
+}</code></pre></figure><p>Add the player to <code class="inl">setup</code>:</p><figure class="code"><figcaption><span class="file">src/main.rs — inside setup()</span><button class="copy" data-target="code-8" type="button">Copy</button></figcaption><pre id="code-8"><code>    commands.spawn((
+        <span class="t">Player</span> {
+            vertical_velocity: <span class="n">0.0</span>,
+        },
+        <span class="t">Mesh3d</span>(meshes.add(<span class="t">Sphere</span>::new(<span class="t">PLAYER_RADIUS</span>))),
+        <span class="t">MeshMaterial3d</span>(materials.add(<span class="t">StandardMaterial</span> {
+            base_color: <span class="t">Color</span>::srgb(<span class="n">0.92</span>, <span class="n">0.46</span>, <span class="n">0.20</span>),
+            perceptual_roughness: <span class="n">0.35</span>,
+            ..default()
+        })),
+        <span class="t">Transform</span>::from_xyz(<span class="n">0.0</span>, <span class="n">2.0</span>, <span class="n">0.0</span>),
+        <span class="t">RigidBody</span>::<span class="t">KinematicPositionBased</span>,
+        <span class="t">Collider</span>::ball(<span class="t">PLAYER_RADIUS</span>),
+        <span class="t">KinematicCharacterController</span> {
+            up: <span class="t">Vec3</span>::<span class="t">Y</span>,
+            <span class="c">// Keep a hair of daylight between the ball and the world.</span>
+            offset: <span class="t">CharacterLength</span>::<span class="t">Absolute</span>(<span class="n">0.02</span>),
+            <span class="c">// The whole point: deflect along obstacles instead of stopping dead.</span>
+            slide: <span class="k">true</span>,
+            <span class="c">// Walk up small ledges without jumping.</span>
+            autostep: <span class="t">Some</span>(<span class="t">CharacterAutostep</span> {
+                max_height: <span class="t">CharacterLength</span>::<span class="t">Absolute</span>(<span class="n">0.35</span>),
+                min_width: <span class="t">CharacterLength</span>::<span class="t">Absolute</span>(<span class="n">0.2</span>),
+                include_dynamic_bodies: <span class="k">false</span>,
+            }),
+            <span class="c">// Stick to the floor when running down a slope.</span>
+            snap_to_ground: <span class="t">Some</span>(<span class="t">CharacterLength</span>::<span class="t">Absolute</span>(<span class="n">0.3</span>)),
+            max_slope_climb_angle: 50f32.to_radians(),
+            min_slope_slide_angle: 35f32.to_radians(),
+            <span class="c">// Shove the crates around.</span>
+            apply_impulse_to_dynamic_bodies: <span class="k">true</span>,
+            ..default()
+        },
+    ));</code></pre></figure><p>Those settings are the whole personality of the character. <code class="inl">slide</code> is what turns a wall from a brick into a guide rail. <code class="inl">autostep</code> lets the ball walk up the 0.3-unit steps without jumping. <code class="inl">snap_to_ground</code> keeps it glued to a downhill slope instead of launching off the crest. <code class="inl">max_slope_climb_angle</code> decides which ramps are floors and which are walls.</p><aside class="note tip"><span class="note-label">Note</span><p>A ball is an unusual character shape — most games use a capsule, which catches on edges far less. Since the brief is a sphere, autostep is doing the work a capsule's rounded bottom normally would.</p></aside></section><section class="step" id="step-6"><div class="step-head"><svg class="gizmo" viewBox="0 0 24 24" aria-hidden="true" stroke-width="1.7" stroke-linecap="round" fill="none"><path d="M12 20 L12 5" stroke="#3E9853"/><path d="M12 20 L22 15" stroke="#CE4249"/><path d="M12 20 L3 15" stroke="#2A66DE"/></svg><span class="step-n">Step 06</span></div><h3>Camera rig and mouse capture</h3><p>The camera needs somewhere to keep its angles, and the pointer needs locking to the window before mouse-look makes any sense.</p><figure class="code"><figcaption><span class="file">src/main.rs</span><button class="copy" data-target="code-9" type="button">Copy</button></figcaption><pre id="code-9"><code><span class="k">use</span> bevy::window::{<span class="t">CursorGrabMode</span>, <span class="t">CursorOptions</span>};
+
+<span class="a">#[derive(Component)]</span>
+<span class="k">struct</span> <span class="t">CameraRig</span> {
+    yaw: f32,
+    pitch: f32,
+    distance: f32,
+}
+
+<span class="k">fn</span> grab_cursor(
+    <span class="k">mut</span> cursor: <span class="t">Single</span>&lt;&amp;<span class="k">mut</span> <span class="t">CursorOptions</span>&gt;,
+    mouse: <span class="t">Res</span>&lt;<span class="t">ButtonInput</span>&lt;<span class="t">MouseButton</span>&gt;&gt;,
+    keys: <span class="t">Res</span>&lt;<span class="t">ButtonInput</span>&lt;<span class="t">KeyCode</span>&gt;&gt;,
+) {
+    <span class="k">if</span> mouse.just_pressed(<span class="t">MouseButton</span>::<span class="t">Left</span>) {
+        cursor.grab_mode = <span class="t">CursorGrabMode</span>::<span class="t">Locked</span>;
+        cursor.visible = <span class="k">false</span>;
+    }
+    <span class="k">if</span> keys.just_pressed(<span class="t">KeyCode</span>::<span class="t">Escape</span>) {
+        cursor.grab_mode = <span class="t">CursorGrabMode</span>::<span class="t">None</span>;
+        cursor.visible = <span class="k">true</span>;
+    }
+}</code></pre></figure><p>Add the rig to the camera you already spawn:</p><figure class="code"><figcaption><span class="file">src/main.rs — inside setup()</span><button class="copy" data-target="code-10" type="button">Copy</button></figcaption><pre id="code-10"><code>    commands.spawn((
+        <span class="t">Camera3d</span>::default(),
+        <span class="t">CameraRig</span> {
+            yaw: <span class="n">0.0</span>,
+            pitch: -<span class="n">0.35</span>,
+            distance: <span class="n">9.0</span>,
+        },
+        <span class="t">Transform</span>::from_xyz(<span class="n">0.0</span>, <span class="n">5.0</span>, <span class="n">9.0</span>).looking_at(<span class="t">Vec3</span>::<span class="t">ZERO</span>, <span class="t">Vec3</span>::<span class="t">Y</span>),
+    ));</code></pre></figure><aside class="note warn"><span class="note-label">Watch out</span><p>Windows has no true locked mode and falls back to confining the cursor to the window. Both feel the same in play.</p></aside></section><section class="step" id="step-7"><div class="step-head"><svg class="gizmo" viewBox="0 0 24 24" aria-hidden="true" stroke-width="1.7" stroke-linecap="round" fill="none"><path d="M12 20 L12 5" stroke="#3E9853"/><path d="M12 20 L22 15" stroke="#CE4249"/><path d="M12 20 L3 15" stroke="#2A66DE"/></svg><span class="step-n">Step 07</span></div><h3>Look around</h3><p>Fold the frame's pooled mouse movement into the rig's angles, and let the scroll wheel change how far back the camera sits. Pitch is clamped just short of vertical so the view can't flip over its own pole.</p><figure class="code"><figcaption><span class="file">src/main.rs</span><button class="copy" data-target="code-11" type="button">Copy</button></figcaption><pre id="code-11"><code><span class="k">use</span> bevy::input::mouse::{<span class="t">AccumulatedMouseMotion</span>, <span class="t">AccumulatedMouseScroll</span>};
+<span class="k">use</span> std::f32::consts::<span class="t">FRAC_PI_2</span>;
+
+<span class="k">const</span> <span class="t">MOUSE_SENSITIVITY</span>: f32 = <span class="n">0.003</span>;
+
+<span class="k">fn</span> orbit_camera(
+    motion: <span class="t">Res</span>&lt;<span class="t">AccumulatedMouseMotion</span>&gt;,
+    scroll: <span class="t">Res</span>&lt;<span class="t">AccumulatedMouseScroll</span>&gt;,
+    cursor: <span class="t">Single</span>&lt;&amp;<span class="t">CursorOptions</span>&gt;,
+    <span class="k">mut</span> rig: <span class="t">Single</span>&lt;&amp;<span class="k">mut</span> <span class="t">CameraRig</span>&gt;,
+) {
+    <span class="k">if</span> <span class="m">matches!</span>(cursor.grab_mode, <span class="t">CursorGrabMode</span>::<span class="t">None</span>) {
+        <span class="k">return</span>;
+    }
+
+    rig.distance = (rig.distance - scroll.delta.y * <span class="n">0.6</span>).clamp(<span class="n">3.0</span>, <span class="n">20.0</span>);
+
+    <span class="k">let</span> delta = motion.delta;
+    <span class="k">if</span> delta == <span class="t">Vec2</span>::<span class="t">ZERO</span> {
+        <span class="k">return</span>;
+    }
+
+    rig.yaw -= delta.x * <span class="t">MOUSE_SENSITIVITY</span>;
+    rig.pitch = (rig.pitch - delta.y * <span class="t">MOUSE_SENSITIVITY</span>)
+        .clamp(-<span class="t">FRAC_PI_2</span> + <span class="n">0.05</span>, <span class="t">FRAC_PI_2</span> - <span class="n">0.05</span>);
+}</code></pre></figure></section><section class="step" id="step-8"><div class="step-head"><svg class="gizmo" viewBox="0 0 24 24" aria-hidden="true" stroke-width="1.7" stroke-linecap="round" fill="none"><path d="M12 20 L12 5" stroke="#3E9853"/><path d="M12 20 L22 15" stroke="#CE4249"/><path d="M12 20 L3 15" stroke="#2A66DE"/></svg><span class="step-n">Step 08</span></div><h3>Ask for movement</h3><p>Here is the real difference from a hand-rolled controller. You never write to the player's <code class="inl">Transform</code>. You set <code class="inl">controller.translation</code> to the movement you want, and during <code class="inl">PostUpdate</code> Rapier shape-casts that movement through the world, deflects it along whatever it hits, and writes the result to the transform for you.</p><figure class="code"><figcaption><span class="file">src/main.rs</span><button class="copy" data-target="code-12" type="button">Copy</button></figcaption><pre id="code-12"><code><span class="k">fn</span> move_player(
+    keys: <span class="t">Res</span>&lt;<span class="t">ButtonInput</span>&lt;<span class="t">KeyCode</span>&gt;&gt;,
+    time: <span class="t">Res</span>&lt;<span class="t">Time</span>&gt;,
+    rig: <span class="t">Single</span>&lt;&amp;<span class="t">CameraRig</span>&gt;,
+    player: <span class="t">Single</span>&lt;(&amp;<span class="k">mut</span> <span class="t">Player</span>, &amp;<span class="k">mut</span> <span class="t">KinematicCharacterController</span>)&gt;,
+) {
+    <span class="k">let</span> (<span class="k">mut</span> player, <span class="k">mut</span> controller) = player.into_inner();
+    <span class="k">let</span> dt = time.delta_secs();
+
+    <span class="c">// Flatten the camera's facing onto the ground plane.</span>
+    <span class="k">let</span> forward = <span class="t">Vec3</span>::new(-rig.yaw.sin(), <span class="n">0.0</span>, -rig.yaw.cos());
+    <span class="k">let</span> right = <span class="t">Vec3</span>::new(rig.yaw.cos(), <span class="n">0.0</span>, -rig.yaw.sin());
+
+    <span class="k">let</span> <span class="k">mut</span> direction = <span class="t">Vec3</span>::<span class="t">ZERO</span>;
+    <span class="k">if</span> keys.pressed(<span class="t">KeyCode</span>::<span class="t">KeyW</span>) {
+        direction += forward;
+    }
+    <span class="k">if</span> keys.pressed(<span class="t">KeyCode</span>::<span class="t">KeyS</span>) {
+        direction -= forward;
+    }
+    <span class="k">if</span> keys.pressed(<span class="t">KeyCode</span>::<span class="t">KeyD</span>) {
+        direction += right;
+    }
+    <span class="k">if</span> keys.pressed(<span class="t">KeyCode</span>::<span class="t">KeyA</span>) {
+        direction -= right;
+    }
+
+    <span class="k">let</span> horizontal = direction.normalize_or_zero() * <span class="t">MOVE_SPEED</span>;
+
+    <span class="c">// Step 9 adds gravity and jumping here.</span>
+    <span class="k">let</span> vertical = <span class="t">Vec3</span>::<span class="t">ZERO</span>;
+
+    <span class="c">// Ask, don't tell: this is the movement we would like, not the movement</span>
+    <span class="c">// we get. Rapier resolves it against the world during PostUpdate.</span>
+    controller.translation = <span class="t">Some</span>((horizontal + vertical) * dt);
+
+    <span class="k">let</span> _ = &amp;<span class="k">mut</span> player;
+}</code></pre></figure><p>Register it alongside the others:</p><figure class="code"><figcaption><span class="file">src/main.rs — inside main()</span><button class="copy" data-target="code-13" type="button">Copy</button></figcaption><pre id="code-13"><code>        .add_systems(<span class="t">Startup</span>, setup)
+        .add_systems(<span class="t">Update</span>, (grab_cursor, orbit_camera, move_player).chain())</code></pre></figure><aside class="note check"><span class="note-label">Checkpoint</span><p>Click, then WASD. The ball slides along the walls instead of stopping dead, climbs the ramp, walks up the steps, and shoves the crates out of the way. It cannot fall yet — that's next.</p></aside></section><section class="step" id="step-9"><div class="step-head"><svg class="gizmo" viewBox="0 0 24 24" aria-hidden="true" stroke-width="1.7" stroke-linecap="round" fill="none"><path d="M12 20 L12 5" stroke="#3E9853"/><path d="M12 20 L22 15" stroke="#CE4249"/><path d="M12 20 L3 15" stroke="#2A66DE"/></svg><span class="step-n">Step 09</span></div><h3>Gravity and jumping</h3><p>Rapier applies gravity to dynamic bodies, but a kinematic body is yours to move, so vertical motion is your job. The one thing you take from the physics engine is whether you are standing on something: <code class="inl">KinematicCharacterControllerOutput</code> appears on the entity after the controller's first run and carries a <code class="inl">grounded</code> flag, which is a real contact test rather than a height comparison.</p><p>Replace <code class="inl">move_player</code> with this:</p><figure class="code"><figcaption><span class="file">src/main.rs</span><button class="copy" data-target="code-14" type="button">Copy</button></figcaption><pre id="code-14"><code><span class="k">fn</span> move_player(
+    keys: <span class="t">Res</span>&lt;<span class="t">ButtonInput</span>&lt;<span class="t">KeyCode</span>&gt;&gt;,
+    time: <span class="t">Res</span>&lt;<span class="t">Time</span>&gt;,
+    rig: <span class="t">Single</span>&lt;&amp;<span class="t">CameraRig</span>&gt;,
+    player: <span class="t">Single</span>&lt;(
+        &amp;<span class="k">mut</span> <span class="t">Player</span>,
+        &amp;<span class="k">mut</span> <span class="t">KinematicCharacterController</span>,
+        <span class="t">Option</span>&lt;&amp;<span class="t">KinematicCharacterControllerOutput</span>&gt;,
+    )&gt;,
+) {
+    <span class="k">let</span> (<span class="k">mut</span> player, <span class="k">mut</span> controller, output) = player.into_inner();
+    <span class="k">let</span> dt = time.delta_secs();
+
+    <span class="c">// The output component only exists once the controller has run at</span>
+    <span class="c">// least once, hence the Option.</span>
+    <span class="k">let</span> grounded = output.is_some_and(|output| output.grounded);
+
+    <span class="k">let</span> forward = <span class="t">Vec3</span>::new(-rig.yaw.sin(), <span class="n">0.0</span>, -rig.yaw.cos());
+    <span class="k">let</span> right = <span class="t">Vec3</span>::new(rig.yaw.cos(), <span class="n">0.0</span>, -rig.yaw.sin());
+
+    <span class="k">let</span> <span class="k">mut</span> direction = <span class="t">Vec3</span>::<span class="t">ZERO</span>;
+    <span class="k">if</span> keys.pressed(<span class="t">KeyCode</span>::<span class="t">KeyW</span>) {
+        direction += forward;
+    }
+    <span class="k">if</span> keys.pressed(<span class="t">KeyCode</span>::<span class="t">KeyS</span>) {
+        direction -= forward;
+    }
+    <span class="k">if</span> keys.pressed(<span class="t">KeyCode</span>::<span class="t">KeyD</span>) {
+        direction += right;
+    }
+    <span class="k">if</span> keys.pressed(<span class="t">KeyCode</span>::<span class="t">KeyA</span>) {
+        direction -= right;
+    }
+
+    <span class="k">let</span> horizontal = direction.normalize_or_zero() * <span class="t">MOVE_SPEED</span>;
+
+    <span class="c">// While grounded, keep a little downward pressure so snap_to_ground</span>
+    <span class="c">// has something to hold on to. Without this the ball skips off ramps.</span>
+    <span class="k">if</span> grounded &amp;&amp; player.vertical_velocity &lt;= <span class="n">0.0</span> {
+        player.vertical_velocity = -<span class="n">1.0</span>;
+    }
+    <span class="k">if</span> grounded &amp;&amp; keys.just_pressed(<span class="t">KeyCode</span>::<span class="t">Space</span>) {
+        player.vertical_velocity = <span class="t">JUMP_SPEED</span>;
+    }
+    player.vertical_velocity += <span class="t">GRAVITY</span> * dt;
+
+    <span class="k">let</span> vertical = <span class="t">Vec3</span>::<span class="t">Y</span> * player.vertical_velocity;
+    controller.translation = <span class="t">Some</span>((horizontal + vertical) * dt);
+}</code></pre></figure><aside class="note check"><span class="note-label">Checkpoint</span><p>Space jumps, and only from the ground. Run off the top step and the ball falls properly. Run down the ramp and it stays stuck to the surface instead of bouncing down it in arcs.</p></aside><aside class="note tip"><span class="note-label">Note</span><p>The <code class="inl">vertical_velocity = -1.0</code> line looks odd but earns its place: a controller that asks for exactly zero vertical movement is not touching the floor, so <code class="inl">grounded</code> flickers and <code class="inl">snap_to_ground</code> has nothing to grab.</p></aside></section><section class="step" id="step-10"><div class="step-head"><svg class="gizmo" viewBox="0 0 24 24" aria-hidden="true" stroke-width="1.7" stroke-linecap="round" fill="none"><path d="M12 20 L12 5" stroke="#3E9853"/><path d="M12 20 L22 15" stroke="#CE4249"/><path d="M12 20 L3 15" stroke="#2A66DE"/></svg><span class="step-n">Step 10</span></div><h3>Follow the player, in the right order</h3><p>The camera has to be placed after physics has moved the player, otherwise it chases a position one frame stale and the whole picture jitters. Rapier runs in <code class="inl">PostUpdate</code>, so the follow system goes there too — after the writeback that copies physics results into transforms, and before Bevy propagates those transforms for rendering.</p><figure class="code"><figcaption><span class="file">src/main.rs</span><button class="copy" data-target="code-15" type="button">Copy</button></figcaption><pre id="code-15"><code><span class="k">use</span> bevy::transform::<span class="t">TransformSystems</span>;
+
+<span class="k">fn</span> follow_player(
+    player: <span class="t">Single</span>&lt;&amp;<span class="t">Transform</span>, (<span class="t">With</span>&lt;<span class="t">Player</span>&gt;, <span class="t">Without</span>&lt;<span class="t">Camera3d</span>&gt;)&gt;,
+    camera: <span class="t">Single</span>&lt;(&amp;<span class="k">mut</span> <span class="t">Transform</span>, &amp;<span class="t">CameraRig</span>), <span class="t">With</span>&lt;<span class="t">Camera3d</span>&gt;&gt;,
+) {
+    <span class="k">let</span> (<span class="k">mut</span> camera_transform, rig) = camera.into_inner();
+
+    <span class="k">let</span> target = player.translation + <span class="t">Vec3</span>::<span class="t">Y</span> * <span class="n">0.8</span>;
+    <span class="k">let</span> direction = <span class="t">Quat</span>::from_euler(<span class="t">EulerRot</span>::<span class="t">YXZ</span>, rig.yaw, rig.pitch, <span class="n">0.0</span>) * <span class="t">Vec3</span>::<span class="t">Z</span>;
+
+    camera_transform.translation = target + direction * rig.distance;
+    camera_transform.look_at(target, <span class="t">Vec3</span>::<span class="t">Y</span>);
+}</code></pre></figure><figure class="code"><figcaption><span class="file">src/main.rs — inside main()</span><button class="copy" data-target="code-16" type="button">Copy</button></figcaption><pre id="code-16"><code>        .add_systems(
+            <span class="t">PostUpdate</span>,
+            follow_player
+                .after(<span class="t">PhysicsSet</span>::<span class="t">Writeback</span>)
+                .before(<span class="t">TransformSystems</span>::<span class="t">Propagate</span>),
+        )</code></pre></figure><aside class="note tip"><span class="note-label">Note</span><p>This ordering is the fix for the single most common complaint about physics-driven cameras. If a camera ever shudders while the character moves smoothly, it is running in the wrong schedule.</p></aside></section><section class="step" id="step-11"><div class="step-head"><svg class="gizmo" viewBox="0 0 24 24" aria-hidden="true" stroke-width="1.7" stroke-linecap="round" fill="none"><path d="M12 20 L12 5" stroke="#3E9853"/><path d="M12 20 L22 15" stroke="#CE4249"/><path d="M12 20 L3 15" stroke="#2A66DE"/></svg><span class="step-n">Step 11</span></div><h3>Stop the camera clipping through walls</h3><p>Back the ball into a corner and the camera ends up inside the wall. The fix is a ray cast from the player towards where the camera wants to be: if something is in the way, sit just in front of it instead.</p><p>This is also the general shape of every physics query you'll write — a context, a filter, a cast.</p><figure class="code"><figcaption><span class="file">src/main.rs</span><button class="copy" data-target="code-17" type="button">Copy</button></figcaption><pre id="code-17"><code><span class="c">// Both preludes export a `QueryFilter`. This one is Rapier's scene-query</span>
+<span class="c">// filter, not Bevy's ECS trait.</span>
+<span class="k">use</span> bevy_rapier3d::pipeline::<span class="t">QueryFilter</span> <span class="k">as</span> <span class="t">PhysicsFilter</span>;
+
+<span class="k">const</span> <span class="t">CAMERA_MIN_DISTANCE</span>: f32 = <span class="n">1.5</span>;
+
+<span class="k">fn</span> follow_player(
+    rapier: <span class="t">ReadRapierContext</span>,
+    player: <span class="t">Single</span>&lt;(<span class="t">Entity</span>, &amp;<span class="t">Transform</span>), (<span class="t">With</span>&lt;<span class="t">Player</span>&gt;, <span class="t">Without</span>&lt;<span class="t">Camera3d</span>&gt;)&gt;,
+    camera: <span class="t">Single</span>&lt;(&amp;<span class="k">mut</span> <span class="t">Transform</span>, &amp;<span class="t">CameraRig</span>), <span class="t">With</span>&lt;<span class="t">Camera3d</span>&gt;&gt;,
+) {
+    <span class="k">let</span> (player_entity, player_transform) = player.into_inner();
+    <span class="k">let</span> (<span class="k">mut</span> camera_transform, rig) = camera.into_inner();
+
+    <span class="k">let</span> target = player_transform.translation + <span class="t">Vec3</span>::<span class="t">Y</span> * <span class="n">0.8</span>;
+    <span class="k">let</span> direction = <span class="t">Quat</span>::from_euler(<span class="t">EulerRot</span>::<span class="t">YXZ</span>, rig.yaw, rig.pitch, <span class="n">0.0</span>) * <span class="t">Vec3</span>::<span class="t">Z</span>;
+
+    <span class="k">let</span> <span class="k">mut</span> distance = rig.distance;
+
+    <span class="k">if</span> <span class="k">let</span> <span class="t">Ok</span>(context) = rapier.single() {
+        <span class="c">// Ignore the player's own collider, or the ray hits it immediately.</span>
+        <span class="k">let</span> filter = <span class="t">PhysicsFilter</span>::default()
+            .exclude_rigid_body(player_entity)
+            .exclude_sensors();
+
+        <span class="k">if</span> <span class="k">let</span> <span class="t">Some</span>((_hit_entity, hit_distance)) =
+            context.cast_ray(target, direction, distance, <span class="k">true</span>, filter)
+        {
+            distance = (hit_distance - <span class="n">0.2</span>).max(<span class="t">CAMERA_MIN_DISTANCE</span>);
+        }
+    }
+
+    camera_transform.translation = target + direction * distance;
+    camera_transform.look_at(target, <span class="t">Vec3</span>::<span class="t">Y</span>);
+}</code></pre></figure><aside class="note check"><span class="note-label">Checkpoint</span><p>Reverse into a wall. The camera slides in close instead of punching through, and eases back out as you move away.</p></aside><aside class="note tip"><span class="note-label">Note</span><p>The same call with <code class="inl">cast_shape</code> instead of <code class="inl">cast_ray</code> sweeps a sphere rather than a line, which stops the camera clipping corners diagonally. Worth the upgrade once the level has more geometry.</p></aside></section><section class="step" id="step-12"><div class="step-head"><svg class="gizmo" viewBox="0 0 24 24" aria-hidden="true" stroke-width="1.7" stroke-linecap="round" fill="none"><path d="M12 20 L12 5" stroke="#3E9853"/><path d="M12 20 L22 15" stroke="#CE4249"/><path d="M12 20 L3 15" stroke="#2A66DE"/></svg><span class="step-n">Step 12</span></div><h3>Roll the ball</h3><p>Spin the sphere by the distance it actually covered, which the output component reports as <code class="inl">effective_translation</code>. Using the effective movement rather than the requested one means the ball visibly slows its spin as it grinds along a wall, which is exactly right.</p><p>Add <code class="inl">&amp;mut Transform</code> and the output to <code class="inl">move_player</code>'s query, then append this to the end of the function:</p><figure class="code"><figcaption><span class="file">src/main.rs — inside move_player()</span><button class="copy" data-target="code-18" type="button">Copy</button></figcaption><pre id="code-18"><code>    <span class="c">// Roll by however far the ball actually travelled, not how far it asked</span>
+    <span class="c">// to travel. Slide along a wall and the spin slows to match.</span>
+    <span class="k">if</span> <span class="k">let</span> <span class="t">Some</span>(output) = output {
+        <span class="k">let</span> moved = <span class="t">Vec3</span>::new(
+            output.effective_translation.x,
+            <span class="n">0.0</span>,
+            output.effective_translation.z,
+        );
+        <span class="k">if</span> moved.length_squared() &gt; <span class="n">0.0</span> {
+            <span class="k">let</span> axis = <span class="t">Vec3</span>::<span class="t">Y</span>.cross(moved.normalize());
+            <span class="k">let</span> angle = moved.length() / <span class="t">PLAYER_RADIUS</span>;
+            transform.rotate(<span class="t">Quat</span>::from_axis_angle(axis.normalize(), angle));
+        }
+    }</code></pre></figure><aside class="note tip"><span class="note-label">Note</span><p>Rotating the transform is safe here because a sphere collider is rotationally symmetric — Rapier does not care. Do this with a capsule and you would be tipping the character over.</p></aside></section><section class="step" id="step-13"><div class="step-head"><svg class="gizmo" viewBox="0 0 24 24" aria-hidden="true" stroke-width="1.7" stroke-linecap="round" fill="none"><path d="M12 20 L12 5" stroke="#3E9853"/><path d="M12 20 L22 15" stroke="#CE4249"/><path d="M12 20 L3 15" stroke="#2A66DE"/></svg><span class="step-n">Step 13</span></div><h3>The finished file</h3><p>Everything above, assembled. Around 250 lines for a character that collides with the whole world.</p><figure class="code"><figcaption><span class="file">src/main.rs</span><button class="copy" data-target="code-19" type="button">Copy</button></figcaption><pre id="code-19"><code><span class="c">//! A sphere character with real collisions.</span>
+<span class="c">//! Bevy 0.19 + bevy_rapier3d 0.35.</span>
+
+<span class="k">use</span> bevy::input::mouse::{<span class="t">AccumulatedMouseMotion</span>, <span class="t">AccumulatedMouseScroll</span>};
+<span class="k">use</span> bevy::prelude::*;
+<span class="k">use</span> bevy::transform::<span class="t">TransformSystems</span>;
+<span class="k">use</span> bevy::window::{<span class="t">CursorGrabMode</span>, <span class="t">CursorOptions</span>};
+<span class="k">use</span> bevy_rapier3d::pipeline::<span class="t">QueryFilter</span> <span class="k">as</span> <span class="t">PhysicsFilter</span>;
+<span class="k">use</span> bevy_rapier3d::prelude::*;
+<span class="k">use</span> std::f32::consts::<span class="t">FRAC_PI_2</span>;
+
+<span class="k">const</span> <span class="t">PLAYER_RADIUS</span>: f32 = <span class="n">0.5</span>;
+<span class="k">const</span> <span class="t">MOVE_SPEED</span>: f32 = <span class="n">6.0</span>;
+<span class="k">const</span> <span class="t">JUMP_SPEED</span>: f32 = <span class="n">7.0</span>;
+<span class="k">const</span> <span class="t">GRAVITY</span>: f32 = -<span class="n">20.0</span>;
+<span class="k">const</span> <span class="t">MOUSE_SENSITIVITY</span>: f32 = <span class="n">0.003</span>;
+<span class="k">const</span> <span class="t">CAMERA_MIN_DISTANCE</span>: f32 = <span class="n">1.5</span>;
+
+<span class="a">#[derive(Component)]</span>
+<span class="k">struct</span> <span class="t">Player</span> {
+    vertical_velocity: f32,
+}
+
+<span class="a">#[derive(Component)]</span>
+<span class="k">struct</span> <span class="t">CameraRig</span> {
+    yaw: f32,
+    pitch: f32,
+    distance: f32,
+}
+
+<span class="k">fn</span> main() {
+    <span class="t">App</span>::new()
+        .add_plugins((
+            <span class="t">DefaultPlugins</span>,
+            <span class="t">RapierPhysicsPlugin</span>::&lt;<span class="t">NoUserData</span>&gt;::default(),
+            <span class="t">RapierDebugRenderPlugin</span>::default(),
+        ))
+        .add_systems(<span class="t">Startup</span>, setup)
+        .add_systems(<span class="t">Update</span>, (grab_cursor, orbit_camera, move_player).chain())
+        .add_systems(
+            <span class="t">PostUpdate</span>,
+            follow_player
+                .after(<span class="t">PhysicsSet</span>::<span class="t">Writeback</span>)
+                .before(<span class="t">TransformSystems</span>::<span class="t">Propagate</span>),
+        )
+        .run();
+}
+
+<span class="k">fn</span> setup(
+    <span class="k">mut</span> commands: <span class="t">Commands</span>,
+    <span class="k">mut</span> meshes: <span class="t">ResMut</span>&lt;<span class="t">Assets</span>&lt;<span class="t">Mesh</span>&gt;&gt;,
+    <span class="k">mut</span> materials: <span class="t">ResMut</span>&lt;<span class="t">Assets</span>&lt;<span class="t">StandardMaterial</span>&gt;&gt;,
+) {
+    <span class="k">let</span> stone = materials.add(<span class="t">StandardMaterial</span> {
+        base_color: <span class="t">Color</span>::srgb(<span class="n">0.30</span>, <span class="n">0.33</span>, <span class="n">0.37</span>),
+        perceptual_roughness: <span class="n">0.9</span>,
+        ..default()
+    });
+
+    <span class="c">// Ground</span>
+    commands.spawn((
+        <span class="t">Mesh3d</span>(meshes.add(<span class="t">Cuboid</span>::new(<span class="n">40.0</span>, <span class="n">0.4</span>, <span class="n">40.0</span>))),
+        <span class="t">MeshMaterial3d</span>(stone.clone()),
+        <span class="t">Transform</span>::from_xyz(<span class="n">0.0</span>, -<span class="n">0.2</span>, <span class="n">0.0</span>),
+        <span class="t">RigidBody</span>::<span class="t">Fixed</span>,
+        <span class="t">Collider</span>::cuboid(<span class="n">20.0</span>, <span class="n">0.2</span>, <span class="n">20.0</span>),
+    ));
+
+    <span class="c">// Walls</span>
+    <span class="k">for</span> (position, size) <span class="k">in</span> [
+        (<span class="t">Vec3</span>::new(<span class="n">0.0</span>, <span class="n">1.0</span>, -<span class="n">12.0</span>), <span class="t">Vec3</span>::new(<span class="n">24.0</span>, <span class="n">2.0</span>, <span class="n">0.6</span>)),
+        (<span class="t">Vec3</span>::new(-<span class="n">12.0</span>, <span class="n">1.0</span>, <span class="n">0.0</span>), <span class="t">Vec3</span>::new(<span class="n">0.6</span>, <span class="n">2.0</span>, <span class="n">24.0</span>)),
+    ] {
+        commands.spawn((
+            <span class="t">Mesh3d</span>(meshes.add(<span class="t">Cuboid</span>::new(size.x, size.y, size.z))),
+            <span class="t">MeshMaterial3d</span>(stone.clone()),
+            <span class="t">Transform</span>::from_translation(position),
+            <span class="t">RigidBody</span>::<span class="t">Fixed</span>,
+            <span class="t">Collider</span>::cuboid(size.x / <span class="n">2.0</span>, size.y / <span class="n">2.0</span>, size.z / <span class="n">2.0</span>),
+        ));
+    }
+
+    <span class="c">// Ramp</span>
+    commands.spawn((
+        <span class="t">Mesh3d</span>(meshes.add(<span class="t">Cuboid</span>::new(<span class="n">6.0</span>, <span class="n">0.4</span>, <span class="n">6.0</span>))),
+        <span class="t">MeshMaterial3d</span>(stone.clone()),
+        <span class="t">Transform</span>::from_xyz(<span class="n">8.0</span>, <span class="n">1.0</span>, <span class="n">0.0</span>).with_rotation(<span class="t">Quat</span>::from_rotation_z(-<span class="n">0.4</span>)),
+        <span class="t">RigidBody</span>::<span class="t">Fixed</span>,
+        <span class="t">Collider</span>::cuboid(<span class="n">3.0</span>, <span class="n">0.2</span>, <span class="n">3.0</span>),
+    ));
+
+    <span class="c">// Steps</span>
+    <span class="k">for</span> i <span class="k">in</span> <span class="n">0</span>..<span class="n">3</span> {
+        <span class="k">let</span> height = <span class="n">0.3</span> * (i <span class="k">as</span> f32 + <span class="n">1.0</span>);
+        commands.spawn((
+            <span class="t">Mesh3d</span>(meshes.add(<span class="t">Cuboid</span>::new(<span class="n">4.0</span>, height, <span class="n">1.0</span>))),
+            <span class="t">MeshMaterial3d</span>(stone.clone()),
+            <span class="t">Transform</span>::from_xyz(-<span class="n">6.0</span>, height / <span class="n">2.0</span>, -<span class="n">3.0</span> - i <span class="k">as</span> f32),
+            <span class="t">RigidBody</span>::<span class="t">Fixed</span>,
+            <span class="t">Collider</span>::cuboid(<span class="n">2.0</span>, height / <span class="n">2.0</span>, <span class="n">0.5</span>),
+        ));
+    }
+
+    <span class="c">// Pushable crates</span>
+    <span class="k">let</span> timber = materials.add(<span class="t">Color</span>::srgb(<span class="n">0.72</span>, <span class="n">0.52</span>, <span class="n">0.28</span>));
+    <span class="k">let</span> crate_mesh = meshes.add(<span class="t">Cuboid</span>::new(<span class="n">0.8</span>, <span class="n">0.8</span>, <span class="n">0.8</span>));
+    <span class="k">for</span> (x, z) <span class="k">in</span> [(<span class="n">3.0</span>, -<span class="n">4.0</span>), (<span class="n">4.2</span>, -<span class="n">4.8</span>), (<span class="n">3.4</span>, -<span class="n">6.0</span>)] {
+        commands.spawn((
+            <span class="t">Mesh3d</span>(crate_mesh.clone()),
+            <span class="t">MeshMaterial3d</span>(timber.clone()),
+            <span class="t">Transform</span>::from_xyz(x, <span class="n">0.4</span>, z),
+            <span class="t">RigidBody</span>::<span class="t">Dynamic</span>,
+            <span class="t">Collider</span>::cuboid(<span class="n">0.4</span>, <span class="n">0.4</span>, <span class="n">0.4</span>),
+        ));
+    }
+
+    <span class="c">// Player</span>
+    commands.spawn((
+        <span class="t">Player</span> {
+            vertical_velocity: <span class="n">0.0</span>,
+        },
+        <span class="t">Mesh3d</span>(meshes.add(<span class="t">Sphere</span>::new(<span class="t">PLAYER_RADIUS</span>))),
+        <span class="t">MeshMaterial3d</span>(materials.add(<span class="t">StandardMaterial</span> {
+            base_color: <span class="t">Color</span>::srgb(<span class="n">0.92</span>, <span class="n">0.46</span>, <span class="n">0.20</span>),
+            perceptual_roughness: <span class="n">0.35</span>,
+            ..default()
+        })),
+        <span class="t">Transform</span>::from_xyz(<span class="n">0.0</span>, <span class="n">2.0</span>, <span class="n">0.0</span>),
+        <span class="t">RigidBody</span>::<span class="t">KinematicPositionBased</span>,
+        <span class="t">Collider</span>::ball(<span class="t">PLAYER_RADIUS</span>),
+        <span class="t">KinematicCharacterController</span> {
+            up: <span class="t">Vec3</span>::<span class="t">Y</span>,
+            offset: <span class="t">CharacterLength</span>::<span class="t">Absolute</span>(<span class="n">0.02</span>),
+            slide: <span class="k">true</span>,
+            autostep: <span class="t">Some</span>(<span class="t">CharacterAutostep</span> {
+                max_height: <span class="t">CharacterLength</span>::<span class="t">Absolute</span>(<span class="n">0.35</span>),
+                min_width: <span class="t">CharacterLength</span>::<span class="t">Absolute</span>(<span class="n">0.2</span>),
+                include_dynamic_bodies: <span class="k">false</span>,
+            }),
+            snap_to_ground: <span class="t">Some</span>(<span class="t">CharacterLength</span>::<span class="t">Absolute</span>(<span class="n">0.3</span>)),
+            max_slope_climb_angle: 50f32.to_radians(),
+            min_slope_slide_angle: 35f32.to_radians(),
+            apply_impulse_to_dynamic_bodies: <span class="k">true</span>,
+            ..default()
+        },
+    ));
+
+    <span class="c">// Sun</span>
+    commands.spawn((
+        <span class="t">DirectionalLight</span> {
+            illuminance: <span class="n">10_000.0</span>,
+            shadow_maps_enabled: <span class="k">true</span>,
+            ..default()
+        },
+        <span class="t">Transform</span>::from_xyz(<span class="n">6.0</span>, <span class="n">12.0</span>, <span class="n">4.0</span>).looking_at(<span class="t">Vec3</span>::<span class="t">ZERO</span>, <span class="t">Vec3</span>::<span class="t">Y</span>),
+    ));
+
+    <span class="c">// Camera</span>
+    commands.spawn((
+        <span class="t">Camera3d</span>::default(),
+        <span class="t">CameraRig</span> {
+            yaw: <span class="n">0.0</span>,
+            pitch: -<span class="n">0.35</span>,
+            distance: <span class="n">9.0</span>,
+        },
+        <span class="t">Transform</span>::from_xyz(<span class="n">0.0</span>, <span class="n">5.0</span>, <span class="n">9.0</span>).looking_at(<span class="t">Vec3</span>::<span class="t">ZERO</span>, <span class="t">Vec3</span>::<span class="t">Y</span>),
+    ));
+
+    <span class="c">// On-screen controls</span>
+    commands.spawn((
+        <span class="t">Text</span>::new(
+            <span class="s">"Click to capture the mouse  |  WASD move  |  Space jump  |  Scroll zoom  |  Esc release"</span>,
+        ),
+        <span class="t">TextFont</span> {
+            font_size: <span class="t">FontSize</span>::<span class="t">Px</span>(<span class="n">15.0</span>),
+            ..default()
+        },
+        <span class="t">TextColor</span>(<span class="t">Color</span>::srgb(<span class="n">0.9</span>, <span class="n">0.9</span>, <span class="n">0.9</span>)),
+        <span class="t">Node</span> {
+            position_type: <span class="t">PositionType</span>::<span class="t">Absolute</span>,
+            bottom: px(<span class="n">14</span>),
+            left: px(<span class="n">14</span>),
+            ..default()
+        },
+    ));
+}
+
+<span class="k">fn</span> grab_cursor(
+    <span class="k">mut</span> cursor: <span class="t">Single</span>&lt;&amp;<span class="k">mut</span> <span class="t">CursorOptions</span>&gt;,
+    mouse: <span class="t">Res</span>&lt;<span class="t">ButtonInput</span>&lt;<span class="t">MouseButton</span>&gt;&gt;,
+    keys: <span class="t">Res</span>&lt;<span class="t">ButtonInput</span>&lt;<span class="t">KeyCode</span>&gt;&gt;,
+) {
+    <span class="k">if</span> mouse.just_pressed(<span class="t">MouseButton</span>::<span class="t">Left</span>) {
+        cursor.grab_mode = <span class="t">CursorGrabMode</span>::<span class="t">Locked</span>;
+        cursor.visible = <span class="k">false</span>;
+    }
+    <span class="k">if</span> keys.just_pressed(<span class="t">KeyCode</span>::<span class="t">Escape</span>) {
+        cursor.grab_mode = <span class="t">CursorGrabMode</span>::<span class="t">None</span>;
+        cursor.visible = <span class="k">true</span>;
+    }
+}
+
+<span class="k">fn</span> orbit_camera(
+    motion: <span class="t">Res</span>&lt;<span class="t">AccumulatedMouseMotion</span>&gt;,
+    scroll: <span class="t">Res</span>&lt;<span class="t">AccumulatedMouseScroll</span>&gt;,
+    cursor: <span class="t">Single</span>&lt;&amp;<span class="t">CursorOptions</span>&gt;,
+    <span class="k">mut</span> rig: <span class="t">Single</span>&lt;&amp;<span class="k">mut</span> <span class="t">CameraRig</span>&gt;,
+) {
+    <span class="k">if</span> <span class="m">matches!</span>(cursor.grab_mode, <span class="t">CursorGrabMode</span>::<span class="t">None</span>) {
+        <span class="k">return</span>;
+    }
+
+    rig.distance = (rig.distance - scroll.delta.y * <span class="n">0.6</span>).clamp(<span class="n">3.0</span>, <span class="n">20.0</span>);
+
+    <span class="k">let</span> delta = motion.delta;
+    <span class="k">if</span> delta == <span class="t">Vec2</span>::<span class="t">ZERO</span> {
+        <span class="k">return</span>;
+    }
+
+    rig.yaw -= delta.x * <span class="t">MOUSE_SENSITIVITY</span>;
+    rig.pitch = (rig.pitch - delta.y * <span class="t">MOUSE_SENSITIVITY</span>)
+        .clamp(-<span class="t">FRAC_PI_2</span> + <span class="n">0.05</span>, <span class="t">FRAC_PI_2</span> - <span class="n">0.05</span>);
+}
+
+<span class="k">fn</span> move_player(
+    keys: <span class="t">Res</span>&lt;<span class="t">ButtonInput</span>&lt;<span class="t">KeyCode</span>&gt;&gt;,
+    time: <span class="t">Res</span>&lt;<span class="t">Time</span>&gt;,
+    rig: <span class="t">Single</span>&lt;&amp;<span class="t">CameraRig</span>&gt;,
+    player: <span class="t">Single</span>&lt;(
+        &amp;<span class="k">mut</span> <span class="t">Transform</span>,
+        &amp;<span class="k">mut</span> <span class="t">Player</span>,
+        &amp;<span class="k">mut</span> <span class="t">KinematicCharacterController</span>,
+        <span class="t">Option</span>&lt;&amp;<span class="t">KinematicCharacterControllerOutput</span>&gt;,
+    )&gt;,
+) {
+    <span class="k">let</span> (<span class="k">mut</span> transform, <span class="k">mut</span> player, <span class="k">mut</span> controller, output) = player.into_inner();
+    <span class="k">let</span> dt = time.delta_secs();
+    <span class="k">let</span> grounded = output.is_some_and(|output| output.grounded);
+
+    <span class="k">let</span> forward = <span class="t">Vec3</span>::new(-rig.yaw.sin(), <span class="n">0.0</span>, -rig.yaw.cos());
+    <span class="k">let</span> right = <span class="t">Vec3</span>::new(rig.yaw.cos(), <span class="n">0.0</span>, -rig.yaw.sin());
+
+    <span class="k">let</span> <span class="k">mut</span> direction = <span class="t">Vec3</span>::<span class="t">ZERO</span>;
+    <span class="k">if</span> keys.pressed(<span class="t">KeyCode</span>::<span class="t">KeyW</span>) {
+        direction += forward;
+    }
+    <span class="k">if</span> keys.pressed(<span class="t">KeyCode</span>::<span class="t">KeyS</span>) {
+        direction -= forward;
+    }
+    <span class="k">if</span> keys.pressed(<span class="t">KeyCode</span>::<span class="t">KeyD</span>) {
+        direction += right;
+    }
+    <span class="k">if</span> keys.pressed(<span class="t">KeyCode</span>::<span class="t">KeyA</span>) {
+        direction -= right;
+    }
+
+    <span class="k">let</span> horizontal = direction.normalize_or_zero() * <span class="t">MOVE_SPEED</span>;
+
+    <span class="k">if</span> grounded &amp;&amp; player.vertical_velocity &lt;= <span class="n">0.0</span> {
+        player.vertical_velocity = -<span class="n">1.0</span>;
+    }
+    <span class="k">if</span> grounded &amp;&amp; keys.just_pressed(<span class="t">KeyCode</span>::<span class="t">Space</span>) {
+        player.vertical_velocity = <span class="t">JUMP_SPEED</span>;
+    }
+    player.vertical_velocity += <span class="t">GRAVITY</span> * dt;
+
+    <span class="k">let</span> vertical = <span class="t">Vec3</span>::<span class="t">Y</span> * player.vertical_velocity;
+    controller.translation = <span class="t">Some</span>((horizontal + vertical) * dt);
+
+    <span class="c">// Roll by however far the ball actually travelled last frame.</span>
+    <span class="k">if</span> <span class="k">let</span> <span class="t">Some</span>(output) = output {
+        <span class="k">let</span> moved = <span class="t">Vec3</span>::new(
+            output.effective_translation.x,
+            <span class="n">0.0</span>,
+            output.effective_translation.z,
+        );
+        <span class="k">if</span> moved.length_squared() &gt; <span class="n">0.0</span> {
+            <span class="k">let</span> axis = <span class="t">Vec3</span>::<span class="t">Y</span>.cross(moved.normalize());
+            <span class="k">let</span> angle = moved.length() / <span class="t">PLAYER_RADIUS</span>;
+            transform.rotate(<span class="t">Quat</span>::from_axis_angle(axis.normalize(), angle));
+        }
+    }
+}
+
+<span class="k">fn</span> follow_player(
+    rapier: <span class="t">ReadRapierContext</span>,
+    player: <span class="t">Single</span>&lt;(<span class="t">Entity</span>, &amp;<span class="t">Transform</span>), (<span class="t">With</span>&lt;<span class="t">Player</span>&gt;, <span class="t">Without</span>&lt;<span class="t">Camera3d</span>&gt;)&gt;,
+    camera: <span class="t">Single</span>&lt;(&amp;<span class="k">mut</span> <span class="t">Transform</span>, &amp;<span class="t">CameraRig</span>), <span class="t">With</span>&lt;<span class="t">Camera3d</span>&gt;&gt;,
+) {
+    <span class="k">let</span> (player_entity, player_transform) = player.into_inner();
+    <span class="k">let</span> (<span class="k">mut</span> camera_transform, rig) = camera.into_inner();
+
+    <span class="k">let</span> target = player_transform.translation + <span class="t">Vec3</span>::<span class="t">Y</span> * <span class="n">0.8</span>;
+    <span class="k">let</span> direction = <span class="t">Quat</span>::from_euler(<span class="t">EulerRot</span>::<span class="t">YXZ</span>, rig.yaw, rig.pitch, <span class="n">0.0</span>) * <span class="t">Vec3</span>::<span class="t">Z</span>;
+
+    <span class="k">let</span> <span class="k">mut</span> distance = rig.distance;
+
+    <span class="k">if</span> <span class="k">let</span> <span class="t">Ok</span>(context) = rapier.single() {
+        <span class="k">let</span> filter = <span class="t">PhysicsFilter</span>::default()
+            .exclude_rigid_body(player_entity)
+            .exclude_sensors();
+
+        <span class="k">if</span> <span class="k">let</span> <span class="t">Some</span>((_hit_entity, hit_distance)) =
+            context.cast_ray(target, direction, distance, <span class="k">true</span>, filter)
+        {
+            distance = (hit_distance - <span class="n">0.2</span>).max(<span class="t">CAMERA_MIN_DISTANCE</span>);
+        }
+    }
+
+    camera_transform.translation = target + direction * distance;
+    camera_transform.look_at(target, <span class="t">Vec3</span>::<span class="t">Y</span>);
+}</code></pre></figure><p>Add the on-screen controls if you want them:</p><figure class="code"><figcaption><span class="file">src/main.rs — inside setup()</span><button class="copy" data-target="code-20" type="button">Copy</button></figcaption><pre id="code-20"><code>    commands.spawn((
+        <span class="t">Text</span>::new(
+            <span class="s">"Click to capture the mouse  |  WASD move  |  Space jump  |  Scroll zoom  |  Esc release"</span>,
+        ),
+        <span class="t">TextFont</span> {
+            font_size: <span class="t">FontSize</span>::<span class="t">Px</span>(<span class="n">15.0</span>),
+            ..default()
+        },
+        <span class="t">TextColor</span>(<span class="t">Color</span>::srgb(<span class="n">0.9</span>, <span class="n">0.9</span>, <span class="n">0.9</span>)),
+        <span class="t">Node</span> {
+            position_type: <span class="t">PositionType</span>::<span class="t">Absolute</span>,
+            bottom: px(<span class="n">14</span>),
+            left: px(<span class="n">14</span>),
+            ..default()
+        },
+    ));</code></pre></figure><aside class="note tip"><span class="note-label">Note</span><p>Turn the wireframes off by removing <code class="inl">RapierDebugRenderPlugin</code> from the plugin tuple, or drop the <code class="inl">debug-render-3d</code> feature from Cargo.toml to stop compiling it at all.</p></aside></section>
+
+    <section class="outro">
+      <h2>Where to go next</h2>
+      <ul class="next"><li><h4>Stop climbing on ceilings</h4><p>Compare <code class="inl">desired_translation.y</code> with <code class="inl">effective_translation.y</code>. If you asked to go up and barely moved, you hit something — zero the velocity so the jump ends cleanly.</p></li><li><h4>Coyote time</h4><p>Keep a timer since <code class="inl">grounded</code> was last true and allow a jump for a tenth of a second after. Costs two lines and makes ledges feel fair.</p></li><li><h4>Ride moving platforms</h4><p>The output's <code class="inl">collisions</code> list names every entity you touched. Find the one under your feet and add its movement to yours.</p></li><li><h4>Collision groups</h4><p><code class="inl">CollisionGroups</code> and <code class="inl">SolverGroups</code> decide what collides with what. Use them for trigger volumes, one-way platforms, and ignoring your own projectiles.</p></li><li><h4>Fixed timestep</h4><p>Rapier defaults to a variable timestep. Switching <code class="inl">TimestepMode</code> to fixed makes movement reproducible, which matters as soon as you record replays or go multiplayer.</p></li><li><h4>Swap to a capsule</h4><p>If the ball catches on geometry more than you'd like, <code class="inl">Collider::capsule_y</code> is the shape almost every commercial character uses. Keep the sphere as a child mesh for looks.</p></li></ul>
+    </section>
+  </article>
+</main>
+
+<footer class="wrap">
+  <p>Bevy 0.19 with bevy_rapier3d 0.35 &middot; Rapier guide at <a href="https://rapier.rs/docs/user_guides/bevy_plugin/character_controller">rapier.rs</a> &middot; API reference at <a href="https://docs.rs/bevy_rapier3d">docs.rs/bevy_rapier3d</a></p>
+</footer>
+
+<script>
+document.querySelectorAll('.copy').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    var el = document.getElementById(btn.dataset.target);
+    if(!el) return;
+    navigator.clipboard.writeText(el.innerText).then(function(){
+      btn.textContent = 'Copied';
+      btn.classList.add('done');
+      setTimeout(function(){ btn.textContent = 'Copy'; btn.classList.remove('done'); }, 1600);
+    }).catch(function(){ btn.textContent = 'Press Ctrl+C'; });
+  });
+});
+
+var links = {};
+document.querySelectorAll('.rail a').forEach(function(a){
+  links[a.getAttribute('href').slice(1)] = a;
+});
+var obs = new IntersectionObserver(function(entries){
+  entries.forEach(function(e){
+    var a = links[e.target.id];
+    if(!a) return;
+    if(e.isIntersecting){
+      Object.keys(links).forEach(function(k){ links[k].classList.remove('on'); });
+      a.classList.add('on');
+    }
+  });
+}, { rootMargin: '-15% 0px -70% 0px', threshold: 0 });
+document.querySelectorAll('section.step').forEach(function(s){ obs.observe(s); });
+</script>
+</body>
+</html>
