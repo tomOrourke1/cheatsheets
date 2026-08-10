@@ -1,0 +1,1892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Godot 4 &amp; GDScript — Working Reference</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#12161d;
+  --bg2:#171d26;
+  --panel:#1b222d;
+  --panel2:#212a37;
+  --line:#2b3644;
+  --line-soft:#232c39;
+  --ink:#ccd6e3;
+  --dim:#8b9aae;
+  --faint:#5e6c80;
+  --blue:#4d9de0;
+  --n2d:#8da5f3;
+  --n3d:#fc7f7f;
+  --nui:#8eef97;
+  --nres:#e6b35c;
+  --nsys:#b9a6f0;
+  --warn:#ffca6a;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,Segoe UI,sans-serif;
+  --disp:"Bricolage Grotesque","IBM Plex Sans",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:24px}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:var(--sans);font-size:15px;line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--blue);text-decoration:none}
+a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--blue);outline-offset:3px;border-radius:3px}
+
+/* ---------- shell ---------- */
+.shell{display:grid;grid-template-columns:264px minmax(0,1fr);gap:0;max-width:1500px;margin:0 auto}
+
+/* ---------- scene tree dock ---------- */
+.dock{
+  position:sticky;top:0;height:100vh;overflow-y:auto;
+  background:var(--bg2);border-right:1px solid var(--line);
+  padding:18px 0 60px;
+}
+.dock-label{
+  font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--faint);padding:0 18px 10px;
+}
+.tree{list-style:none;margin:0;padding:0 10px}
+.tree li{position:relative}
+.tree a{
+  display:flex;align-items:center;gap:8px;
+  padding:5px 8px 5px 22px;border-radius:5px;
+  color:var(--dim);font-size:13.5px;line-height:1.35;
+  border-left:2px solid transparent;
+}
+.tree a::before{
+  content:"";position:absolute;left:9px;top:50%;
+  width:8px;height:1px;background:var(--line);
+}
+.tree a:hover{background:var(--panel);color:var(--ink);text-decoration:none}
+.tree a[aria-current="true"]{background:var(--panel2);color:#eaf1f8;border-left-color:var(--blue)}
+.glyph{
+  width:9px;height:9px;flex:0 0 9px;border-radius:2px;
+  background:var(--dim);box-shadow:0 0 0 1px rgba(0,0,0,.35) inset;
+}
+.g-sys{background:var(--nsys)} .g-2d{background:var(--n2d)}
+.g-3d{background:var(--n3d)}  .g-ui{background:var(--nui)}
+.g-res{background:var(--nres)}
+.tree .rail{
+  position:absolute;left:9px;top:0;bottom:0;width:1px;background:var(--line);
+}
+
+/* ---------- main ---------- */
+main{padding:0 34px 100px;min-width:0}
+
+/* ---------- hero ---------- */
+.hero{padding:56px 0 30px;border-bottom:1px solid var(--line)}
+.eyebrow{
+  font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--blue);margin:0 0 14px;
+}
+.hero h1{
+  font-family:var(--disp);font-weight:800;
+  font-size:clamp(2.4rem,6vw,4.4rem);line-height:.94;letter-spacing:-.03em;
+  margin:0 0 18px;color:#f0f5fa;
+}
+.hero h1 em{font-style:normal;color:var(--blue)}
+.thesis{max-width:62ch;color:var(--dim);font-size:17px;margin:0 0 26px}
+.thesis strong{color:var(--ink);font-weight:600}
+
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;margin:0 0 26px;padding:0;list-style:none}
+.legend li{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11.5px;color:var(--dim)}
+
+.finder{position:relative;max-width:460px}
+.finder input{
+  width:100%;background:var(--panel);border:1px solid var(--line);
+  color:var(--ink);font-family:var(--mono);font-size:13px;
+  padding:11px 14px 11px 34px;border-radius:6px;
+}
+.finder input::placeholder{color:var(--faint)}
+.finder svg{position:absolute;left:11px;top:11px;opacity:.5}
+.hits{font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:8px;min-height:16px}
+
+/* ---------- sections ---------- */
+.sect{padding:44px 0 8px;border-bottom:1px solid var(--line-soft);scroll-margin-top:20px}
+.sect.hidden{display:none}
+.sect-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+.sect h2{
+  font-family:var(--disp);font-weight:700;font-size:clamp(1.5rem,3vw,2.05rem);
+  letter-spacing:-.02em;margin:0;color:#e9f0f7;
+}
+.path{font-family:var(--mono);font-size:11px;color:var(--faint)}
+.lede{color:var(--dim);max-width:74ch;margin:0 0 22px}
+
+.cards{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+.card{
+  background:var(--panel);border:1px solid var(--line-soft);border-radius:9px;
+  padding:16px 18px 18px;min-width:0;
+}
+.card.wide{grid-column:1/-1}
+.card h3{
+  font-family:var(--sans);font-weight:600;font-size:13px;letter-spacing:.02em;
+  margin:0 0 12px;color:#dfe8f2;
+  display:flex;align-items:center;gap:8px;
+}
+.card h3::before{content:"";width:3px;height:13px;border-radius:2px;background:var(--blue)}
+.card p{margin:0 0 12px;color:var(--dim);font-size:13.5px}
+.card p:last-child{margin-bottom:0}
+
+/* ---------- code ---------- */
+.code{position:relative;margin:0 0 12px}
+.code:last-child{margin-bottom:0}
+pre{
+  margin:0;background:#0e1218;border:1px solid var(--line-soft);border-radius:7px;
+  padding:13px 15px;overflow-x:auto;
+}
+code{font-family:var(--mono);font-size:12.6px;line-height:1.65;color:#d3dde9;white-space:pre}
+.k{color:#ff8ccf}      /* keyword */
+.f{color:#7fd6ff}      /* function */
+.t{color:#a4e8a0}      /* type / class */
+.s{color:#ffd48a}      /* string */
+.n{color:#c4a6ff}      /* number */
+.c{color:#5d6b7e;font-style:italic} /* comment */
+.a{color:#ffb060}      /* annotation */
+.copy{
+  position:absolute;top:7px;right:7px;opacity:0;transition:opacity .15s;
+  background:var(--panel2);border:1px solid var(--line);color:var(--dim);
+  font-family:var(--mono);font-size:10px;letter-spacing:.06em;
+  padding:3px 8px;border-radius:4px;cursor:pointer;
+}
+.code:hover .copy,.copy:focus{opacity:1}
+.copy:hover{color:var(--ink);border-color:var(--blue)}
+
+/* ---------- small parts ---------- */
+kbd{
+  font-family:var(--mono);font-size:11px;background:var(--panel2);
+  border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;
+  padding:1px 6px;color:var(--ink);
+}
+.inline{font-family:var(--mono);font-size:12.4px;background:#0e1218;
+  border:1px solid var(--line-soft);border-radius:4px;padding:1px 5px;color:#b9cadd}
+.note{
+  border-left:2px solid var(--warn);background:rgba(255,202,106,.05);
+  padding:9px 13px;border-radius:0 5px 5px 0;font-size:13px;color:var(--dim);margin:12px 0 0;
+}
+.note b{color:var(--warn);font-weight:600}
+ul.tight{margin:0 0 12px;padding-left:18px;color:var(--dim);font-size:13.5px}
+ul.tight li{margin-bottom:5px}
+ul.tight li::marker{color:var(--faint)}
+table{width:100%;border-collapse:collapse;font-size:13px;margin:0 0 12px}
+th{
+  text-align:left;font-family:var(--mono);font-size:10px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--faint);font-weight:400;
+  padding:0 10px 7px 0;border-bottom:1px solid var(--line);
+}
+td{padding:7px 10px 7px 0;border-bottom:1px solid var(--line-soft);color:var(--dim);vertical-align:top}
+td:first-child{color:var(--ink);font-family:var(--mono);font-size:12.2px;white-space:nowrap}
+
+footer{padding:40px 0 0;color:var(--faint);font-size:12.5px;font-family:var(--mono)}
+
+/* ---------- mobile ---------- */
+.dock-toggle{display:none}
+@media (max-width:900px){
+  .shell{grid-template-columns:1fr}
+  .dock{
+    position:sticky;top:0;height:auto;max-height:62vh;z-index:20;
+    border-right:0;border-bottom:1px solid var(--line);padding:0;
+  }
+  .dock-toggle{
+    display:flex;align-items:center;justify-content:space-between;width:100%;
+    background:var(--bg2);border:0;border-bottom:1px solid var(--line);
+    color:var(--ink);font-family:var(--mono);font-size:12px;letter-spacing:.1em;
+    text-transform:uppercase;padding:14px 18px;cursor:pointer;
+  }
+  .dock-body{display:none;padding:14px 0 20px;overflow-y:auto;max-height:52vh}
+  .dock.open .dock-body{display:block}
+  main{padding:0 18px 70px}
+  .hero{padding:34px 0 24px}
+  .cards{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *{transition:none!important;animation:none!important}
+}
+@media print{
+  .dock,.finder,.copy,.hits{display:none}
+  .shell{display:block}
+  body{background:#fff;color:#000}
+  .card,pre{background:#fff;border-color:#bbb}
+  code,.c,.k,.f,.t,.s,.n,.a{color:#000}
+  .sect{page-break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ================= SCENE TREE DOCK ================= -->
+<nav class="dock" id="dock" aria-label="Sections">
+  <button class="dock-toggle" id="dockToggle" aria-expanded="false">Scene tree <span>▾</span></button>
+  <div class="dock-body" id="dockBody">
+    <p class="dock-label">res:// cheatsheet</p>
+    <ul class="tree">
+      <span class="rail" aria-hidden="true"></span>
+      <li><a href="#structure"><span class="glyph g-sys"></span>Project structure</a></li>
+      <li><a href="#style"><span class="glyph g-sys"></span>Naming &amp; script order</a></li>
+      <li><a href="#syntax"><span class="glyph g-sys"></span>GDScript syntax</a></li>
+      <li><a href="#exports"><span class="glyph g-res"></span>Exports &amp; inspector</a></li>
+      <li><a href="#nodes"><span class="glyph g-2d"></span>Nodes &amp; scenes</a></li>
+      <li><a href="#lifecycle"><span class="glyph g-2d"></span>Lifecycle callbacks</a></li>
+      <li><a href="#signals"><span class="glyph g-sys"></span>Signals</a></li>
+      <li><a href="#input"><span class="glyph g-sys"></span>Input</a></li>
+      <li><a href="#move2d"><span class="glyph g-2d"></span>2D movement</a></li>
+      <li><a href="#move3d"><span class="glyph g-3d"></span>3D movement &amp; camera</a></li>
+      <li><a href="#physics"><span class="glyph g-2d"></span>Physics, areas, rays</a></li>
+      <li><a href="#anim"><span class="glyph g-2d"></span>Animation &amp; tweens</a></li>
+      <li><a href="#ui"><span class="glyph g-ui"></span>UI &amp; Control nodes</a></li>
+      <li><a href="#autoload"><span class="glyph g-sys"></span>Autoloads &amp; event bus</a></li>
+      <li><a href="#scenes"><span class="glyph g-sys"></span>Scene management</a></li>
+      <li><a href="#resources"><span class="glyph g-res"></span>Custom resources</a></li>
+      <li><a href="#save"><span class="glyph g-res"></span>Saving &amp; loading</a></li>
+      <li><a href="#audio"><span class="glyph g-res"></span>Audio</a></li>
+      <li><a href="#settings"><span class="glyph g-sys"></span>Project settings</a></li>
+      <li><a href="#shaders"><span class="glyph g-res"></span>Shaders</a></li>
+      <li><a href="#perf"><span class="glyph g-sys"></span>Performance</a></li>
+      <li><a href="#gotchas"><span class="glyph g-3d"></span>Gotchas</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- ================= MAIN ================= -->
+<main>
+
+<header class="hero">
+  <p class="eyebrow">Godot 4.7 · GDScript 2.0</p>
+  <h1>Everything is a<br><em>node</em>. Everything<br>else is a scene.</h1>
+  <p class="thesis">A working reference for building games in Godot 4 — the structure decisions you make once, and the script patterns you'll reach for every day. <strong>Colours below match Godot's own node categories</strong>, and are used throughout this sheet.</p>
+  <ul class="legend">
+    <li><span class="glyph g-sys"></span>Engine / general</li>
+    <li><span class="glyph g-2d"></span>2D</li>
+    <li><span class="glyph g-3d"></span>3D</li>
+    <li><span class="glyph g-ui"></span>Control / UI</li>
+    <li><span class="glyph g-res"></span>Resource / data</li>
+  </ul>
+  <div class="finder">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="10.5" cy="10.5" r="7"/><path d="M16 16l5 5"/></svg>
+    <input type="search" id="finder" placeholder="Filter sections — try &quot;signal&quot;, &quot;save&quot;, &quot;raycast&quot;" aria-label="Filter sections">
+  </div>
+  <p class="hits" id="hits"></p>
+</header>
+
+<!-- ============ PROJECT STRUCTURE ============ -->
+<section class="sect" id="structure">
+  <div class="sect-head"><h2>Project structure</h2><span class="path">res://</span></div>
+  <p class="lede">Godot doesn't enforce a layout, so pick one on day one and never reorganise mid-project — moving files rewrites every path reference and dirties your whole diff.</p>
+  <div class="cards">
+    <div class="card wide">
+      <h3>Feature folders — the layout that scales</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code>res://
+├── addons/              <span class="c"># plugins — never edit by hand</span>
+├── assets/              <span class="c"># raw imports, no scenes here</span>
+│   ├── art/  audio/  fonts/
+├── scenes/
+│   ├── player/          <span class="c"># player.tscn + player.gd + player_states/</span>
+│   ├── enemies/
+│   │   ├── enemy.gd     <span class="c"># shared base class</span>
+│   │   └── slime/       <span class="c"># slime.tscn + slime.gd + slime.png</span>
+│   ├── levels/
+│   ├── ui/              <span class="c"># hud.tscn, pause_menu.tscn, main_menu.tscn</span>
+│   └── components/      <span class="c"># health.tscn, hitbox.tscn, hurtbox.tscn</span>
+├── scripts/
+│   ├── globals/         <span class="c"># autoloads: game.gd, events.gd, audio.gd</span>
+│   └── utils/           <span class="c"># pure static helpers, no scene attached</span>
+├── resources/           <span class="c"># .tres data: items, stats, themes, curves</span>
+├── shaders/
+└── project.godot</code></pre></div>
+      <p>Rule of thumb: <strong>a scene, its script and its private assets live in one folder.</strong> If you can't delete a folder without breaking something outside it, the boundary is wrong. <span class="inline">scripts/</span> is only for code with no scene of its own.</p>
+    </div>
+
+    <div class="card">
+      <h3>The two filesystems</h3>
+      <table>
+        <tr><td>res://</td><td>Your project. <strong>Read-only in an exported build</strong> — it's inside the .pck.</td></tr>
+        <tr><td>user://</td><td>Writable. Saves, settings, logs. Per-OS app data dir.</td></tr>
+      </table>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="c"># See where user:// actually points</span>
+<span class="f">print</span>(OS.<span class="f">get_user_data_dir</span>())
+
+<span class="c"># Absolute paths for a native file dialog</span>
+<span class="k">var</span> abs := ProjectSettings.<span class="f">globalize_path</span>(<span class="s">"user://save.dat"</span>)</code></pre></div>
+      <p class="note"><b>Trap:</b> writing to <span class="inline">res://</span> works in the editor and silently fails after export. Every save path starts with <span class="inline">user://</span>.</p>
+    </div>
+
+    <div class="card">
+      <h3>Version control</h3>
+      <p>Commit <span class="inline">.tscn</span>, <span class="inline">.tres</span> and <span class="inline">.import</span> files — they're text and they merge. Never commit the import cache.</p>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="c"># .gitignore</span>
+.godot/
+/android/
+/build/
+export_presets.cfg   <span class="c"># holds signing keys</span>
+*.translation</code></pre></div>
+      <p>Set <span class="inline">Editor → Version Control</span> or just use git externally. Binary art files benefit from Git LFS.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ STYLE ============ -->
+<section class="sect" id="style">
+  <div class="sect-head"><h2>Naming &amp; script order</h2><span class="path">style guide</span></div>
+  <p class="lede">The official GDScript style guide, condensed. Following it means every tutorial, plugin and Stack Overflow answer reads like your own code.</p>
+  <div class="cards">
+    <div class="card">
+      <h3>Naming</h3>
+      <table>
+        <tr><td>player_ship.gd</td><td>files &amp; folders — snake_case</td></tr>
+        <tr><td>PlayerShip</td><td>classes &amp; nodes — PascalCase</td></tr>
+        <tr><td>max_speed</td><td>variables &amp; functions</td></tr>
+        <tr><td>MAX_SPEED</td><td>constants</td></tr>
+        <tr><td>_recalculate()</td><td>private — leading underscore</td></tr>
+        <tr><td>health_depleted</td><td>signals — past tense</td></tr>
+        <tr><td>State.IDLE</td><td>enums — PascalCase name, CONSTANT members</td></tr>
+      </table>
+      <p class="note"><b>Watch:</b> a file named <span class="inline">Player.gd</span> and one named <span class="inline">player.gd</span> are the same file on Windows and different files on Linux. Stay lowercase.</p>
+    </div>
+    <div class="card">
+      <h3>Declaration order inside a script</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="a">@tool</span>
+<span class="k">class_name</span> <span class="t">Enemy</span>
+<span class="k">extends</span> <span class="t">CharacterBody2D</span>
+<span class="c">## Doc comment: shows in the editor help.</span>
+
+<span class="k">signal</span> <span class="f">died</span>(by: <span class="t">Node</span>)
+
+<span class="k">enum</span> <span class="t">State</span> { IDLE, CHASE, DEAD }
+
+<span class="k">const</span> GRAVITY := <span class="n">980.0</span>
+
+<span class="k">static var</span> alive_count := <span class="n">0</span>
+
+<span class="a">@export</span> <span class="k">var</span> max_health := <span class="n">30</span>
+
+<span class="k">var</span> _state: <span class="t">State</span> = State.IDLE
+
+<span class="a">@onready</span> <span class="k">var</span> _sprite: <span class="t">Sprite2D</span> = $Sprite2D
+
+<span class="k">func</span> <span class="f">_ready</span>() -> <span class="k">void</span>: <span class="k">pass</span>
+<span class="k">func</span> <span class="f">_physics_process</span>(delta: <span class="k">float</span>) -> <span class="k">void</span>: <span class="k">pass</span>
+<span class="k">func</span> <span class="f">take_damage</span>(n: <span class="k">int</span>) -> <span class="k">void</span>: <span class="k">pass</span>   <span class="c"># public</span>
+<span class="k">func</span> <span class="f">_choose_target</span>() -> <span class="t">Node2D</span>: <span class="k">return</span> <span class="k">null</span> <span class="c"># private</span></code></pre></div>
+      <p><span class="inline">class_name</span> registers the type globally — you can then write <span class="inline">var e: Enemy</span> anywhere and it appears in the Add Node dialog.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SYNTAX ============ -->
+<section class="sect" id="syntax">
+  <div class="sect-head"><h2>GDScript syntax</h2><span class="path">the whole language, roughly</span></div>
+  <p class="lede">Python-shaped, but statically typed when you want it to be. Type your variables: you get autocomplete, compile-time errors and a real speed-up.</p>
+  <div class="cards">
+    <div class="card">
+      <h3>Variables &amp; typing</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="k">var</span> loose = <span class="n">5</span>              <span class="c"># dynamic — avoid</span>
+<span class="k">var</span> typed: <span class="k">int</span> = <span class="n">5</span>        <span class="c"># explicit</span>
+<span class="k">var</span> inferred := <span class="n">5</span>         <span class="c"># := infers int. Preferred.</span>
+
+<span class="k">const</span> MAX := <span class="n">100</span>          <span class="c"># compile-time constant</span>
+<span class="k">static var</span> counter := <span class="n">0</span>  <span class="c"># shared across instances</span>
+
+<span class="k">var</span> nums: <span class="t">Array</span>[<span class="k">int</span>] = [<span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span>]   <span class="c"># typed array</span>
+<span class="k">var</span> tally: <span class="t">Dictionary</span> = {<span class="s">"hp"</span>: <span class="n">10</span>}
+<span class="k">var</span> pos := <span class="t">Vector2</span>(<span class="n">4</span>, <span class="n">9</span>)
+<span class="k">var</span> maybe: <span class="t">Node</span> = <span class="k">null</span>
+
+<span class="c"># Setter / getter</span>
+<span class="k">var</span> health := <span class="n">100</span>:
+    <span class="k">set</span>(value):
+        health = <span class="f">clampi</span>(value, <span class="n">0</span>, <span class="n">100</span>)
+        health_changed.<span class="f">emit</span>(health)
+    <span class="k">get</span>:
+        <span class="k">return</span> health</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>Control flow</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="k">if</span> hp &lt;= <span class="n">0</span> <span class="k">and not</span> invincible:
+    <span class="f">die</span>()
+<span class="k">elif</span> hp &lt; <span class="n">20</span> <span class="k">or</span> poisoned:
+    <span class="f">warn</span>()
+<span class="k">else</span>:
+    <span class="k">pass</span>
+
+<span class="k">var</span> label := <span class="s">"low"</span> <span class="k">if</span> hp &lt; <span class="n">20</span> <span class="k">else</span> <span class="s">"ok"</span>
+
+<span class="k">for</span> i <span class="k">in</span> <span class="f">range</span>(<span class="n">10</span>): <span class="f">print</span>(i)
+<span class="k">for</span> e <span class="k">in</span> enemies: e.<span class="f">stun</span>()
+<span class="k">for</span> key <span class="k">in</span> dict: <span class="f">print</span>(key, dict[key])
+
+<span class="k">while</span> queue.<span class="f">size</span>() &gt; <span class="n">0</span>:
+    <span class="k">var</span> item = queue.<span class="f">pop_front</span>()
+    <span class="k">if</span> item == <span class="k">null</span>: <span class="k">continue</span>
+    <span class="k">if</span> done: <span class="k">break</span>
+
+<span class="k">match</span> state:
+    State.IDLE: <span class="f">_idle</span>()
+    State.CHASE, State.FLEE: <span class="f">_move</span>()
+    <span class="k">var</span> other: <span class="f">push_error</span>(<span class="s">"bad: %s"</span> % other)
+    _: <span class="k">pass</span>          <span class="c"># default</span>
+
+<span class="c"># match also destructures</span>
+<span class="k">match</span> [x, y]:
+    [<span class="n">0</span>, <span class="k">var</span> b]: <span class="f">print</span>(<span class="s">"on y axis at %d"</span> % b)
+    [<span class="k">var</span> a, ..]: <span class="f">print</span>(<span class="s">"starts with %d"</span> % a)</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>Functions &amp; lambdas</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="k">func</span> <span class="f">damage</span>(amount: <span class="k">int</span>, crit := <span class="k">false</span>) -> <span class="k">int</span>:
+    <span class="k">return</span> amount * (<span class="n">2</span> <span class="k">if</span> crit <span class="k">else</span> <span class="n">1</span>)
+
+<span class="c"># Variable args via array</span>
+<span class="k">func</span> <span class="f">log_all</span>(args: <span class="t">Array</span>) -> <span class="k">void</span>:
+    <span class="k">for</span> a <span class="k">in</span> args: <span class="f">print</span>(a)
+
+<span class="c"># Static: callable without an instance</span>
+<span class="k">static func</span> <span class="f">clamp01</span>(v: <span class="k">float</span>) -> <span class="k">float</span>:
+    <span class="k">return</span> <span class="f">clampf</span>(v, <span class="n">0.0</span>, <span class="n">1.0</span>)
+
+<span class="c"># Lambda → a Callable</span>
+<span class="k">var</span> double := <span class="k">func</span>(x: <span class="k">int</span>) -> <span class="k">int</span>: <span class="k">return</span> x * <span class="n">2</span>
+<span class="f">print</span>(double.<span class="f">call</span>(<span class="n">21</span>))
+
+enemies.<span class="f">sort_custom</span>(<span class="k">func</span>(a, b): <span class="k">return</span> a.hp &lt; b.hp)
+<span class="k">var</span> weak := enemies.<span class="f">filter</span>(<span class="k">func</span>(e): <span class="k">return</span> e.hp &lt; <span class="n">10</span>)
+<span class="k">var</span> total := damages.<span class="f">reduce</span>(<span class="k">func</span>(acc, d): <span class="k">return</span> acc + d, <span class="n">0</span>)
+
+<span class="c"># Callables bind arguments</span>
+button.pressed.<span class="f">connect</span>(<span class="f">_on_press</span>.<span class="f">bind</span>(<span class="s">"start"</span>))</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>Strings &amp; formatting</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="f">print</span>(<span class="s">"HP: %d/%d (%.1f%%)"</span> % [hp, max_hp, pct])
+<span class="f">print</span>(<span class="s">"Hi {name}, level {lv}"</span>.<span class="f">format</span>({<span class="s">"name"</span>: n, <span class="s">"lv"</span>: l}))
+<span class="f">print</span>(<span class="s">"a"</span> + <span class="k">str</span>(<span class="n">1</span>) + <span class="s">"b"</span>)
+
+<span class="s">"1,2,3"</span>.<span class="f">split</span>(<span class="s">","</span>)            <span class="c"># → ["1","2","3"]</span>
+<span class="s">"  x "</span>.<span class="f">strip_edges</span>()
+<span class="s">"abc"</span>.<span class="f">to_upper</span>()
+<span class="s">"path/to"</span>.<span class="f">get_file</span>()
+<span class="s">"%04d"</span> % <span class="n">7</span>                    <span class="c"># → "0007"</span>
+
+<span class="c"># StringName — interned, fast for repeated lookups</span>
+Input.<span class="f">is_action_pressed</span>(<span class="a">&amp;</span><span class="s">"jump"</span>)
+
+<span class="c"># NodePath literal</span>
+<span class="k">var</span> p: <span class="t">NodePath</span> = ^<span class="s">"Sprite2D/Trail"</span></code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>Maths you'll actually use</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="f">lerp</span>(a, b, t)              <span class="c"># linear blend</span>
+<span class="f">lerp_angle</span>(a, b, t)        <span class="c"># wraps correctly</span>
+<span class="f">move_toward</span>(v, target, step)
+<span class="f">clampf</span>(v, <span class="n">0.0</span>, <span class="n">1.0</span>)  /  <span class="f">clampi</span>(v, <span class="n">0</span>, <span class="n">10</span>)
+<span class="f">snappedf</span>(v, <span class="n">0.25</span>)          <span class="c"># quantise</span>
+<span class="f">remap</span>(v, <span class="n">0</span>, <span class="n">100</span>, <span class="n">0.0</span>, <span class="n">1.0</span>)
+<span class="f">is_equal_approx</span>(a, b)     <span class="c"># NEVER == on floats</span>
+<span class="f">deg_to_rad</span>(<span class="n">90</span>)  /  <span class="f">rad_to_deg</span>(x)
+
+<span class="k">var</span> dir := (target.global_position - global_position).<span class="f">normalized</span>()
+<span class="k">var</span> dist := global_position.<span class="f">distance_to</span>(target.global_position)
+<span class="k">var</span> ang  := global_position.<span class="f">angle_to_point</span>(target.global_position)
+
+<span class="c"># Randomness — auto-seeded in Godot 4</span>
+<span class="f">randi_range</span>(<span class="n">1</span>, <span class="n">6</span>)
+<span class="f">randf_range</span>(<span class="n">0.5</span>, <span class="n">2.0</span>)
+array.<span class="f">pick_random</span>()
+array.<span class="f">shuffle</span>()
+<span class="f">seed</span>(<span class="n">12345</span>)               <span class="c"># reproducible runs</span></code></pre></div>
+      <p class="note"><b>Frame-rate independence:</b> <span class="inline">lerp(a, b, 0.1)</span> in <span class="inline">_process</span> is faster on a 144&nbsp;Hz screen. Use <span class="inline">lerp(a, b, 1.0 - exp(-speed * delta))</span> instead.</p>
+    </div>
+
+    <div class="card">
+      <h3>Classes &amp; inheritance</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="k">class_name</span> <span class="t">Slime</span>
+<span class="k">extends</span> <span class="t">Enemy</span>
+
+<span class="k">func</span> <span class="f">take_damage</span>(n: <span class="k">int</span>) -> <span class="k">void</span>:
+    <span class="k">super</span>.<span class="f">take_damage</span>(n)   <span class="c"># call parent</span>
+    <span class="f">_wobble</span>()
+
+<span class="c"># Type checks</span>
+<span class="k">if</span> body <span class="k">is</span> <span class="t">Player</span>: body.<span class="f">heal</span>(<span class="n">5</span>)
+<span class="k">var</span> p := body <span class="k">as</span> <span class="t">Player</span>      <span class="c"># null if wrong type</span>
+<span class="k">if</span> p: p.<span class="f">heal</span>(<span class="n">5</span>)
+
+<span class="c"># Duck typing when you don't want a hard dependency</span>
+<span class="k">if</span> body.<span class="f">has_method</span>(<span class="s">"take_damage"</span>):
+    body.<span class="f">take_damage</span>(<span class="n">10</span>)
+
+<span class="c"># Inner class</span>
+<span class="k">class</span> <span class="t">Slot</span>:
+    <span class="k">var</span> item: <span class="t">ItemData</span>
+    <span class="k">var</span> count := <span class="n">1</span>
+    <span class="k">func</span> <span class="f">_init</span>(i: <span class="t">ItemData</span>, c := <span class="n">1</span>) -> <span class="k">void</span>:
+        item = i; count = c</code></pre></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ EXPORTS ============ -->
+<section class="sect" id="exports">
+  <div class="sect-head"><h2>Exports &amp; the inspector</h2><span class="path">@export</span></div>
+  <p class="lede">Every number you might want to tweak should be an export. Designing in the inspector beats recompiling in your head.</p>
+  <div class="cards">
+    <div class="card wide">
+      <h3>The full export vocabulary</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="a">@export</span> <span class="k">var</span> speed := <span class="n">300.0</span>
+<span class="a">@export</span> <span class="k">var</span> title: <span class="t">String</span> = <span class="s">"Untitled"</span>
+<span class="a">@export</span> <span class="k">var</span> target: <span class="t">Node2D</span>                 <span class="c"># drag a node in</span>
+<span class="a">@export</span> <span class="k">var</span> bullet_scene: <span class="t">PackedScene</span>      <span class="c"># drag a .tscn in</span>
+<span class="a">@export</span> <span class="k">var</span> stats: <span class="t">EnemyStats</span>              <span class="c"># custom Resource</span>
+<span class="a">@export</span> <span class="k">var</span> waypoints: <span class="t">Array</span>[<span class="t">Node2D</span>] = []
+
+<span class="a">@export_range</span>(<span class="n">0</span>, <span class="n">100</span>, <span class="n">1</span>, <span class="s">"or_greater"</span>) <span class="k">var</span> hp := <span class="n">50</span>
+<span class="a">@export_enum</span>(<span class="s">"Easy"</span>, <span class="s">"Normal"</span>, <span class="s">"Hard"</span>) <span class="k">var</span> difficulty := <span class="n">1</span>
+<span class="a">@export_flags</span>(<span class="s">"Fire"</span>, <span class="s">"Ice"</span>, <span class="s">"Poison"</span>) <span class="k">var</span> immunities := <span class="n">0</span>
+<span class="a">@export_file</span>(<span class="s">"*.tscn"</span>) <span class="k">var</span> next_level: <span class="t">String</span>
+<span class="a">@export_dir</span> <span class="k">var</span> save_folder: <span class="t">String</span>
+<span class="a">@export_multiline</span> <span class="k">var</span> dialogue: <span class="t">String</span>
+<span class="a">@export_color_no_alpha</span> <span class="k">var</span> tint: <span class="t">Color</span>
+<span class="a">@export_node_path</span>(<span class="s">"CharacterBody2D"</span>) <span class="k">var</span> body_path: <span class="t">NodePath</span>
+
+<span class="c"># Inspector organisation</span>
+<span class="a">@export_group</span>(<span class="s">"Movement"</span>)
+<span class="a">@export</span> <span class="k">var</span> accel := <span class="n">1200.0</span>
+<span class="a">@export</span> <span class="k">var</span> friction := <span class="n">900.0</span>
+<span class="a">@export_subgroup</span>(<span class="s">"Air"</span>)
+<span class="a">@export</span> <span class="k">var</span> air_control := <span class="n">0.4</span>
+<span class="a">@export_category</span>(<span class="s">"Debug"</span>)
+<span class="a">@export</span> <span class="k">var</span> show_hitboxes := <span class="k">false</span></code></pre></div>
+      <p class="note"><b>Trap:</b> exported values are baked into the <span class="inline">.tscn</span> when you set them in the inspector. Changing the default in code will <em>not</em> update instances that already have an override — clear the override with the revert arrow.</p>
+    </div>
+    <div class="card">
+      <h3>@tool — run script in the editor</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="a">@tool</span>
+<span class="k">extends</span> <span class="t">Node2D</span>
+
+<span class="a">@export</span> <span class="k">var</span> radius := <span class="n">64.0</span>:
+    <span class="k">set</span>(v):
+        radius = v
+        <span class="f">queue_redraw</span>()     <span class="c"># live preview</span>
+
+<span class="k">func</span> <span class="f">_draw</span>() -> <span class="k">void</span>:
+    <span class="f">draw_circle</span>(<span class="t">Vector2</span>.ZERO, radius, <span class="t">Color</span>.CYAN)
+
+<span class="k">func</span> <span class="f">_process</span>(_d) -> <span class="k">void</span>:
+    <span class="k">if</span> Engine.<span class="f">is_editor_hint</span>(): <span class="k">return</span>
+    <span class="c"># game-only logic here</span></code></pre></div>
+      <p class="note"><b>Careful:</b> a crash in a <span class="inline">@tool</span> script crashes the editor. Guard everything with <span class="inline">Engine.is_editor_hint()</span>.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ NODES ============ -->
+<section class="sect" id="nodes">
+  <div class="sect-head"><h2>Nodes &amp; scenes</h2><span class="path">get_node / instantiate</span></div>
+  <p class="lede">A scene is a tree of nodes saved to disk. Instancing one gives you a node you can add anywhere. That's the entire architecture.</p>
+  <div class="cards">
+    <div class="card">
+      <h3>Getting references</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="a">@onready</span> <span class="k">var</span> sprite: <span class="t">Sprite2D</span> = $Sprite2D
+<span class="a">@onready</span> <span class="k">var</span> bar: <span class="t">ProgressBar</span> = $UI/HBox/HealthBar
+<span class="a">@onready</span> <span class="k">var</span> hp: <span class="t">Label</span> = %HealthLabel   <span class="c"># scene-unique name</span>
+
+<span class="f">get_node</span>(<span class="s">"Sprite2D"</span>)          <span class="c"># same as $Sprite2D</span>
+<span class="f">get_node_or_null</span>(<span class="s">"Maybe"</span>)    <span class="c"># null instead of error</span>
+<span class="f">get_parent</span>()
+<span class="f">get_child</span>(<span class="n">0</span>)  /  <span class="f">get_children</span>()
+<span class="f">get_tree</span>().current_scene
+<span class="f">get_tree</span>().root                 <span class="c"># the Window</span>
+<span class="f">find_child</span>(<span class="s">"Coin*"</span>, <span class="k">true</span>, <span class="k">false</span>)  <span class="c"># recursive, slow</span></code></pre></div>
+      <p class="note"><b>Use % over deep paths.</b> Right-click a node → <em>Access as Unique Name</em>. Then <span class="inline">%HealthLabel</span> keeps working after you reparent it. <span class="inline">$UI/HBox/HealthBar</span> breaks.</p>
+    </div>
+
+    <div class="card">
+      <h3>Instancing &amp; freeing</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="k">const</span> BULLET := <span class="f">preload</span>(<span class="s">"res://scenes/bullet/bullet.tscn"</span>)
+
+<span class="k">func</span> <span class="f">shoot</span>() -> <span class="k">void</span>:
+    <span class="k">var</span> b := BULLET.<span class="f">instantiate</span>() <span class="k">as</span> <span class="t">Bullet</span>
+    <span class="c"># Add to the world, NOT to self — otherwise the</span>
+    <span class="c"># bullet inherits the player's rotation and movement.</span>
+    <span class="f">get_tree</span>().current_scene.<span class="f">add_child</span>(b)
+    b.global_position = %Muzzle.global_position
+    b.direction = <span class="t">Vector2</span>.RIGHT.<span class="f">rotated</span>(rotation)
+
+<span class="f">queue_free</span>()          <span class="c"># deletes at end of frame — always use this</span>
+<span class="f">free</span>()                <span class="c"># immediate; crashes if still in use</span>
+node.<span class="f">get_parent</span>().<span class="f">remove_child</span>(node)  <span class="c"># detach, keep alive</span>
+<span class="k">if</span> <span class="f">is_instance_valid</span>(node): node.<span class="f">do_thing</span>()</code></pre></div>
+      <p><span class="inline">preload</span> loads at parse time (constant path only). <span class="inline">load</span> loads at runtime and accepts a variable.</p>
+    </div>
+
+    <div class="card">
+      <h3>Groups — the loose-coupling escape hatch</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="f">add_to_group</span>(<span class="s">"enemies"</span>)
+<span class="f">remove_from_group</span>(<span class="s">"enemies"</span>)
+<span class="k">if</span> <span class="f">is_in_group</span>(<span class="s">"enemies"</span>): <span class="k">pass</span>
+
+<span class="k">var</span> all := <span class="f">get_tree</span>().<span class="f">get_nodes_in_group</span>(<span class="s">"enemies"</span>)
+<span class="f">get_tree</span>().<span class="f">call_group</span>(<span class="s">"enemies"</span>, <span class="s">"stun"</span>, <span class="n">2.0</span>)
+<span class="f">get_tree</span>().<span class="f">get_node_count_in_group</span>(<span class="s">"enemies"</span>)</code></pre></div>
+      <p>Also settable in the editor's Node → Groups tab. Great for "pause everything", "save all", "reset level".</p>
+    </div>
+
+    <div class="card">
+      <h3>Ordering &amp; visibility</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code>z_index = <span class="n">10</span>                <span class="c"># 2D draw order within a parent</span>
+y_sort_enabled = <span class="k">true</span>      <span class="c"># top-down depth sorting</span>
+<span class="f">move_child</span>(node, <span class="n">0</span>)         <span class="c"># reorder siblings</span>
+
+visible = <span class="k">false</span>            <span class="c"># hides children too</span>
+<span class="f">set_process</span>(<span class="k">false</span>)         <span class="c"># stop _process only</span>
+<span class="f">set_physics_process</span>(<span class="k">false</span>)
+process_mode = Node.PROCESS_MODE_ALWAYS  <span class="c"># run while paused</span>
+
+<span class="f">get_tree</span>().paused = <span class="k">true</span>   <span class="c"># pause everything</span>
+<span class="f">reparent</span>(new_parent)       <span class="c"># keeps global transform</span></code></pre></div>
+      <p class="note"><b>Pause menus:</b> set the menu's <span class="inline">process_mode</span> to <em>Always</em> (or <em>When Paused</em>), then set <span class="inline">get_tree().paused = true</span>. Otherwise your menu freezes with the game.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ LIFECYCLE ============ -->
+<section class="sect" id="lifecycle">
+  <div class="sect-head"><h2>Lifecycle callbacks</h2><span class="path">virtual methods</span></div>
+  <div class="cards">
+    <div class="card wide">
+      <h3>Order of events, and what belongs where</h3>
+      <table>
+        <tr><th>Callback</th><th>When</th><th>Use for</th></tr>
+        <tr><td>_init()</td><td>Object created, before entering tree</td><td>Pure data setup. <strong>No <span class="inline">$Node</span> access.</strong></td></tr>
+        <tr><td>_enter_tree()</td><td>Added to tree, parents ready first</td><td>Registering with managers</td></tr>
+        <tr><td>_ready()</td><td>Node <em>and all children</em> are in tree. Children fire first.</td><td>Node references, signal connections, initial state</td></tr>
+        <tr><td>_process(delta)</td><td>Every rendered frame, variable rate</td><td>Visuals, UI, input polling, camera</td></tr>
+        <tr><td>_physics_process(delta)</td><td>Fixed 60&nbsp;Hz by default</td><td>Movement, collisions, anything with a body</td></tr>
+        <tr><td>_input(event)</td><td>Every event, before UI</td><td>Global hotkeys — rarely what you want</td></tr>
+        <tr><td>_unhandled_input(event)</td><td>After UI consumed its events</td><td>Gameplay input. <strong>Prefer this.</strong></td></tr>
+        <tr><td>_exit_tree()</td><td>Removed from tree</td><td>Deregistering, cleanup</td></tr>
+        <tr><td>_notification(what)</td><td>Engine messages</td><td>Window close, predelete, app pause</td></tr>
+      </table>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="k">func</span> <span class="f">_notification</span>(what: <span class="k">int</span>) -> <span class="k">void</span>:
+    <span class="k">match</span> what:
+        NOTIFICATION_WM_CLOSE_REQUEST: SaveManager.<span class="f">save</span>(); <span class="f">get_tree</span>().<span class="f">quit</span>()
+        NOTIFICATION_APPLICATION_FOCUS_OUT: <span class="f">get_tree</span>().paused = <span class="k">true</span>
+        NOTIFICATION_PREDELETE: <span class="f">print</span>(<span class="s">"about to be freed"</span>)</code></pre></div>
+      <p class="note"><b>The classic bug:</b> <span class="inline">_ready()</span> runs children-first, bottom-up. A parent can safely touch its children in <span class="inline">_ready</span>; a child cannot assume its parent is ready. Defer with <span class="inline">call_deferred()</span> or <span class="inline">await owner.ready</span>.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SIGNALS ============ -->
+<section class="sect" id="signals">
+  <div class="sect-head"><h2>Signals</h2><span class="path">call down, signal up</span></div>
+  <p class="lede">The architectural rule that keeps Godot projects from collapsing: a parent may call methods on its children directly; a child must never reach up. It emits, and the parent listens.</p>
+  <div class="cards">
+    <div class="card">
+      <h3>Declare, emit, connect</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="c"># --- health.gd (the child) ---</span>
+<span class="k">signal</span> <span class="f">health_changed</span>(current: <span class="k">int</span>, maximum: <span class="k">int</span>)
+<span class="k">signal</span> <span class="f">died</span>
+
+<span class="k">func</span> <span class="f">take_damage</span>(n: <span class="k">int</span>) -> <span class="k">void</span>:
+    current = <span class="f">maxi</span>(current - n, <span class="n">0</span>)
+    health_changed.<span class="f">emit</span>(current, maximum)
+    <span class="k">if</span> current == <span class="n">0</span>:
+        died.<span class="f">emit</span>()
+
+<span class="c"># --- player.gd (the parent) ---</span>
+<span class="k">func</span> <span class="f">_ready</span>() -> <span class="k">void</span>:
+    %Health.health_changed.<span class="f">connect</span>(<span class="f">_on_health_changed</span>)
+    %Health.died.<span class="f">connect</span>(<span class="f">_on_died</span>, CONNECT_ONE_SHOT)
+
+<span class="k">func</span> <span class="f">_on_health_changed</span>(cur: <span class="k">int</span>, maxv: <span class="k">int</span>) -> <span class="k">void</span>:
+    %Bar.value = <span class="k">float</span>(cur) / maxv</code></pre></div>
+      <p>Flags: <span class="inline">CONNECT_ONE_SHOT</span>, <span class="inline">CONNECT_DEFERRED</span> (fires at idle — safe for freeing nodes), <span class="inline">CONNECT_PERSIST</span>.</p>
+    </div>
+
+    <div class="card">
+      <h3>Managing connections</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code>sig.<span class="f">disconnect</span>(<span class="f">_on_thing</span>)
+<span class="k">if</span> sig.<span class="f">is_connected</span>(<span class="f">_on_thing</span>): <span class="k">pass</span>
+
+<span class="c"># Bind extra args (appended after signal args)</span>
+<span class="k">for</span> i <span class="k">in</span> buttons.<span class="f">size</span>():
+    buttons[i].pressed.<span class="f">connect</span>(<span class="f">_on_slot</span>.<span class="f">bind</span>(i))
+
+<span class="k">func</span> <span class="f">_on_slot</span>(index: <span class="k">int</span>) -> <span class="k">void</span>:
+    <span class="f">print</span>(<span class="s">"clicked slot %d"</span> % index)
+
+<span class="c"># Lambdas work too</span>
+timer.timeout.<span class="f">connect</span>(<span class="k">func</span>(): <span class="f">queue_free</span>())</code></pre></div>
+      <p class="note"><b>Trap:</b> lambdas capturing <span class="inline">self</span> keep connections alive in ways that are hard to disconnect. Use a named method when you'll ever need to unhook it.</p>
+    </div>
+
+    <div class="card">
+      <h3>await — signals as coroutines</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="k">func</span> <span class="f">intro</span>() -> <span class="k">void</span>:
+    %Anim.<span class="f">play</span>(<span class="s">"door_open"</span>)
+    <span class="k">await</span> %Anim.animation_finished
+
+    <span class="k">await</span> <span class="f">get_tree</span>().<span class="f">create_timer</span>(<span class="n">1.5</span>).timeout
+    <span class="f">print</span>(<span class="s">"1.5s later"</span>)
+
+    <span class="k">await</span> <span class="f">get_tree</span>().process_frame   <span class="c"># wait one frame</span>
+
+    <span class="k">var</span> choice = <span class="k">await</span> %Dialog.option_picked  <span class="c"># capture args</span>
+
+<span class="c"># await another function that itself awaits</span>
+<span class="k">await</span> <span class="f">intro</span>()</code></pre></div>
+      <p class="note"><b>Trap:</b> after an <span class="inline">await</span>, the node may have been freed. Check <span class="inline">if not is_instance_valid(self): return</span> before touching anything.</p>
+    </div>
+
+    <div class="card">
+      <h3>Built-in signals worth knowing</h3>
+      <table>
+        <tr><td>body_entered</td><td>Area2D/3D — physics body overlap</td></tr>
+        <tr><td>area_entered</td><td>Area overlapping another Area</td></tr>
+        <tr><td>timeout</td><td>Timer finished</td></tr>
+        <tr><td>pressed / toggled</td><td>Button, CheckBox</td></tr>
+        <tr><td>value_changed</td><td>Slider, SpinBox</td></tr>
+        <tr><td>text_submitted</td><td>LineEdit — Enter pressed</td></tr>
+        <tr><td>animation_finished</td><td>AnimationPlayer, AnimatedSprite2D</td></tr>
+        <tr><td>tree_exiting</td><td>Node about to leave the tree</td></tr>
+        <tr><td>resized</td><td>Control size changed</td></tr>
+        <tr><td>screen_exited</td><td>VisibleOnScreenNotifier2D</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============ INPUT ============ -->
+<section class="sect" id="input">
+  <div class="sect-head"><h2>Input</h2><span class="path">Project → Input Map</span></div>
+  <p class="lede">Never hard-code a key. Define actions in the Input Map, and rebinding, gamepads and accessibility all come free.</p>
+  <div class="cards">
+    <div class="card">
+      <h3>Polling — for continuous state</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="k">func</span> <span class="f">_physics_process</span>(delta: <span class="k">float</span>) -> <span class="k">void</span>:
+    <span class="c"># -1..1 on one axis</span>
+    <span class="k">var</span> x := Input.<span class="f">get_axis</span>(<span class="s">"move_left"</span>, <span class="s">"move_right"</span>)
+
+    <span class="c"># normalised 2D vector, deadzone handled</span>
+    <span class="k">var</span> dir := Input.<span class="f">get_vector</span>(
+        <span class="s">"move_left"</span>, <span class="s">"move_right"</span>,
+        <span class="s">"move_up"</span>, <span class="s">"move_down"</span>)
+
+    <span class="k">if</span> Input.<span class="f">is_action_just_pressed</span>(<span class="s">"jump"</span>): <span class="f">jump</span>()
+    <span class="k">if</span> Input.<span class="f">is_action_pressed</span>(<span class="s">"fire"</span>): <span class="f">shoot</span>()
+    <span class="k">if</span> Input.<span class="f">is_action_just_released</span>(<span class="s">"charge"</span>): <span class="f">release</span>()
+
+    <span class="k">var</span> strength := Input.<span class="f">get_action_strength</span>(<span class="s">"accelerate"</span>)</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>Events — for discrete moments</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="k">func</span> <span class="f">_unhandled_input</span>(event: <span class="t">InputEvent</span>) -> <span class="k">void</span>:
+    <span class="k">if</span> event.<span class="f">is_action_pressed</span>(<span class="s">"pause"</span>):
+        <span class="f">toggle_pause</span>()
+        <span class="f">get_viewport</span>().<span class="f">set_input_as_handled</span>()
+
+    <span class="k">if</span> event <span class="k">is</span> <span class="t">InputEventMouseButton</span> <span class="k">and</span> event.pressed:
+        <span class="k">if</span> event.button_index == MOUSE_BUTTON_LEFT:
+            <span class="f">click_at</span>(event.position)
+
+    <span class="k">if</span> event <span class="k">is</span> <span class="t">InputEventMouseMotion</span>:
+        <span class="f">aim</span>(event.relative)
+
+    <span class="k">if</span> event <span class="k">is</span> <span class="t">InputEventKey</span> <span class="k">and</span> event.keycode == KEY_ESCAPE:
+        <span class="k">pass</span>
+
+<span class="c"># Mouse capture for FPS games</span>
+Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+Input.mouse_mode = Input.MOUSE_MODE_VISIBLE</code></pre></div>
+      <p><span class="inline">_input</span> sees everything first; <span class="inline">_unhandled_input</span> only gets what the UI didn't consume. Gameplay belongs in the latter so clicking a button doesn't also fire your gun.</p>
+    </div>
+
+    <div class="card">
+      <h3>Rebinding at runtime</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="k">func</span> <span class="f">rebind</span>(action: <span class="t">String</span>, event: <span class="t">InputEvent</span>) -> <span class="k">void</span>:
+    InputMap.<span class="f">action_erase_events</span>(action)
+    InputMap.<span class="f">action_add_event</span>(action, event)
+
+<span class="c"># Human-readable key name for the options menu</span>
+<span class="k">var</span> events := InputMap.<span class="f">action_get_events</span>(<span class="s">"jump"</span>)
+%Label.text = events[<span class="n">0</span>].<span class="f">as_text</span>()
+
+<span class="c"># Actions can also be created entirely in code</span>
+InputMap.<span class="f">add_action</span>(<span class="s">"dash"</span>, <span class="n">0.2</span>)  <span class="c"># deadzone</span></code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>Touch &amp; gamepad</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="k">if</span> event <span class="k">is</span> <span class="t">InputEventScreenTouch</span>: <span class="f">print</span>(event.index)
+<span class="k">if</span> event <span class="k">is</span> <span class="t">InputEventScreenDrag</span>: <span class="f">print</span>(event.relative)
+
+Input.<span class="f">get_connected_joypads</span>()
+Input.<span class="f">get_joy_name</span>(<span class="n">0</span>)
+Input.<span class="f">start_joy_vibration</span>(<span class="n">0</span>, <span class="n">0.5</span>, <span class="n">0.8</span>, <span class="n">0.3</span>)
+
+<span class="c"># Emulate touch from mouse: Project Settings →</span>
+<span class="c"># Input Devices → Pointing → Emulate Touch From Mouse</span></code></pre></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 2D MOVEMENT ============ -->
+<section class="sect" id="move2d">
+  <div class="sect-head"><h2>2D movement</h2><span class="path">CharacterBody2D</span></div>
+  <div class="cards">
+    <div class="card">
+      <h3>Platformer — with coyote time &amp; jump buffer</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="k">extends</span> <span class="t">CharacterBody2D</span>
+
+<span class="a">@export</span> <span class="k">var</span> speed := <span class="n">300.0</span>
+<span class="a">@export</span> <span class="k">var</span> jump_velocity := <span class="n">-420.0</span>
+<span class="a">@export</span> <span class="k">var</span> accel := <span class="n">1800.0</span>
+<span class="a">@export</span> <span class="k">var</span> friction := <span class="n">2200.0</span>
+<span class="a">@export</span> <span class="k">var</span> coyote_time := <span class="n">0.12</span>
+<span class="a">@export</span> <span class="k">var</span> jump_buffer := <span class="n">0.12</span>
+
+<span class="k">var</span> _coyote := <span class="n">0.0</span>
+<span class="k">var</span> _buffer := <span class="n">0.0</span>
+
+<span class="k">func</span> <span class="f">_physics_process</span>(delta: <span class="k">float</span>) -> <span class="k">void</span>:
+    <span class="c"># Gravity from Project Settings</span>
+    <span class="k">if</span> <span class="k">not</span> <span class="f">is_on_floor</span>():
+        velocity += <span class="f">get_gravity</span>() * delta
+        _coyote -= delta
+    <span class="k">else</span>:
+        _coyote = coyote_time
+
+    <span class="k">if</span> Input.<span class="f">is_action_just_pressed</span>(<span class="s">"jump"</span>):
+        _buffer = jump_buffer
+    _buffer -= delta
+
+    <span class="k">if</span> _buffer &gt; <span class="n">0.0</span> <span class="k">and</span> _coyote &gt; <span class="n">0.0</span>:
+        velocity.y = jump_velocity
+        _buffer = <span class="n">0.0</span>
+        _coyote = <span class="n">0.0</span>
+
+    <span class="c"># Variable jump height: cut it short on release</span>
+    <span class="k">if</span> Input.<span class="f">is_action_just_released</span>(<span class="s">"jump"</span>) <span class="k">and</span> velocity.y &lt; <span class="n">0.0</span>:
+        velocity.y *= <span class="n">0.45</span>
+
+    <span class="k">var</span> dir := Input.<span class="f">get_axis</span>(<span class="s">"move_left"</span>, <span class="s">"move_right"</span>)
+    <span class="k">if</span> dir != <span class="n">0.0</span>:
+        velocity.x = <span class="f">move_toward</span>(velocity.x, dir * speed, accel * delta)
+        %Sprite.flip_h = dir &lt; <span class="n">0.0</span>
+    <span class="k">else</span>:
+        velocity.x = <span class="f">move_toward</span>(velocity.x, <span class="n">0.0</span>, friction * delta)
+
+    <span class="f">move_and_slide</span>()</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>Top-down 8-way</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="k">extends</span> <span class="t">CharacterBody2D</span>
+
+<span class="a">@export</span> <span class="k">var</span> speed := <span class="n">220.0</span>
+<span class="a">@export</span> <span class="k">var</span> accel := <span class="n">1500.0</span>
+
+<span class="k">func</span> <span class="f">_physics_process</span>(delta: <span class="k">float</span>) -> <span class="k">void</span>:
+    <span class="k">var</span> dir := Input.<span class="f">get_vector</span>(
+        <span class="s">"move_left"</span>, <span class="s">"move_right"</span>,
+        <span class="s">"move_up"</span>, <span class="s">"move_down"</span>)
+    velocity = velocity.<span class="f">move_toward</span>(dir * speed, accel * delta)
+    <span class="f">move_and_slide</span>()
+
+    <span class="k">if</span> dir != <span class="t">Vector2</span>.ZERO:
+        %Anim.<span class="f">play</span>(<span class="s">"walk"</span>)
+        %Sprite.rotation = dir.<span class="f">angle</span>()   <span class="c"># if it should face travel</span>
+    <span class="k">else</span>:
+        %Anim.<span class="f">play</span>(<span class="s">"idle"</span>)</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>move_and_slide extras</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="c"># Inspector properties worth setting</span>
+motion_mode = MOTION_MODE_GROUNDED   <span class="c"># or FLOATING for top-down</span>
+up_direction = <span class="t">Vector2</span>.UP
+floor_snap_length = <span class="n">8.0</span>              <span class="c"># stick to slopes going down</span>
+floor_max_angle = <span class="f">deg_to_rad</span>(<span class="n">46</span>)
+slide_on_ceiling = <span class="k">true</span>
+
+<span class="c"># Collision results after move_and_slide()</span>
+<span class="k">for</span> i <span class="k">in</span> <span class="f">get_slide_collision_count</span>():
+    <span class="k">var</span> c := <span class="f">get_slide_collision</span>(i)
+    <span class="k">var</span> other := c.<span class="f">get_collider</span>()
+    <span class="k">if</span> other <span class="k">is</span> <span class="t">Breakable</span>: other.<span class="f">crack</span>()
+    <span class="f">print</span>(c.<span class="f">get_normal</span>())
+
+<span class="f">is_on_floor</span>()  <span class="f">is_on_wall</span>()  <span class="f">is_on_ceiling</span>()
+<span class="f">get_wall_normal</span>()          <span class="c"># wall jumps</span>
+<span class="f">get_real_velocity</span>()        <span class="c"># actual, post-collision</span>
+
+<span class="c"># One-off move without sliding</span>
+<span class="k">var</span> hit := <span class="f">move_and_collide</span>(velocity * delta)
+<span class="k">if</span> hit: velocity = velocity.<span class="f">bounce</span>(hit.<span class="f">get_normal</span>())</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>Choosing a body type</h3>
+      <table>
+        <tr><td>CharacterBody2D</td><td>You control movement in code. Players, enemies, most things.</td></tr>
+        <tr><td>RigidBody2D</td><td>Physics owns it. Debris, crates, ragdolls. Push via <span class="inline">apply_impulse()</span>, never by setting position.</td></tr>
+        <tr><td>StaticBody2D</td><td>Doesn't move. Walls, floors.</td></tr>
+        <tr><td>AnimatableBody2D</td><td>Moved by code/animation, pushes rigid bodies correctly. Platforms, doors.</td></tr>
+        <tr><td>Area2D</td><td>Detection only, no collision response. Pickups, hurtboxes, triggers.</td></tr>
+      </table>
+      <p class="note"><b>Trap:</b> setting <span class="inline">position</span> directly on a RigidBody fights the physics engine. Use <span class="inline">apply_central_impulse()</span>, or switch to <span class="inline">freeze_mode</span> / <span class="inline">PhysicsDirectBodyState</span>.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 3D ============ -->
+<section class="sect" id="move3d">
+  <div class="sect-head"><h2>3D movement &amp; camera</h2><span class="path">CharacterBody3D</span></div>
+  <div class="cards">
+    <div class="card">
+      <h3>First-person controller</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="k">extends</span> <span class="t">CharacterBody3D</span>
+
+<span class="a">@export</span> <span class="k">var</span> speed := <span class="n">5.0</span>
+<span class="a">@export</span> <span class="k">var</span> jump_velocity := <span class="n">4.5</span>
+<span class="a">@export</span> <span class="k">var</span> mouse_sens := <span class="n">0.003</span>
+
+<span class="a">@onready</span> <span class="k">var</span> cam: <span class="t">Camera3D</span> = %Camera3D
+
+<span class="k">func</span> <span class="f">_ready</span>() -> <span class="k">void</span>:
+    Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+<span class="k">func</span> <span class="f">_unhandled_input</span>(event: <span class="t">InputEvent</span>) -> <span class="k">void</span>:
+    <span class="k">if</span> event <span class="k">is</span> <span class="t">InputEventMouseMotion</span>:
+        rotate_y(-event.relative.x * mouse_sens)
+        cam.rotate_x(-event.relative.y * mouse_sens)
+        cam.rotation.x = <span class="f">clampf</span>(cam.rotation.x,
+            <span class="f">deg_to_rad</span>(<span class="n">-89</span>), <span class="f">deg_to_rad</span>(<span class="n">89</span>))
+
+<span class="k">func</span> <span class="f">_physics_process</span>(delta: <span class="k">float</span>) -> <span class="k">void</span>:
+    <span class="k">if</span> <span class="k">not</span> <span class="f">is_on_floor</span>():
+        velocity += <span class="f">get_gravity</span>() * delta
+    <span class="k">if</span> Input.<span class="f">is_action_just_pressed</span>(<span class="s">"jump"</span>) <span class="k">and</span> <span class="f">is_on_floor</span>():
+        velocity.y = jump_velocity
+
+    <span class="k">var</span> input := Input.<span class="f">get_vector</span>(
+        <span class="s">"move_left"</span>, <span class="s">"move_right"</span>,
+        <span class="s">"move_forward"</span>, <span class="s">"move_back"</span>)
+    <span class="c"># Convert to world space relative to facing</span>
+    <span class="k">var</span> dir := (transform.basis * <span class="t">Vector3</span>(input.x, <span class="n">0</span>, input.y)).<span class="f">normalized</span>()
+
+    velocity.x = <span class="f">move_toward</span>(velocity.x, dir.x * speed, speed * <span class="n">8</span> * delta)
+    velocity.z = <span class="f">move_toward</span>(velocity.z, dir.z * speed, speed * <span class="n">8</span> * delta)
+    <span class="f">move_and_slide</span>()</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>3D transforms &amp; aiming</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="f">look_at</span>(target.global_position, <span class="t">Vector3</span>.UP)
+<span class="c"># -Z is forward in Godot 3D</span>
+<span class="k">var</span> forward := -global_transform.basis.z
+<span class="k">var</span> right   :=  global_transform.basis.x
+
+global_position += forward * speed * delta
+rotation_degrees.y += <span class="n">90</span>
+<span class="f">rotate_object_local</span>(<span class="t">Vector3</span>.UP, <span class="f">deg_to_rad</span>(<span class="n">5</span>))
+
+<span class="c"># Smooth rotation toward a target</span>
+<span class="k">var</span> target_basis := <span class="f">Basis</span>.<span class="f">looking_at</span>(dir, <span class="t">Vector3</span>.UP)
+basis = basis.<span class="f">slerp</span>(target_basis, <span class="n">1.0</span> - <span class="f">exp</span>(<span class="n">-8.0</span> * delta))
+
+<span class="c"># Screen ↔ world</span>
+<span class="k">var</span> screen := cam.<span class="f">unproject_position</span>(node.global_position)
+<span class="k">var</span> origin := cam.<span class="f">project_ray_origin</span>(mouse_pos)
+<span class="k">var</span> dir3   := cam.<span class="f">project_ray_normal</span>(mouse_pos)</code></pre></div>
+      <p class="note"><b>Gimbal lock:</b> don't accumulate <span class="inline">rotation.x/y/z</span> in 3D. Yaw on the body, pitch on the camera child — as above.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PHYSICS ============ -->
+<section class="sect" id="physics">
+  <div class="sect-head"><h2>Physics, areas &amp; raycasts</h2><span class="path">layers &amp; masks</span></div>
+  <div class="cards">
+    <div class="card">
+      <h3>Layers vs masks — the one thing to internalise</h3>
+      <p><strong>Layer</strong> = "what I am". <strong>Mask</strong> = "what I look for". They're independent, and detection is one-directional unless both sides opt in.</p>
+      <table>
+        <tr><th>Layer</th><th>Name</th><th>Typical mask</th></tr>
+        <tr><td>1</td><td>World</td><td>—</td></tr>
+        <tr><td>2</td><td>Player</td><td>1, 4, 6</td></tr>
+        <tr><td>3</td><td>Enemy</td><td>1, 5</td></tr>
+        <tr><td>4</td><td>Enemy hitbox</td><td>—</td></tr>
+        <tr><td>5</td><td>Player hitbox</td><td>—</td></tr>
+        <tr><td>6</td><td>Pickups</td><td>—</td></tr>
+      </table>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="c"># Name your layers: Project Settings → Layer Names → 2D Physics</span>
+collision_layer = <span class="n">0b0010</span>          <span class="c"># I am on layer 2</span>
+collision_mask  = <span class="n">0b0101</span>          <span class="c"># I detect layers 1 and 3</span>
+
+<span class="f">set_collision_layer_value</span>(<span class="n">2</span>, <span class="k">true</span>)   <span class="c"># readable version</span>
+<span class="f">set_collision_mask_value</span>(<span class="n">3</span>, <span class="k">false</span>)</code></pre></div>
+      <p class="note"><b>The #1 "why isn't my collision working" cause:</b> the Area's mask doesn't include the body's layer. Turn on <em>Debug → Visible Collision Shapes</em> and check both sides.</p>
+    </div>
+
+    <div class="card">
+      <h3>Area2D — pickups &amp; hurtboxes</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="k">extends</span> <span class="t">Area2D</span>
+
+<span class="k">func</span> <span class="f">_ready</span>() -> <span class="k">void</span>:
+    body_entered.<span class="f">connect</span>(<span class="f">_on_body_entered</span>)
+    area_entered.<span class="f">connect</span>(<span class="f">_on_area_entered</span>)
+
+<span class="k">func</span> <span class="f">_on_body_entered</span>(body: <span class="t">Node2D</span>) -> <span class="k">void</span>:
+    <span class="k">if</span> body <span class="k">is</span> <span class="t">Player</span>:
+        body.<span class="f">collect</span>(<span class="n">1</span>)
+        <span class="f">set_deferred</span>(<span class="s">"monitoring"</span>, <span class="k">false</span>)  <span class="c"># stop double pickup</span>
+        <span class="f">queue_free</span>()
+
+<span class="c"># Manual query instead of signals</span>
+<span class="k">for</span> b <span class="k">in</span> <span class="f">get_overlapping_bodies</span>(): <span class="f">print</span>(b.name)
+<span class="k">for</span> a <span class="k">in</span> <span class="f">get_overlapping_areas</span>(): <span class="f">print</span>(a.name)</code></pre></div>
+      <p class="note"><b>Trap:</b> you can't change collision state <em>during</em> a physics callback. Use <span class="inline">set_deferred()</span> or <span class="inline">call_deferred()</span> or you'll get a "flushing queries" error.</p>
+    </div>
+
+    <div class="card">
+      <h3>Raycasts</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="c"># Node-based: RayCast3D / RayCast2D child</span>
+<span class="a">@onready</span> <span class="k">var</span> ray: <span class="t">RayCast2D</span> = %RayCast2D
+
+<span class="k">func</span> <span class="f">_physics_process</span>(_d) -> <span class="k">void</span>:
+    <span class="k">if</span> ray.<span class="f">is_colliding</span>():
+        <span class="k">var</span> hit := ray.<span class="f">get_collider</span>()
+        <span class="k">var</span> point := ray.<span class="f">get_collision_point</span>()
+        <span class="k">var</span> normal := ray.<span class="f">get_collision_normal</span>()
+
+ray.target_position = <span class="t">Vector2</span>(<span class="n">0</span>, <span class="n">100</span>)  <span class="c"># LOCAL space!</span>
+ray.<span class="f">force_raycast_update</span>()             <span class="c"># query right now</span>
+ray.<span class="f">add_exception</span>(self)
+
+<span class="c"># Code-based, one-shot</span>
+<span class="k">func</span> <span class="f">shoot_ray</span>(from: <span class="t">Vector2</span>, to: <span class="t">Vector2</span>) -> <span class="t">Dictionary</span>:
+    <span class="k">var</span> space := <span class="f">get_world_2d</span>().direct_space_state
+    <span class="k">var</span> q := <span class="t">PhysicsRayQueryParameters2D</span>.<span class="f">create</span>(from, to)
+    q.exclude = [<span class="f">get_rid</span>()]
+    q.collision_mask = <span class="n">0b0001</span>
+    <span class="k">return</span> space.<span class="f">intersect_ray</span>(q)   <span class="c"># {} if nothing hit</span></code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>Pathfinding &amp; extras</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="c"># NavigationAgent2D child, NavigationRegion2D in the level</span>
+<span class="a">@onready</span> <span class="k">var</span> agent: <span class="t">NavigationAgent2D</span> = %NavigationAgent2D
+
+<span class="k">func</span> <span class="f">_physics_process</span>(delta: <span class="k">float</span>) -> <span class="k">void</span>:
+    agent.target_position = player.global_position
+    <span class="k">if</span> agent.<span class="f">is_navigation_finished</span>(): <span class="k">return</span>
+    <span class="k">var</span> next := agent.<span class="f">get_next_path_position</span>()
+    velocity = global_position.<span class="f">direction_to</span>(next) * speed
+    <span class="f">move_and_slide</span>()
+
+<span class="c"># Physics tick rate: Project Settings → Physics → Common</span>
+Engine.physics_ticks_per_second = <span class="n">60</span>
+Engine.time_scale = <span class="n">0.5</span>            <span class="c"># slow-mo (affects everything)</span></code></pre></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ANIMATION ============ -->
+<section class="sect" id="anim">
+  <div class="sect-head"><h2>Animation &amp; tweens</h2><span class="path">AnimationPlayer / Tween</span></div>
+  <div class="cards">
+    <div class="card">
+      <h3>Tweens — code-driven motion</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="k">var</span> tw := <span class="f">create_tween</span>()
+tw.<span class="f">set_trans</span>(Tween.TRANS_BACK).<span class="f">set_ease</span>(Tween.EASE_OUT)
+tw.<span class="f">tween_property</span>(self, <span class="s">"scale"</span>, <span class="t">Vector2</span>.ONE * <span class="n">1.3</span>, <span class="n">0.15</span>)
+tw.<span class="f">tween_property</span>(self, <span class="s">"scale"</span>, <span class="t">Vector2</span>.ONE, <span class="n">0.25</span>)   <span class="c"># sequential</span>
+<span class="k">await</span> tw.finished
+
+<span class="c"># Parallel steps</span>
+<span class="k">var</span> t2 := <span class="f">create_tween</span>().<span class="f">set_parallel</span>(<span class="k">true</span>)
+t2.<span class="f">tween_property</span>(self, <span class="s">"position:y"</span>, <span class="n">-40.0</span>, <span class="n">0.4</span>).<span class="f">as_relative</span>()
+t2.<span class="f">tween_property</span>(self, <span class="s">"modulate:a"</span>, <span class="n">0.0</span>, <span class="n">0.4</span>)
+
+<span class="c"># Callbacks, delays, custom interpolation</span>
+tw.<span class="f">tween_interval</span>(<span class="n">0.5</span>)
+tw.<span class="f">tween_callback</span>(<span class="f">queue_free</span>)
+tw.<span class="f">tween_method</span>(<span class="f">_set_shake</span>, <span class="n">10.0</span>, <span class="n">0.0</span>, <span class="n">0.3</span>)
+tw.<span class="f">set_loops</span>(<span class="n">3</span>)          <span class="c"># 0 = forever</span>
+tw.<span class="f">kill</span>()
+
+<span class="c"># Runs while the tree is paused (for UI)</span>
+tw.<span class="f">set_pause_mode</span>(Tween.TWEEN_PAUSE_PROCESS)</code></pre></div>
+      <p class="note"><b>Trap:</b> a Tween is bound to the node that created it and dies with it. Two tweens on the same property fight — call <span class="inline">kill()</span> on the old one, or keep a reference.</p>
+    </div>
+
+    <div class="card">
+      <h3>AnimationPlayer &amp; AnimatedSprite2D</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="a">@onready</span> <span class="k">var</span> anim: <span class="t">AnimationPlayer</span> = %AnimationPlayer
+
+anim.<span class="f">play</span>(<span class="s">"run"</span>)
+anim.<span class="f">play</span>(<span class="s">"run"</span>, <span class="n">-1</span>, <span class="n">2.0</span>)          <span class="c"># double speed</span>
+anim.<span class="f">play_backwards</span>(<span class="s">"open"</span>)
+anim.<span class="f">stop</span>()  /  anim.<span class="f">pause</span>()
+<span class="k">if</span> anim.<span class="f">is_playing</span>(): <span class="k">pass</span>
+anim.current_animation
+<span class="k">await</span> anim.animation_finished
+
+<span class="c"># AnimatedSprite2D (SpriteFrames)</span>
+%Sprite.<span class="f">play</span>(<span class="s">"idle"</span>)
+%Sprite.<span class="f">set_frame_and_progress</span>(<span class="n">0</span>, <span class="n">0.0</span>)
+%Sprite.sprite_frames.<span class="f">get_frame_count</span>(<span class="s">"idle"</span>)</code></pre></div>
+      <p>AnimationPlayer can key <em>any</em> property, plus <strong>Call Method tracks</strong> (spawn a hitbox on frame 4) and <strong>Audio tracks</strong>. Use it for gameplay timing, not just visuals.</p>
+    </div>
+
+    <div class="card">
+      <h3>AnimationTree state machine</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="a">@onready</span> <span class="k">var</span> tree: <span class="t">AnimationTree</span> = %AnimationTree
+<span class="a">@onready</span> <span class="k">var</span> sm: <span class="t">AnimationNodeStateMachinePlayback</span> = \
+    tree[<span class="s">"parameters/playback"</span>]
+
+<span class="k">func</span> <span class="f">_ready</span>() -> <span class="k">void</span>:
+    tree.active = <span class="k">true</span>
+
+<span class="k">func</span> <span class="f">_physics_process</span>(_d) -> <span class="k">void</span>:
+    <span class="k">if</span> <span class="k">not</span> <span class="f">is_on_floor</span>():
+        sm.<span class="f">travel</span>(<span class="s">"jump"</span>)
+    <span class="k">elif</span> velocity.<span class="f">length</span>() &gt; <span class="n">10.0</span>:
+        sm.<span class="f">travel</span>(<span class="s">"run"</span>)
+    <span class="k">else</span>:
+        sm.<span class="f">travel</span>(<span class="s">"idle"</span>)
+
+<span class="c"># BlendSpace2D — set the blend position</span>
+tree.<span class="f">set</span>(<span class="s">"parameters/Walk/blend_position"</span>, direction)
+<span class="f">print</span>(sm.<span class="f">get_current_node</span>())</code></pre></div>
+      <p><span class="inline">travel()</span> respects your transition graph and plays intermediate states; <span class="inline">start()</span> jumps immediately.</p>
+    </div>
+
+    <div class="card">
+      <h3>Screen shake &amp; juice</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="k">extends</span> <span class="t">Camera2D</span>
+
+<span class="k">var</span> _trauma := <span class="n">0.0</span>
+<span class="a">@export</span> <span class="k">var</span> decay := <span class="n">1.8</span>
+<span class="a">@export</span> <span class="k">var</span> max_offset := <span class="t">Vector2</span>(<span class="n">14</span>, <span class="n">10</span>)
+
+<span class="k">func</span> <span class="f">shake</span>(amount: <span class="k">float</span>) -> <span class="k">void</span>:
+    _trauma = <span class="f">minf</span>(_trauma + amount, <span class="n">1.0</span>)
+
+<span class="k">func</span> <span class="f">_process</span>(delta: <span class="k">float</span>) -> <span class="k">void</span>:
+    <span class="k">if</span> _trauma &lt;= <span class="n">0.0</span>: <span class="k">return</span>
+    _trauma = <span class="f">maxf</span>(_trauma - decay * delta, <span class="n">0.0</span>)
+    <span class="k">var</span> s := _trauma * _trauma      <span class="c"># squared feels better</span>
+    offset = <span class="t">Vector2</span>(
+        max_offset.x * s * <span class="f">randf_range</span>(<span class="n">-1</span>, <span class="n">1</span>),
+        max_offset.y * s * <span class="f">randf_range</span>(<span class="n">-1</span>, <span class="n">1</span>))
+
+<span class="c"># Hit-stop: freeze briefly on impact</span>
+<span class="k">func</span> <span class="f">hit_stop</span>(duration := <span class="n">0.06</span>) -> <span class="k">void</span>:
+    Engine.time_scale = <span class="n">0.02</span>
+    <span class="k">await</span> <span class="f">get_tree</span>().<span class="f">create_timer</span>(duration, <span class="k">true</span>, <span class="k">false</span>, <span class="k">true</span>).timeout
+    Engine.time_scale = <span class="n">1.0</span></code></pre></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ UI ============ -->
+<section class="sect" id="ui">
+  <div class="sect-head"><h2>UI &amp; Control nodes</h2><span class="path">Control</span></div>
+  <p class="lede">The rule that saves hours: <strong>let containers do the layout.</strong> If you're setting a Control's position in code, you've usually picked the wrong container.</p>
+  <div class="cards">
+    <div class="card">
+      <h3>Containers, ranked by usefulness</h3>
+      <table>
+        <tr><td>VBox / HBoxContainer</td><td>Stack children. 90% of menus.</td></tr>
+        <tr><td>MarginContainer</td><td>Padding. Set the four theme constants.</td></tr>
+        <tr><td>CenterContainer</td><td>Centres one child</td></tr>
+        <tr><td>PanelContainer</td><td>Background that hugs its child</td></tr>
+        <tr><td>GridContainer</td><td>Inventories — set <span class="inline">columns</span></td></tr>
+        <tr><td>ScrollContainer</td><td>Overflow. Child needs a min size.</td></tr>
+        <tr><td>AspectRatioContainer</td><td>Keeps proportions</td></tr>
+        <tr><td>TabContainer</td><td>Tabs from child names</td></tr>
+      </table>
+      <p class="note"><b>Trap:</b> a container overwrites its children's position and size every frame. To offset a child inside a container, wrap it in a MarginContainer instead of fighting it.</p>
+    </div>
+
+    <div class="card">
+      <h3>Sizing &amp; anchors in code</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="c"># Fill available space (container children)</span>
+size_flags_horizontal = Control.SIZE_EXPAND_FILL
+size_flags_vertical = Control.SIZE_SHRINK_CENTER
+size_flags_stretch_ratio = <span class="n">2.0</span>       <span class="c"># take twice the share</span>
+
+custom_minimum_size = <span class="t">Vector2</span>(<span class="n">120</span>, <span class="n">40</span>)
+<span class="f">set_anchors_preset</span>(Control.PRESET_FULL_RECT)
+<span class="f">set_anchors_preset</span>(Control.PRESET_BOTTOM_WIDE)
+
+mouse_filter = Control.MOUSE_FILTER_IGNORE  <span class="c"># click-through</span>
+<span class="f">grab_focus</span>()
+focus_next = %NextButton.<span class="f">get_path</span>()
+
+<span class="c"># Layer UI above the game world</span>
+<span class="c"># CanvasLayer → Control → your HUD</span></code></pre></div>
+      <p class="note"><b>Trap:</b> a full-rect Control with default <span class="inline">mouse_filter</span> swallows every click behind it. Set overlays to <em>Ignore</em>.</p>
+    </div>
+
+    <div class="card">
+      <h3>Common widgets</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code>%StartButton.pressed.<span class="f">connect</span>(<span class="f">_on_start</span>)
+%Music.toggled.<span class="f">connect</span>(<span class="k">func</span>(on): AudioManager.<span class="f">set_music</span>(on))
+%Volume.value_changed.<span class="f">connect</span>(<span class="f">_on_volume</span>)
+%Name.text_submitted.<span class="f">connect</span>(<span class="f">_on_name</span>)
+%Options.item_selected.<span class="f">connect</span>(<span class="f">_on_option</span>)
+
+%HealthBar.max_value = <span class="n">100</span>
+%HealthBar.value = hp
+%Score.text = <span class="s">"Score: %d"</span> % score
+
+<span class="c"># RichTextLabel with BBCode enabled</span>
+%Log.<span class="f">append_text</span>(<span class="s">"[color=red]-12 HP[/color]\n"</span>)
+%Log.<span class="f">push_bold</span>(); %Log.<span class="f">add_text</span>(<span class="s">"Critical!"</span>); %Log.<span class="f">pop</span>()
+
+<span class="c"># Popups</span>
+%ConfirmDialog.<span class="f">popup_centered</span>()
+%Menu.<span class="f">show</span>()  /  %Menu.<span class="f">hide</span>()</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>Themes &amp; custom drawing</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="c"># Set a Theme resource on the topmost Control —</span>
+<span class="c"># it cascades to every descendant.</span>
+
+<span class="c"># One-off overrides in code</span>
+label.<span class="f">add_theme_color_override</span>(<span class="s">"font_color"</span>, <span class="t">Color</span>.RED)
+label.<span class="f">add_theme_font_size_override</span>(<span class="s">"font_size"</span>, <span class="n">24</span>)
+panel.<span class="f">add_theme_stylebox_override</span>(<span class="s">"panel"</span>, my_stylebox)
+box.<span class="f">add_theme_constant_override</span>(<span class="s">"separation"</span>, <span class="n">12</span>)
+
+<span class="c"># Type variations let one theme define "TitleLabel"</span>
+label.theme_type_variation = <span class="a">&amp;</span><span class="s">"TitleLabel"</span>
+
+<span class="c"># Custom drawing on any CanvasItem</span>
+<span class="k">func</span> <span class="f">_draw</span>() -> <span class="k">void</span>:
+    <span class="f">draw_rect</span>(<span class="t">Rect2</span>(<span class="n">0</span>, <span class="n">0</span>, <span class="n">64</span>, <span class="n">8</span>), <span class="t">Color</span>.DARK_RED)
+    <span class="f">draw_line</span>(<span class="t">Vector2</span>.ZERO, aim, <span class="t">Color</span>.YELLOW, <span class="n">2.0</span>)
+<span class="c"># call queue_redraw() when the data changes</span></code></pre></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ AUTOLOAD ============ -->
+<section class="sect" id="autoload">
+  <div class="sect-head"><h2>Autoloads &amp; the event bus</h2><span class="path">Project → Autoload</span></div>
+  <p class="lede">Autoloads are singletons added to the root before your scene loads, reachable by name from anywhere. Powerful, and the easiest thing in Godot to over-use — three or four is a healthy project.</p>
+  <div class="cards">
+    <div class="card">
+      <h3>A global event bus</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="c"># res://scripts/globals/events.gd — autoload as "Events"</span>
+<span class="k">extends</span> <span class="t">Node</span>
+
+<span class="k">signal</span> <span class="f">player_died</span>
+<span class="k">signal</span> <span class="f">score_changed</span>(total: <span class="k">int</span>)
+<span class="k">signal</span> <span class="f">enemy_killed</span>(enemy: <span class="t">Node</span>, points: <span class="k">int</span>)
+<span class="k">signal</span> <span class="f">dialogue_started</span>(id: <span class="t">StringName</span>)
+
+<span class="c"># --- anywhere ---</span>
+Events.enemy_killed.<span class="f">emit</span>(self, <span class="n">150</span>)
+
+<span class="c"># --- hud.gd ---</span>
+<span class="k">func</span> <span class="f">_ready</span>() -> <span class="k">void</span>:
+    Events.score_changed.<span class="f">connect</span>(<span class="f">_on_score_changed</span>)</code></pre></div>
+      <p>This decouples systems that shouldn't know each other exist — the HUD never needs a reference to the player.</p>
+    </div>
+
+    <div class="card">
+      <h3>A game state singleton</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="c"># res://scripts/globals/game.gd — autoload as "Game"</span>
+<span class="k">extends</span> <span class="t">Node</span>
+
+<span class="k">var</span> score := <span class="n">0</span>:
+    <span class="k">set</span>(v):
+        score = v
+        Events.score_changed.<span class="f">emit</span>(v)
+
+<span class="k">var</span> current_level := <span class="n">1</span>
+<span class="k">var</span> settings := {<span class="s">"master"</span>: <span class="n">1.0</span>, <span class="s">"fullscreen"</span>: <span class="k">false</span>}
+
+<span class="k">func</span> <span class="f">reset_run</span>() -> <span class="k">void</span>:
+    score = <span class="n">0</span>
+    current_level = <span class="n">1</span></code></pre></div>
+      <p class="note"><b>Discipline:</b> autoloads should hold state and broadcast, not reach into scenes. The moment one starts doing <span class="inline">get_node("/root/Main/Player")</span>, it's become hidden coupling.</p>
+    </div>
+
+    <div class="card">
+      <h3>What belongs in an autoload</h3>
+      <ul class="tight">
+        <li><strong>Yes:</strong> event bus, save/load, audio manager, scene transitions, run-wide state, settings</li>
+        <li><strong>No:</strong> the player, the level, anything with a visual presence, anything you might want two of</li>
+      </ul>
+      <p>Alternatives before you add a fifth autoload: a <span class="inline">static</span> variable on a <span class="inline">class_name</span>'d script, a plain Resource passed by export, or a group.</p>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="c"># Static access without an autoload</span>
+<span class="k">class_name</span> <span class="t">Registry</span>
+<span class="k">static var</span> instance: <span class="t">Registry</span>
+<span class="k">static</span> <span class="k">var</span> all_enemies: <span class="t">Array</span>[<span class="t">Enemy</span>] = []</code></pre></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SCENE MANAGEMENT ============ -->
+<section class="sect" id="scenes">
+  <div class="sect-head"><h2>Scene management</h2><span class="path">SceneTree</span></div>
+  <div class="cards">
+    <div class="card">
+      <h3>Switching scenes</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="f">get_tree</span>().<span class="f">change_scene_to_file</span>(<span class="s">"res://scenes/levels/l2.tscn"</span>)
+
+<span class="c"># Faster if already loaded / preloaded</span>
+<span class="k">const</span> LEVEL2 := <span class="f">preload</span>(<span class="s">"res://scenes/levels/l2.tscn"</span>)
+<span class="f">get_tree</span>().<span class="f">change_scene_to_packed</span>(LEVEL2)
+
+<span class="f">get_tree</span>().<span class="f">reload_current_scene</span>()
+<span class="f">get_tree</span>().<span class="f">quit</span>()</code></pre></div>
+      <p class="note"><b>Trap:</b> the swap happens at the end of the frame, not on this line. Anything after the call still runs against the old scene.</p>
+    </div>
+
+    <div class="card">
+      <h3>Transitions that don't stutter</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="c"># scene_manager.gd — autoload, with a ColorRect fader</span>
+<span class="k">extends</span> <span class="t">CanvasLayer</span>
+
+<span class="k">signal</span> <span class="f">transition_finished</span>
+
+<span class="k">func</span> <span class="f">go_to</span>(path: <span class="t">String</span>) -> <span class="k">void</span>:
+    <span class="k">var</span> tw := <span class="f">create_tween</span>()
+    tw.<span class="f">tween_property</span>(%Fade, <span class="s">"color:a"</span>, <span class="n">1.0</span>, <span class="n">0.3</span>)
+    <span class="k">await</span> tw.finished
+
+    <span class="f">get_tree</span>().<span class="f">change_scene_to_file</span>(path)
+    <span class="k">await</span> <span class="f">get_tree</span>().process_frame   <span class="c"># let it actually swap</span>
+
+    <span class="k">var</span> tw2 := <span class="f">create_tween</span>()
+    tw2.<span class="f">tween_property</span>(%Fade, <span class="s">"color:a"</span>, <span class="n">0.0</span>, <span class="n">0.3</span>)
+    <span class="k">await</span> tw2.finished
+    transition_finished.<span class="f">emit</span>()</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>Background loading with a progress bar</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="k">var</span> _path := <span class="s">""</span>
+
+<span class="k">func</span> <span class="f">begin_load</span>(path: <span class="t">String</span>) -> <span class="k">void</span>:
+    _path = path
+    ResourceLoader.<span class="f">load_threaded_request</span>(path)
+    <span class="f">set_process</span>(<span class="k">true</span>)
+
+<span class="k">func</span> <span class="f">_process</span>(_d) -> <span class="k">void</span>:
+    <span class="k">var</span> progress: <span class="t">Array</span> = []
+    <span class="k">var</span> status := ResourceLoader.<span class="f">load_threaded_get_status</span>(_path, progress)
+    %Bar.value = progress[<span class="n">0</span>] * <span class="n">100.0</span>
+
+    <span class="k">if</span> status == ResourceLoader.THREAD_LOAD_LOADED:
+        <span class="k">var</span> packed := ResourceLoader.<span class="f">load_threaded_get</span>(_path)
+        <span class="f">get_tree</span>().<span class="f">change_scene_to_packed</span>(packed)
+        <span class="f">set_process</span>(<span class="k">false</span>)
+    <span class="k">elif</span> status == ResourceLoader.THREAD_LOAD_FAILED:
+        <span class="f">push_error</span>(<span class="s">"Load failed: %s"</span> % _path)
+        <span class="f">set_process</span>(<span class="k">false</span>)</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>Additive loading — keep a persistent root</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="c"># Main.tscn stays loaded: HUD, audio, player never reload</span>
+<span class="c"># Main</span>
+<span class="c">#  ├─ LevelHolder   ← swap children here</span>
+<span class="c">#  ├─ HUD</span>
+<span class="c">#  └─ Player</span>
+
+<span class="k">func</span> <span class="f">load_level</span>(path: <span class="t">String</span>) -> <span class="k">void</span>:
+    <span class="k">for</span> child <span class="k">in</span> %LevelHolder.<span class="f">get_children</span>():
+        child.<span class="f">queue_free</span>()
+    <span class="k">var</span> level := <span class="f">load</span>(path).<span class="f">instantiate</span>()
+    %LevelHolder.<span class="f">add_child</span>(level)
+    %Player.global_position = level.<span class="f">get_spawn_point</span>()</code></pre></div>
+      <p>This is usually better than <span class="inline">change_scene_to_file</span> for anything with a persistent HUD or player.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ RESOURCES ============ -->
+<section class="sect" id="resources">
+  <div class="sect-head"><h2>Custom resources</h2><span class="path">Resource / .tres</span></div>
+  <p class="lede">The most under-used feature in Godot. A custom Resource is a data file you can create in the FileSystem dock, edit in the inspector and drag into any export slot — data-driven design with no parser to write.</p>
+  <div class="cards">
+    <div class="card wide">
+      <h3>Define it, author it, use it</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="c"># res://resources/item_data.gd</span>
+<span class="k">class_name</span> <span class="t">ItemData</span>
+<span class="k">extends</span> <span class="t">Resource</span>
+
+<span class="a">@export</span> <span class="k">var</span> display_name: <span class="t">String</span> = <span class="s">"Unnamed"</span>
+<span class="a">@export</span> <span class="k">var</span> icon: <span class="t">Texture2D</span>
+<span class="a">@export_multiline</span> <span class="k">var</span> description: <span class="t">String</span>
+<span class="a">@export</span> <span class="k">var</span> value := <span class="n">10</span>
+<span class="a">@export</span> <span class="k">var</span> stackable := <span class="k">true</span>
+<span class="a">@export</span> <span class="k">var</span> on_use: <span class="t">PackedScene</span>
+
+<span class="k">func</span> <span class="f">describe</span>() -> <span class="t">String</span>:
+    <span class="k">return</span> <span class="s">"%s (%dg)"</span> % [display_name, value]
+
+<span class="c"># Then: FileSystem → right-click → New Resource → ItemData</span>
+<span class="c"># Save as res://resources/items/health_potion.tres, fill it in.</span>
+
+<span class="c"># --- consume it ---</span>
+<span class="k">extends</span> <span class="t">Area2D</span>
+<span class="a">@export</span> <span class="k">var</span> data: <span class="t">ItemData</span>          <span class="c"># drag the .tres in</span>
+
+<span class="k">func</span> <span class="f">_ready</span>() -> <span class="k">void</span>:
+    %Sprite.texture = data.icon
+    %Label.text = data.<span class="f">describe</span>()
+
+<span class="c"># Or load a whole folder of them</span>
+<span class="k">var</span> potion: <span class="t">ItemData</span> = <span class="f">load</span>(<span class="s">"res://resources/items/health_potion.tres"</span>)</code></pre></div>
+      <p>Same pattern for enemy stat blocks, weapon definitions, dialogue trees, level configs, ability data. One designer-editable file per thing, versioned as text.</p>
+      <p class="note"><b>Trap:</b> resources are <strong>shared by default</strong>. Two enemies exporting the same <span class="inline">EnemyStats.tres</span> mutate each other's health. Either keep resources immutable (read-only stats, state lives on the node) or call <span class="inline">data = data.duplicate()</span> in <span class="inline">_ready</span>. Ticking <em>Local to Scene</em> on the resource does this automatically.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SAVE ============ -->
+<section class="sect" id="save">
+  <div class="sect-head"><h2>Saving &amp; loading</h2><span class="path">user://</span></div>
+  <div class="cards">
+    <div class="card">
+      <h3>JSON — readable, portable, safe</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="k">const</span> PATH := <span class="s">"user://save_01.json"</span>
+
+<span class="k">func</span> <span class="f">save_game</span>() -> <span class="k">void</span>:
+    <span class="k">var</span> data := {
+        <span class="s">"version"</span>: <span class="n">2</span>,
+        <span class="s">"level"</span>: Game.current_level,
+        <span class="s">"score"</span>: Game.score,
+        <span class="s">"pos"</span>: {<span class="s">"x"</span>: player.position.x, <span class="s">"y"</span>: player.position.y},
+        <span class="s">"inventory"</span>: Game.inventory_ids,
+    }
+    <span class="k">var</span> f := FileAccess.<span class="f">open</span>(PATH, FileAccess.WRITE)
+    <span class="k">if</span> f == <span class="k">null</span>:
+        <span class="f">push_error</span>(FileAccess.<span class="f">get_open_error</span>()); <span class="k">return</span>
+    f.<span class="f">store_string</span>(JSON.<span class="f">stringify</span>(data, <span class="s">"  "</span>))
+    f.<span class="f">close</span>()
+
+<span class="k">func</span> <span class="f">load_game</span>() -> <span class="k">bool</span>:
+    <span class="k">if</span> <span class="k">not</span> FileAccess.<span class="f">file_exists</span>(PATH): <span class="k">return</span> <span class="k">false</span>
+    <span class="k">var</span> f := FileAccess.<span class="f">open</span>(PATH, FileAccess.READ)
+    <span class="k">var</span> parsed = JSON.<span class="f">parse_string</span>(f.<span class="f">get_as_text</span>())
+    <span class="k">if</span> <span class="k">typeof</span>(parsed) != TYPE_DICTIONARY: <span class="k">return</span> <span class="k">false</span>
+    Game.score = <span class="k">int</span>(parsed.<span class="f">get</span>(<span class="s">"score"</span>, <span class="n">0</span>))
+    <span class="k">return</span> <span class="k">true</span></code></pre></div>
+      <p class="note"><b>Always store a version number.</b> Your save format will change, and old saves shouldn't crash the game.</p>
+    </div>
+
+    <div class="card">
+      <h3>ConfigFile — perfect for settings</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="k">const</span> CFG := <span class="s">"user://settings.cfg"</span>
+
+<span class="k">func</span> <span class="f">save_settings</span>() -> <span class="k">void</span>:
+    <span class="k">var</span> c := <span class="t">ConfigFile</span>.<span class="f">new</span>()
+    c.<span class="f">set_value</span>(<span class="s">"audio"</span>, <span class="s">"master"</span>, <span class="n">0.8</span>)
+    c.<span class="f">set_value</span>(<span class="s">"video"</span>, <span class="s">"fullscreen"</span>, <span class="k">true</span>)
+    c.<span class="f">set_value</span>(<span class="s">"input"</span>, <span class="s">"jump"</span>, <span class="s">"Space"</span>)
+    c.<span class="f">save</span>(CFG)
+
+<span class="k">func</span> <span class="f">load_settings</span>() -> <span class="k">void</span>:
+    <span class="k">var</span> c := <span class="t">ConfigFile</span>.<span class="f">new</span>()
+    <span class="k">if</span> c.<span class="f">load</span>(CFG) != OK: <span class="k">return</span>
+    <span class="k">var</span> vol: <span class="k">float</span> = c.<span class="f">get_value</span>(<span class="s">"audio"</span>, <span class="s">"master"</span>, <span class="n">1.0</span>)
+    <span class="k">for</span> section <span class="k">in</span> c.<span class="f">get_sections</span>():
+        <span class="f">print</span>(section, c.<span class="f">get_section_keys</span>(section))</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>Resource saves — typed, but risky</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="k">class_name</span> <span class="t">SaveData</span>
+<span class="k">extends</span> <span class="t">Resource</span>
+<span class="a">@export</span> <span class="k">var</span> level := <span class="n">1</span>
+<span class="a">@export</span> <span class="k">var</span> unlocked: <span class="t">Array</span>[<span class="t">String</span>] = []
+
+<span class="k">var</span> s := <span class="t">SaveData</span>.<span class="f">new</span>()
+ResourceSaver.<span class="f">save</span>(s, <span class="s">"user://slot1.tres"</span>)
+<span class="k">var</span> loaded: <span class="t">SaveData</span> = ResourceLoader.<span class="f">load</span>(<span class="s">"user://slot1.tres"</span>)</code></pre></div>
+      <p class="note"><b>Security:</b> <span class="inline">.tres</span> files can embed scripts. Loading a save a player downloaded from the internet can execute code. Use JSON for anything shareable, or pass <span class="inline">CACHE_MODE_IGNORE</span> and validate.</p>
+    </div>
+
+    <div class="card">
+      <h3>Binary &amp; directories</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="c"># Compressed / encrypted binary</span>
+<span class="k">var</span> f := FileAccess.<span class="f">open_encrypted_with_pass</span>(
+    <span class="s">"user://s.dat"</span>, FileAccess.WRITE, <span class="s">"key"</span>)
+f.<span class="f">store_var</span>(data)          <span class="c"># any Variant</span>
+<span class="k">var</span> back = f.<span class="f">get_var</span>()
+
+<span class="c"># Directory work</span>
+DirAccess.<span class="f">make_dir_recursive_absolute</span>(<span class="s">"user://saves"</span>)
+<span class="k">for</span> file <span class="k">in</span> DirAccess.<span class="f">get_files_at</span>(<span class="s">"user://saves"</span>):
+    <span class="f">print</span>(file)
+DirAccess.<span class="f">remove_absolute</span>(<span class="s">"user://saves/old.json"</span>)
+
+<span class="c"># Save each node that opts in, via a group</span>
+<span class="k">for</span> n <span class="k">in</span> <span class="f">get_tree</span>().<span class="f">get_nodes_in_group</span>(<span class="s">"persist"</span>):
+    <span class="k">if</span> n.<span class="f">has_method</span>(<span class="s">"to_dict"</span>): entries.<span class="f">append</span>(n.<span class="f">to_dict</span>())</code></pre></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ AUDIO ============ -->
+<section class="sect" id="audio">
+  <div class="sect-head"><h2>Audio</h2><span class="path">AudioServer</span></div>
+  <div class="cards">
+    <div class="card">
+      <h3>Players &amp; buses</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="c"># AudioStreamPlayer    — non-positional (music, UI)</span>
+<span class="c"># AudioStreamPlayer2D  — panned by position</span>
+<span class="c"># AudioStreamPlayer3D  — full 3D attenuation</span>
+
+%Sfx.stream = <span class="f">preload</span>(<span class="s">"res://assets/audio/hit.wav"</span>)
+%Sfx.bus = <span class="a">&amp;</span><span class="s">"SFX"</span>
+%Sfx.pitch_scale = <span class="f">randf_range</span>(<span class="n">0.92</span>, <span class="n">1.08</span>)  <span class="c"># kills repetition</span>
+%Sfx.<span class="f">play</span>()
+%Sfx.<span class="f">play</span>(<span class="n">2.5</span>)              <span class="c"># start offset in seconds</span>
+%Sfx.<span class="f">stop</span>()
+<span class="k">if</span> %Sfx.<span class="f">is_playing</span>(): <span class="k">pass</span>
+<span class="k">await</span> %Sfx.finished
+
+<span class="c"># Create buses in the Audio panel: Master → Music, SFX, UI</span>
+<span class="k">var</span> idx := AudioServer.<span class="f">get_bus_index</span>(<span class="s">"Music"</span>)
+AudioServer.<span class="f">set_bus_volume_db</span>(idx, <span class="f">linear_to_db</span>(<span class="n">0.5</span>))
+AudioServer.<span class="f">set_bus_mute</span>(idx, <span class="k">true</span>)
+AudioServer.<span class="f">add_bus_effect</span>(idx, <span class="t">AudioEffectReverb</span>.<span class="f">new</span>())</code></pre></div>
+      <p class="note"><b>Volume sliders must convert.</b> dB is logarithmic — a 0–1 slider mapped straight to <span class="inline">volume_db</span> is nearly silent. Always <span class="inline">linear_to_db(slider.value)</span>, and treat 0 as <span class="inline">-80</span>.</p>
+    </div>
+
+    <div class="card">
+      <h3>A tiny sound manager</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="c"># autoload as "Audio" — pooled one-shot players</span>
+<span class="k">extends</span> <span class="t">Node</span>
+
+<span class="k">var</span> _pool: <span class="t">Array</span>[<span class="t">AudioStreamPlayer</span>] = []
+
+<span class="k">func</span> <span class="f">_ready</span>() -> <span class="k">void</span>:
+    <span class="k">for</span> i <span class="k">in</span> <span class="n">12</span>:
+        <span class="k">var</span> p := <span class="t">AudioStreamPlayer</span>.<span class="f">new</span>()
+        p.bus = <span class="a">&amp;</span><span class="s">"SFX"</span>
+        <span class="f">add_child</span>(p)
+        _pool.<span class="f">append</span>(p)
+
+<span class="k">func</span> <span class="f">play</span>(stream: <span class="t">AudioStream</span>, pitch := <span class="n">1.0</span>) -> <span class="k">void</span>:
+    <span class="k">for</span> p <span class="k">in</span> _pool:
+        <span class="k">if</span> <span class="k">not</span> p.<span class="f">is_playing</span>():
+            p.stream = stream
+            p.pitch_scale = pitch
+            p.<span class="f">play</span>()
+            <span class="k">return</span>
+
+<span class="c"># Audio.play(preload("res://assets/audio/coin.wav"))</span></code></pre></div>
+      <p>Import settings matter: tick <strong>Loop</strong> on music, and use <span class="inline">.ogg</span> for long tracks, <span class="inline">.wav</span> for short effects.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SETTINGS ============ -->
+<section class="sect" id="settings">
+  <div class="sect-head"><h2>Project settings worth changing</h2><span class="path">project.godot</span></div>
+  <div class="cards">
+    <div class="card">
+      <h3>Set these on day one</h3>
+      <table>
+        <tr><td>Display → Window → Size</td><td>Your base resolution, e.g. 640×360 for pixel art</td></tr>
+        <tr><td>Stretch → Mode</td><td><strong>canvas_items</strong> (smooth scaling) or <strong>viewport</strong> (crisp pixels)</td></tr>
+        <tr><td>Stretch → Aspect</td><td><strong>keep</strong> for fixed aspect, <strong>expand</strong> for ultrawide support</td></tr>
+        <tr><td>Rendering → Textures → Default Filter</td><td><strong>Nearest</strong> for pixel art</td></tr>
+        <tr><td>Rendering → Renderer</td><td>Forward+ (desktop), Mobile, or Compatibility (web/old GPUs)</td></tr>
+        <tr><td>Physics → 2D → Default Gravity</td><td>980 is a decent starting point</td></tr>
+        <tr><td>Layer Names</td><td>Name every physics layer. Non-negotiable.</td></tr>
+        <tr><td>Input Map</td><td>Define actions before writing movement code</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <h3>Runtime access &amp; window control</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code>ProjectSettings.<span class="f">get_setting</span>(<span class="s">"physics/2d/default_gravity"</span>)
+ProjectSettings.<span class="f">set_setting</span>(<span class="s">"my/custom/flag"</span>, <span class="k">true</span>)
+ProjectSettings.<span class="f">save</span>()
+
+<span class="c"># Fullscreen &amp; vsync</span>
+DisplayServer.<span class="f">window_set_mode</span>(
+    DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN)
+DisplayServer.<span class="f">window_set_vsync_mode</span>(DisplayServer.VSYNC_ENABLED)
+Engine.max_fps = <span class="n">144</span>
+
+<span class="c"># Build-time checks</span>
+<span class="k">if</span> OS.<span class="f">is_debug_build</span>(): %DebugOverlay.<span class="f">show</span>()
+<span class="f">print</span>(OS.<span class="f">get_name</span>())          <span class="c"># "Windows", "Linux", "Android"…</span>
+<span class="f">print</span>(OS.<span class="f">get_cmdline_args</span>())
+
+<span class="c"># Export presets: Project → Export. Add a preset per</span>
+<span class="c"># platform, set the export path, then Export Project.</span>
+<span class="c"># Web builds need HTTPS + COOP/COEP headers to run threads.</span></code></pre></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SHADERS ============ -->
+<section class="sect" id="shaders">
+  <div class="sect-head"><h2>Shaders</h2><span class="path">.gdshader</span></div>
+  <div class="cards">
+    <div class="card">
+      <h3>The two you'll write most</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="c">// flash.gdshader — hit flash for any Sprite2D</span>
+<span class="k">shader_type</span> canvas_item;
+
+<span class="k">uniform</span> <span class="t">vec4</span> flash_color : source_color = <span class="t">vec4</span>(<span class="n">1.0</span>);
+<span class="k">uniform</span> <span class="k">float</span> flash_amount : hint_range(<span class="n">0.0</span>, <span class="n">1.0</span>) = <span class="n">0.0</span>;
+
+<span class="k">void</span> <span class="f">fragment</span>() {
+    <span class="t">vec4</span> tex = <span class="f">texture</span>(TEXTURE, UV);
+    COLOR = <span class="f">mix</span>(tex, <span class="t">vec4</span>(flash_color.rgb, tex.a), flash_amount);
+}</code></pre></div>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="c"># Driving it from GDScript</span>
+<span class="a">@onready</span> <span class="k">var</span> mat: <span class="t">ShaderMaterial</span> = %Sprite.material
+
+<span class="k">func</span> <span class="f">flash</span>() -> <span class="k">void</span>:
+    <span class="k">var</span> tw := <span class="f">create_tween</span>()
+    mat.<span class="f">set_shader_parameter</span>(<span class="s">"flash_amount"</span>, <span class="n">1.0</span>)
+    tw.<span class="f">tween_method</span>(
+        <span class="k">func</span>(v): mat.<span class="f">set_shader_parameter</span>(<span class="s">"flash_amount"</span>, v),
+        <span class="n">1.0</span>, <span class="n">0.0</span>, <span class="n">0.18</span>)</code></pre></div>
+      <p class="note"><b>Trap:</b> materials are shared between instances of the same scene. Tick <em>Resource → Local to Scene</em> on the ShaderMaterial, or every enemy flashes at once.</p>
+    </div>
+    <div class="card">
+      <h3>Useful built-ins</h3>
+      <table>
+        <tr><td>UV</td><td>0–1 texture coordinate</td></tr>
+        <tr><td>COLOR</td><td>Output colour (fragment)</td></tr>
+        <tr><td>TEXTURE</td><td>The node's texture</td></tr>
+        <tr><td>TIME</td><td>Seconds since start — animate with it</td></tr>
+        <tr><td>SCREEN_UV</td><td>Position on screen</td></tr>
+        <tr><td>VERTEX</td><td>Position, writable in <span class="inline">vertex()</span></td></tr>
+        <tr><td>MODULATE</td><td>The node's modulate colour</td></tr>
+      </table>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="c">// Gentle wave — grass, water, banners</span>
+<span class="k">void</span> <span class="f">vertex</span>() {
+    VERTEX.x += <span class="f">sin</span>(TIME * <span class="n">2.0</span> + VERTEX.y * <span class="n">0.1</span>)
+                * (<span class="n">1.0</span> - UV.y) * <span class="n">4.0</span>;
+}</code></pre></div>
+      <p>Shader types: <span class="inline">canvas_item</span> (2D), <span class="inline">spatial</span> (3D), <span class="inline">particles</span>, <span class="inline">sky</span>, <span class="inline">fog</span>.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PERF ============ -->
+<section class="sect" id="perf">
+  <div class="sect-head"><h2>Performance</h2><span class="path">profiler</span></div>
+  <div class="cards">
+    <div class="card">
+      <h3>Measure first</h3>
+      <ul class="tight">
+        <li><strong>Debugger → Profiler</strong> for script cost; <strong>Visual Profiler</strong> for GPU cost. Guessing wastes days.</li>
+        <li><strong>Monitors</strong> tab shows draw calls, objects, orphan nodes. Orphan count climbing = you're leaking nodes.</li>
+        <li>Run with <span class="inline">--verbose</span> to see what's loading.</li>
+      </ul>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="f">print</span>(Performance.<span class="f">get_monitor</span>(Performance.TIME_FPS))
+<span class="f">print</span>(Performance.<span class="f">get_monitor</span>(Performance.OBJECT_NODE_COUNT))
+<span class="f">print</span>(Performance.<span class="f">get_monitor</span>(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))</code></pre></div>
+    </div>
+    <div class="card">
+      <h3>The reliable wins</h3>
+      <ul class="tight">
+        <li><strong>Type everything.</strong> Static typing is measurably faster than dynamic.</li>
+        <li><strong>Don't allocate per frame.</strong> No <span class="inline">new()</span>, no <span class="inline">instantiate()</span>, no <span class="inline">load()</span> in <span class="inline">_process</span>.</li>
+        <li><strong>Cache node lookups</strong> in <span class="inline">@onready</span> vars, never <span class="inline">get_node()</span> in a loop.</li>
+        <li><strong>Turn off processing</strong> on idle nodes: <span class="inline">set_process(false)</span>.</li>
+        <li><strong>Signals over polling.</strong> Don't check a condition every frame if something can tell you.</li>
+        <li><strong>Pool bullets and particles</strong> instead of instantiating and freeing.</li>
+        <li><strong>VisibleOnScreenEnabler2D</strong> auto-disables off-screen nodes.</li>
+        <li><strong>MultiMeshInstance</strong> for thousands of identical objects.</li>
+        <li>Move heavy work to <span class="inline">WorkerThreadPool</span> or spread it across frames.</li>
+      </ul>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="c"># Simple object pool</span>
+<span class="k">var</span> _pool: <span class="t">Array</span>[<span class="t">Node2D</span>] = []
+
+<span class="k">func</span> <span class="f">spawn</span>() -> <span class="t">Node2D</span>:
+    <span class="k">var</span> b: <span class="t">Node2D</span>
+    <span class="k">if</span> _pool.<span class="f">is_empty</span>():
+        b = BULLET.<span class="f">instantiate</span>()
+        <span class="f">add_child</span>(b)
+    <span class="k">else</span>:
+        b = _pool.<span class="f">pop_back</span>()
+    b.visible = <span class="k">true</span>
+    b.<span class="f">set_physics_process</span>(<span class="k">true</span>)
+    <span class="k">return</span> b
+
+<span class="k">func</span> <span class="f">recycle</span>(b: <span class="t">Node2D</span>) -> <span class="k">void</span>:
+    b.visible = <span class="k">false</span>
+    b.<span class="f">set_physics_process</span>(<span class="k">false</span>)
+    _pool.<span class="f">append</span>(b)</code></pre></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ GOTCHAS ============ -->
+<section class="sect" id="gotchas">
+  <div class="sect-head"><h2>Gotchas</h2><span class="path">hard-won</span></div>
+  <div class="cards">
+    <div class="card">
+      <h3>Timing &amp; frames</h3>
+      <ul class="tight">
+        <li><strong>Multiply by <span class="inline">delta</span></strong> for anything per-second. Forgetting it makes your game run at monitor speed.</li>
+        <li><strong>Movement goes in <span class="inline">_physics_process</span></strong>, visuals in <span class="inline">_process</span>. Mixing them causes jitter.</li>
+        <li>Turn on <strong>physics interpolation</strong> (Project Settings) if 2D movement still looks choppy.</li>
+        <li><span class="inline">await</span> yields — code after it runs later, possibly after the node is freed.</li>
+        <li><span class="inline">queue_free()</span> defers to end of frame. The node is still valid on the next line but <span class="inline">is_queued_for_deletion()</span> is true.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>References &amp; values</h3>
+      <ul class="tight">
+        <li>Arrays, Dictionaries and Objects are <strong>passed by reference</strong>. <span class="inline">var b = a</span> then editing <span class="inline">b</span> edits <span class="inline">a</span>. Use <span class="inline">a.duplicate(true)</span> for a deep copy.</li>
+        <li>Vector2/3, Color, Rect2 are <strong>values</strong>. <span class="inline">node.position.x = 5</span> works, but <span class="inline">var p = node.position; p.x = 5</span> changes nothing.</li>
+        <li>Resources are shared across every scene instance unless <em>Local to Scene</em> is ticked.</li>
+        <li>Never compare floats with <span class="inline">==</span>. Use <span class="inline">is_equal_approx()</span>.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Tree &amp; transform</h3>
+      <ul class="tight">
+        <li><span class="inline">position</span> is relative to the parent; <span class="inline">global_position</span> is absolute. Setting the wrong one is the most common spawn bug.</li>
+        <li>Set <span class="inline">global_position</span> only <em>after</em> <span class="inline">add_child()</span> — before that the node has no global frame of reference.</li>
+        <li>A rotated or scaled parent transforms its children. Add projectiles to the level, not to the gun.</li>
+        <li><span class="inline">$Path/To/Node</span> breaks the moment you reorganise. Use <span class="inline">%UniqueName</span>.</li>
+        <li>Don't rename nodes casually — every <span class="inline">$</span> path and animation track that references them breaks silently.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Physics &amp; errors</h3>
+      <ul class="tight">
+        <li>"Can't change this state while flushing queries" → wrap the call in <span class="inline">set_deferred()</span> or <span class="inline">call_deferred()</span>.</li>
+        <li>Collision not firing? Check the <em>mask</em>, not the layer. Then check the shape actually exists and has a non-zero size.</li>
+        <li>An Area2D with <span class="inline">monitoring = false</span> emits nothing. Setting it during a callback needs <span class="inline">set_deferred</span>.</li>
+        <li>Scaling a CollisionShape2D node distorts physics — resize the <em>shape resource</em> instead.</li>
+        <li>RigidBody positions must be changed through physics, not by assignment.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Debugging tools</h3>
+      <div class="code"><button class="copy">Copy</button><pre><code><span class="f">print</span>(<span class="s">"plain"</span>)
+<span class="f">print_rich</span>(<span class="s">"[color=yellow]warning[/color]"</span>)
+<span class="f">push_warning</span>(<span class="s">"shows in Debugger panel"</span>)
+<span class="f">push_error</span>(<span class="s">"shows with a stack trace"</span>)
+<span class="k">assert</span>(hp &gt;= <span class="n">0</span>, <span class="s">"hp went negative"</span>)   <span class="c"># debug builds only</span>
+<span class="f">breakpoint</span>                            <span class="c"># pause the debugger here</span>
+<span class="f">print_stack</span>()
+<span class="f">print_tree_pretty</span>()                   <span class="c"># dump the scene tree</span></code></pre></div>
+      <ul class="tight">
+        <li><strong>Debug → Visible Collision Shapes</strong> — turn this on and leave it on.</li>
+        <li><strong>Remote</strong> tab in the Scene dock inspects the <em>running</em> game live.</li>
+        <li>Editor shortcuts: <kbd>F5</kbd> run project, <kbd>F6</kbd> run current scene, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd> quick-open scene, <kbd>Ctrl</kbd>+<kbd>Click</kbd> jump to definition.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<footer>
+  Godot 4.7 · GDScript 2.0 · docs.godotengine.org
+</footer>
+
+</main>
+</div>
+
+<script>
+(function () {
+  // --- copy buttons ---
+  document.querySelectorAll('.code').forEach(function (block) {
+    var btn = block.querySelector('.copy');
+    var code = block.querySelector('code');
+    if (!btn || !code) return;
+    btn.addEventListener('click', function () {
+      navigator.clipboard.writeText(code.innerText).then(function () {
+        btn.textContent = 'Copied';
+        setTimeout(function () { btn.textContent = 'Copy'; }, 1400);
+      }).catch(function () {
+        btn.textContent = 'Failed';
+        setTimeout(function () { btn.textContent = 'Copy'; }, 1400);
+      });
+    });
+  });
+
+  // --- active section in the tree ---
+  var links = Array.prototype.slice.call(document.querySelectorAll('.tree a'));
+  var byId = {};
+  links.forEach(function (a) { byId[a.getAttribute('href').slice(1)] = a; });
+
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (!e.isIntersecting) return;
+      links.forEach(function (a) { a.removeAttribute('aria-current'); });
+      var a = byId[e.target.id];
+      if (a) a.setAttribute('aria-current', 'true');
+    });
+  }, { rootMargin: '-10% 0px -80% 0px' });
+
+  document.querySelectorAll('.sect').forEach(function (s) { observer.observe(s); });
+
+  // --- filter ---
+  var finder = document.getElementById('finder');
+  var hits = document.getElementById('hits');
+  var sections = Array.prototype.slice.call(document.querySelectorAll('.sect'));
+
+  finder.addEventListener('input', function () {
+    var q = finder.value.trim().toLowerCase();
+    if (!q) {
+      sections.forEach(function (s) { s.classList.remove('hidden'); });
+      links.forEach(function (a) { a.parentElement.style.display = ''; });
+      hits.textContent = '';
+      return;
+    }
+    var shown = 0;
+    sections.forEach(function (s) {
+      var match = s.textContent.toLowerCase().indexOf(q) !== -1;
+      s.classList.toggle('hidden', !match);
+      var a = byId[s.id];
+      if (a) a.parentElement.style.display = match ? '' : 'none';
+      if (match) shown++;
+    });
+    hits.textContent = shown + (shown === 1 ? ' section matches' : ' sections match');
+  });
+
+  // --- mobile dock ---
+  var dock = document.getElementById('dock');
+  var toggle = document.getElementById('dockToggle');
+  toggle.addEventListener('click', function () {
+    var open = dock.classList.toggle('open');
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  document.querySelectorAll('.tree a').forEach(function (a) {
+    a.addEventListener('click', function () {
+      dock.classList.remove('open');
+      toggle.setAttribute('aria-expanded', 'false');
+    });
+  });
+})();
+</script>
+</body>
+</html>
