@@ -1,0 +1,1808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bevy UI 0.19 — Complex UI Reference</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;0,800;1,400&family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#101219;
+  --panel:#171a24;
+  --panel-2:#1d212d;
+  --line:#272c3a;
+  --line-soft:#1f2431;
+  --ink:#dadde8;
+  --ink-dim:#8a90a4;
+  --ink-faint:#5d6377;
+
+  /* semantic ECS categories — colour encodes *what kind of thing* this is */
+  --c-comp:#7ee0a8;   /* components */
+  --c-res:#f2c069;    /* resources & state */
+  --c-evt:#ef7ba0;    /* events & observers */
+  --c-lay:#7cc2ee;    /* layout & values */
+  --c-warn:#f08a6a;   /* gotchas */
+
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --sans:"Inter Tight",system-ui,-apple-system,sans-serif;
+
+  --rail:250px;
+}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:15.5px;
+  line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ---------- layout shell ---------- */
+.shell{display:flex;align-items:flex-start;max-width:1420px;margin:0 auto}
+
+.rail{
+  width:var(--rail);flex:0 0 var(--rail);
+  position:sticky;top:0;height:100vh;overflow-y:auto;
+  padding:26px 12px 40px 22px;
+  border-right:1px solid var(--line-soft);
+  font-family:var(--mono);font-size:12px;line-height:1.85;
+}
+.rail::-webkit-scrollbar{width:7px}
+.rail::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+
+.rail-head{color:var(--ink-faint);letter-spacing:.04em;margin-bottom:12px;user-select:none}
+.rail-head b{color:var(--c-comp);font-weight:700}
+.rail ul{list-style:none;margin:0;padding:0 0 0 12px;border-left:1px solid var(--line-soft)}
+.rail li{position:relative}
+.rail a{
+  color:var(--ink-dim);text-decoration:none;display:block;padding:1px 0 1px 10px;
+  border-left:2px solid transparent;margin-left:-13px;transition:color .15s,border-color .15s;
+}
+.rail a:hover{color:var(--ink)}
+.rail a.on{color:var(--c-comp);border-left-color:var(--c-comp)}
+.rail .close-b{color:var(--ink-faint);padding-left:0;margin-top:6px}
+
+.main{flex:1;min-width:0;padding:0 clamp(18px,4vw,64px) 140px}
+
+/* ---------- masthead ---------- */
+.mast{padding:66px 0 8px;border-bottom:1px solid var(--line-soft)}
+.eyebrow{
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--ink-faint);margin:0 0 18px;
+}
+h1{
+  font-family:var(--mono);font-weight:800;font-size:clamp(34px,5.4vw,58px);
+  letter-spacing:-.035em;line-height:1.02;margin:0 0 20px;color:#fff;
+}
+h1 .sub{display:block;color:var(--c-comp)}
+.standfirst{font-size:17.5px;color:var(--ink-dim);max-width:64ch;margin:0 0 30px}
+.standfirst strong{color:var(--ink);font-weight:600}
+
+.verstrip{
+  display:flex;flex-wrap:wrap;gap:8px;margin:0 0 34px;font-family:var(--mono);font-size:11.5px;
+}
+.verstrip span{
+  border:1px solid var(--line);border-radius:3px;padding:4px 9px;color:var(--ink-dim);background:var(--panel);
+}
+.verstrip span b{color:var(--ink);font-weight:500}
+
+/* ---------- legend ---------- */
+.legend{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:1px;
+  background:var(--line-soft);border:1px solid var(--line-soft);border-radius:5px;
+  overflow:hidden;margin:34px 0 0;
+}
+.legend div{background:var(--panel);padding:11px 13px;font-family:var(--mono);font-size:11.5px;color:var(--ink-faint)}
+.legend div b{display:block;font-size:12.5px;font-weight:700;margin-bottom:1px}
+.lg-comp b{color:var(--c-comp)} .lg-res b{color:var(--c-res)}
+.lg-evt b{color:var(--c-evt)} .lg-lay b{color:var(--c-lay)}
+
+/* ---------- sections ---------- */
+section{padding-top:74px;scroll-margin-top:12px}
+h2{
+  font-family:var(--mono);font-weight:800;font-size:24px;letter-spacing:-.02em;
+  color:#fff;margin:0 0 6px;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;
+}
+h2 .num{font-size:12px;font-weight:500;color:var(--ink-faint);letter-spacing:.05em}
+h3{
+  font-family:var(--mono);font-weight:700;font-size:15px;color:var(--ink);
+  margin:34px 0 8px;letter-spacing:-.01em;
+}
+h4{font-family:var(--mono);font-weight:500;font-size:13px;color:var(--c-lay);margin:22px 0 6px;letter-spacing:.01em}
+p{margin:0 0 14px;max-width:74ch}
+.lede{color:var(--ink-dim);max-width:74ch;margin:0 0 22px}
+a{color:var(--c-lay)}
+strong{color:#fff;font-weight:600}
+ul.body,ol.body{max-width:74ch;padding-left:20px;margin:0 0 16px;color:var(--ink-dim)}
+ul.body li,ol.body li{margin-bottom:7px}
+ul.body li strong,ol.body li strong{color:var(--ink)}
+
+.tag{
+  font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  padding:3px 7px;border-radius:3px;position:relative;top:-2px;
+}
+.t-comp{color:var(--c-comp);background:rgba(126,224,168,.1);border:1px solid rgba(126,224,168,.25)}
+.t-res{color:var(--c-res);background:rgba(242,192,105,.1);border:1px solid rgba(242,192,105,.25)}
+.t-evt{color:var(--c-evt);background:rgba(239,123,160,.1);border:1px solid rgba(239,123,160,.25)}
+.t-lay{color:var(--c-lay);background:rgba(124,194,238,.1);border:1px solid rgba(124,194,238,.25)}
+.t-new{color:#101219;background:var(--c-comp);border:1px solid var(--c-comp)}
+
+/* ---------- code ---------- */
+pre{
+  background:var(--panel);border:1px solid var(--line-soft);border-left:2px solid var(--line);
+  border-radius:5px;padding:15px 17px;overflow-x:auto;margin:0 0 18px;
+  font-family:var(--mono);font-size:12.9px;line-height:1.68;color:#c9cddb;
+}
+pre.k-comp{border-left-color:var(--c-comp)}
+pre.k-res{border-left-color:var(--c-res)}
+pre.k-evt{border-left-color:var(--c-evt)}
+pre.k-lay{border-left-color:var(--c-lay)}
+pre::-webkit-scrollbar{height:8px}
+pre::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+code{font-family:var(--mono);font-size:.905em}
+p code,li code,td code{
+  background:var(--panel-2);border:1px solid var(--line-soft);
+  padding:1px 5px;border-radius:3px;color:var(--c-comp);white-space:nowrap;
+}
+.cm{color:var(--ink-faint);font-style:italic}
+.kw{color:#c39bf0}
+.ty{color:var(--c-comp)}
+.fnc{color:var(--c-lay)}
+.st{color:#e8c07d}
+.nu{color:#e8a06a}
+.mac{color:var(--c-evt)}
+.attr{color:#8d94ab}
+
+/* ---------- callouts ---------- */
+.note{
+  border:1px solid var(--line);border-left:2px solid var(--c-warn);background:var(--panel);
+  border-radius:5px;padding:13px 16px;margin:0 0 18px;font-size:14.5px;color:var(--ink-dim);max-width:74ch;
+}
+.note b{
+  font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--c-warn);display:block;margin-bottom:4px;
+}
+.note.good{border-left-color:var(--c-comp)}
+.note.good b{color:var(--c-comp)}
+.note p{margin:0 0 8px}
+.note p:last-child{margin:0}
+
+/* ---------- tables ---------- */
+.tbl{width:100%;border-collapse:collapse;margin:0 0 20px;font-size:13.4px}
+.tbl th{
+  text-align:left;font-family:var(--mono);font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--ink-faint);font-weight:500;padding:0 12px 8px 0;border-bottom:1px solid var(--line);
+}
+.tbl td{padding:9px 12px 9px 0;border-bottom:1px solid var(--line-soft);vertical-align:top;color:var(--ink-dim)}
+.tbl td:first-child{color:var(--ink);white-space:nowrap;font-family:var(--mono);font-size:12.4px}
+.tbl td b{color:var(--ink);font-weight:600}
+.scroll-x{overflow-x:auto}
+
+/* ---------- playground ---------- */
+.pg{
+  border:1px solid var(--line);border-radius:7px;background:var(--panel);
+  overflow:hidden;margin:6px 0 20px;
+}
+.pg-top{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,300px)}
+@media (max-width:840px){.pg-top{grid-template-columns:1fr}}
+
+.stage-wrap{padding:20px;border-right:1px solid var(--line-soft);min-width:0}
+.stage-label{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--ink-faint);margin-bottom:10px;
+}
+.stage{
+  height:250px;border:1px dashed var(--line);border-radius:4px;background:#0d0f16;
+  display:flex;padding:12px;gap:12px;transition:all .22s ease;
+}
+.box{
+  border-radius:3px;font-family:var(--mono);font-size:11px;display:flex;
+  align-items:center;justify-content:center;color:#0d0f16;font-weight:700;
+  transition:all .22s ease;flex:none;
+}
+#b1{background:var(--c-comp);width:76px;height:52px}
+#b2{background:var(--c-lay);width:76px;height:76px}
+#b3{background:var(--c-res);width:76px;height:38px}
+
+.ctrls{padding:20px;display:flex;flex-direction:column;gap:13px;min-width:0}
+.ctrl label{
+  display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--ink-faint);margin-bottom:5px;
+}
+.ctrl select,.ctrl input[type=range]{width:100%}
+.ctrl select{
+  background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:4px;
+  padding:6px 8px;font-family:var(--mono);font-size:12px;
+}
+.ctrl select:focus-visible,.rail a:focus-visible,.ctrl input:focus-visible{
+  outline:2px solid var(--c-comp);outline-offset:2px;
+}
+.ctrl input[type=range]{accent-color:var(--c-comp)}
+.ctrl .val{float:right;color:var(--c-comp);font-family:var(--mono)}
+.pg-out{border-top:1px solid var(--line-soft)}
+.pg-out pre{margin:0;border:0;border-radius:0;background:#0d0f16}
+
+/* ---------- misc ---------- */
+.two{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media (max-width:860px){.two{grid-template-columns:1fr}}
+.two pre{margin:0}
+.cap{font-family:var(--mono);font-size:11px;color:var(--ink-faint);margin:0 0 6px;letter-spacing:.04em}
+
+footer{
+  margin-top:90px;padding-top:26px;border-top:1px solid var(--line-soft);
+  font-family:var(--mono);font-size:12px;color:var(--ink-faint);
+}
+footer a{color:var(--ink-dim)}
+
+.railtoggle{
+  display:none;position:fixed;bottom:18px;right:18px;z-index:50;
+  background:var(--c-comp);color:#101219;border:0;border-radius:5px;
+  font-family:var(--mono);font-weight:700;font-size:12px;padding:11px 15px;cursor:pointer;
+}
+@media (max-width:1000px){
+  .rail{
+    position:fixed;left:0;top:0;z-index:40;background:var(--panel);
+    transform:translateX(-100%);transition:transform .2s ease;border-right:1px solid var(--line);
+  }
+  .rail.open{transform:none}
+  .shell{display:block}
+  .main{padding:0 20px 120px}
+  .railtoggle{display:block}
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+<!-- ============ NAV: the doc's own structure, spawned like an entity tree ============ -->
+<nav class="rail" id="rail">
+  <div class="rail-head">commands.<b>spawn</b>((<br>&nbsp;&nbsp;Cheatsheet,<br>&nbsp;&nbsp;children![</div>
+  <ul>
+    <li><a href="#model">Mental model</a></li>
+    <li><a href="#setup">Cargo &amp; features</a></li>
+    <li><a href="#components">Core components</a></li>
+    <li><a href="#val">Val &amp; sizing</a></li>
+    <li><a href="#layout">Layout playground</a></li>
+    <li><a href="#spawning">Spawning trees</a></li>
+    <li><a href="#bsn">BSN scenes</a></li>
+    <li><a href="#events">Events vs Messages</a></li>
+    <li><a href="#observers">Observers</a></li>
+    <li><a href="#pointer">Pointer events</a></li>
+    <li><a href="#states">States</a></li>
+    <li><a href="#menus">Menus</a></li>
+    <li><a href="#submenus">Submenu stack</a></li>
+    <li><a href="#widgets">Widgets</a></li>
+    <li><a href="#textinput">Text input</a></li>
+    <li><a href="#focus">Focus &amp; gamepad</a></li>
+    <li><a href="#databind">Binding data to UI</a></li>
+    <li><a href="#inventory">Inventories</a></li>
+    <li><a href="#dialog">Dialogue</a></li>
+    <li><a href="#scroll">Scrolling</a></li>
+    <li><a href="#settings">Settings</a></li>
+    <li><a href="#perf">Gotchas</a></li>
+    <li><a href="#migration">Version drift</a></li>
+  </ul>
+  <div class="rail-head close-b">&nbsp;&nbsp;]<br>));</div>
+</nav>
+
+<button class="railtoggle" id="railtoggle" aria-label="Toggle contents">☰ Contents</button>
+
+<main class="main">
+
+<header class="mast">
+  <p class="eyebrow">Reference card · verified against Bevy 0.19 (June 2026)</p>
+  <h1>Bevy UI<span class="sub">complex interfaces</span></h1>
+  <p class="standfirst">Menus, submenus, inventories, dialogue — the parts that need <strong>real data</strong> and <strong>real state transitions</strong>. Bevy UI is flexbox with Rust types and an ECS underneath; once that clicks, the rest is knowing which of the four categories a given API belongs to.</p>
+
+  <div class="verstrip">
+    <span><b>bevy</b> 0.19.0</span>
+    <span><b>released</b> 18 Jun 2026</span>
+    <span>layout <b>flexbox + grid</b></span>
+    <span>scenes <b>BSN</b></span>
+    <span>widgets <b>experimental</b></span>
+  </div>
+
+  <div class="legend">
+    <div class="lg-comp"><b>Components</b>data on entities</div>
+    <div class="lg-res"><b>Resources / State</b>global data</div>
+    <div class="lg-evt"><b>Events / Observers</b>things happening</div>
+    <div class="lg-lay"><b>Layout / Values</b>sizing &amp; position</div>
+  </div>
+</header>
+
+<!-- ============================================================ -->
+<section id="model">
+  <h2><span class="num">01</span>The mental model</h2>
+  <p class="lede">Four sentences that save a lot of confusion later.</p>
+
+  <ol class="body">
+    <li><strong>A UI element is an entity.</strong> Not a widget object — an entity holding a <code>Node</code> component. Nesting is the ECS parent/child relationship (<code>ChildOf</code>), the same one your game objects use.</li>
+    <li><strong>There are no bundles anymore.</strong> Since 0.15, components declare their own dependencies via <em>required components</em>. Spawning <code>Node</code> automatically brings in the machinery it needs. You just spawn tuples of components.</li>
+    <li><strong>Layout is CSS flexbox.</strong> Bevy uses Taffy under the hood. <code>FlexDirection</code>, <code>JustifyContent</code>, <code>AlignItems</code>, and CSS Grid all behave the way they do in a browser. Your CSS instincts transfer almost perfectly.</li>
+    <li><strong>Reactions come from observers, not polling.</strong> Clicking a button triggers an <code>EntityEvent</code> that runs an observer immediately. Buffered <code>Message</code>s are the other tool, for streams you drain each frame.</li>
+  </ol>
+
+  <div class="note good">
+    <b>Why this reference exists</b>
+    <p>Bevy's UI API has churned hard across 0.15 → 0.19: bundles were removed, <code>Trigger</code> became <code>On</code>, buffered events became <code>Message</code>s, <code>Transform</code> became <code>UiTransform</code> for UI nodes, and 0.19 introduced BSN. Most tutorials you'll find online are written for 0.13–0.16 and will not compile. Everything here is checked against 0.19.</p>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="setup">
+  <h2><span class="num">02</span>Cargo &amp; feature flags</h2>
+  <p class="lede">0.18 added feature <em>collections</em>, so you can pull in UI without dragging the 3D renderer along.</p>
+
+<pre class="k-res"><span class="cm"># Cargo.toml — a normal game</span>
+[dependencies]
+bevy = <span class="st">"0.19"</span>
+
+<span class="cm"># UI-only app (no 3D pipeline, much faster compiles)</span>
+bevy = { version = <span class="st">"0.19"</span>, default-features = <span class="kw">false</span>, features = [<span class="st">"ui"</span>] }
+
+<span class="cm"># 2D game + UI</span>
+bevy = { version = <span class="st">"0.19"</span>, default-features = <span class="kw">false</span>, features = [<span class="st">"2d"</span>] }
+
+<span class="cm"># Opt into the experimental widget sets</span>
+bevy = { version = <span class="st">"0.19"</span>, features = [
+    <span class="st">"experimental_bevy_ui_widgets"</span>,   <span class="cm"># headless Button/Slider/Checkbox/Menu</span>
+    <span class="st">"experimental_bevy_feathers"</span>,     <span class="cm"># styled editor-flavoured widgets</span>
+    <span class="st">"system_clipboard"</span>,               <span class="cm"># OS clipboard for text input</span>
+] }</pre>
+
+  <p>The <code>2d</code> collection is roughly <code>default_app + 2d_api + 2d_bevy_render + ui + scene + audio + picking</code>. Mid-level collections like <code>2d_api</code> give you the API without Bevy's renderer, if you're swapping in your own.</p>
+
+  <h3>Minimum viable UI app</h3>
+<pre class="k-comp"><span class="kw">use</span> bevy::prelude::*;
+
+<span class="kw">fn</span> <span class="fnc">main</span>() {
+    App::<span class="fnc">new</span>()
+        .<span class="fnc">add_plugins</span>(DefaultPlugins)
+        .<span class="fnc">add_systems</span>(Startup, setup)
+        .<span class="fnc">run</span>();
+}
+
+<span class="kw">fn</span> <span class="fnc">setup</span>(<span class="kw">mut</span> commands: Commands) {
+    <span class="cm">// A UI camera is mandatory. Without one you get a blank window.</span>
+    commands.<span class="fnc">spawn</span>(<span class="ty">Camera2d</span>);
+
+    commands.<span class="fnc">spawn</span>((
+        <span class="ty">Node</span> {
+            width: <span class="fnc">percent</span>(<span class="nu">100</span>),
+            height: <span class="fnc">percent</span>(<span class="nu">100</span>),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            ..<span class="fnc">default</span>()
+        },
+        <span class="mac">children!</span>[(
+            <span class="ty">Text</span>::<span class="fnc">new</span>(<span class="st">"Hello"</span>),
+            <span class="ty">TextFont</span> { font_size: <span class="nu">42.0</span>, ..<span class="fnc">default</span>() },
+        )],
+    ));
+}</pre>
+</section>
+
+<!-- ============================================================ -->
+<section id="components">
+  <h2><span class="num">03</span>Core components <span class="tag t-comp">components</span></h2>
+  <p class="lede">Everything visual is a component you add to a node entity. Add only what you need — the rest default.</p>
+
+  <div class="scroll-x">
+  <table class="tbl">
+    <tr><th>Component</th><th>Does</th></tr>
+    <tr><td>Node</td><td>The layout box. Size, padding, margin, border widths, flex/grid settings, overflow, position type. Required by everything else here.</td></tr>
+    <tr><td>BackgroundColor</td><td>Solid fill behind the node's content and padding.</td></tr>
+    <tr><td>BorderColor</td><td>Border tint. Per-side since 0.17 — useful for faking bevelled buttons.</td></tr>
+    <tr><td>BorderRadius</td><td>Rounded corners, per corner.</td></tr>
+    <tr><td>Outline</td><td>Draws outside the border box without affecting layout. Good for focus rings and selection highlights.</td></tr>
+    <tr><td>BoxShadow</td><td>Drop shadows; supports multiple layers.</td></tr>
+    <tr><td>BackgroundGradient<br>BorderGradient</td><td>Wrap a <code>Gradient</code> — <code>Linear</code>, <code>Radial</code>, or <code>Conic</code>. Interpolates in Oklab by default.</td></tr>
+    <tr><td>ImageNode</td><td>Displays a texture. Supports nine-slice and tiling for scalable panels.</td></tr>
+    <tr><td>Text</td><td>Marks a node as text. Style with <code>TextFont</code>, <code>TextColor</code>, <code>TextShadow</code>, <code>TextBackgroundColor</code>.</td></tr>
+    <tr><td>TextSpan</td><td>A child entity that continues its parent's text with different styling — mixed-format runs.</td></tr>
+    <tr><td>UiTransform</td><td>2D translate/rotate/scale for UI, applied after layout. Replaced <code>Transform</code> for UI in 0.17.</td></tr>
+    <tr><td>ZIndex<br>GlobalZIndex</td><td>Draw order. <code>ZIndex</code> is local to siblings; <code>GlobalZIndex</code> escapes the hierarchy — the tool for modals and tooltips.</td></tr>
+    <tr><td>UiTargetCamera</td><td>Routes this subtree to a specific camera. Split-screen HUDs.</td></tr>
+    <tr><td>Pickable</td><td>Controls hit-testing. <code>Pickable::IGNORE</code> makes a node click-through.</td></tr>
+    <tr><td>ViewportNode</td><td>Renders a camera's output into a UI node. Inventory item previews, minimaps.</td></tr>
+  </table>
+  </div>
+
+  <h3>A styled panel, end to end</h3>
+<pre class="k-comp">commands.<span class="fnc">spawn</span>((
+    <span class="ty">Node</span> {
+        width: <span class="fnc">px</span>(<span class="nu">320</span>),
+        padding: <span class="fnc">px</span>(<span class="nu">16</span>).<span class="fnc">all</span>(),
+        border: <span class="fnc">px</span>(<span class="nu">2</span>).<span class="fnc">all</span>(),
+        flex_direction: FlexDirection::Column,
+        row_gap: <span class="fnc">px</span>(<span class="nu">10</span>),
+        ..<span class="fnc">default</span>()
+    },
+    <span class="ty">BackgroundColor</span>(Color::<span class="fnc">srgb</span>(<span class="nu">0.10</span>, <span class="nu">0.11</span>, <span class="nu">0.14</span>)),
+    <span class="ty">BorderColor</span>::<span class="fnc">all</span>(Color::<span class="fnc">srgb</span>(<span class="nu">0.30</span>, <span class="nu">0.85</span>, <span class="nu">0.65</span>)),
+    <span class="ty">BorderRadius</span>::<span class="fnc">all</span>(<span class="fnc">px</span>(<span class="nu">8</span>)),
+    <span class="ty">BoxShadow</span>::<span class="fnc">from</span>(<span class="ty">ShadowStyle</span> {
+        color: Color::<span class="fnc">srgba</span>(<span class="nu">0.</span>, <span class="nu">0.</span>, <span class="nu">0.</span>, <span class="nu">0.5</span>),
+        y_offset: <span class="fnc">px</span>(<span class="nu">4</span>),
+        blur_radius: <span class="fnc">px</span>(<span class="nu">12</span>),
+        ..<span class="fnc">default</span>()
+    }),
+));</pre>
+
+  <h3>Text: the span model <span class="tag t-lay">layout</span></h3>
+  <p>A <code>Text</code> node with <code>TextSpan</code> children renders as one continuous paragraph, each span carrying its own font and colour. This is how you build "Press <em>E</em> to open" prompts or coloured damage readouts.</p>
+
+<pre class="k-comp">commands.<span class="fnc">spawn</span>((
+    <span class="ty">Text</span>::<span class="fnc">default</span>(),
+    <span class="mac">children!</span>[
+        (<span class="ty">TextSpan</span>::<span class="fnc">new</span>(<span class="st">"HP "</span>),  <span class="ty">TextColor</span>(Color::WHITE)),
+        (<span class="ty">TextSpan</span>::<span class="fnc">new</span>(<span class="st">"84"</span>),   <span class="ty">TextColor</span>(Color::<span class="fnc">srgb</span>(<span class="nu">0.3</span>, <span class="nu">1.0</span>, <span class="nu">0.5</span>))),
+        (<span class="ty">TextSpan</span>::<span class="fnc">new</span>(<span class="st">"/100"</span>), <span class="ty">TextColor</span>(Color::<span class="fnc">srgb</span>(<span class="nu">0.5</span>, <span class="nu">0.5</span>, <span class="nu">0.5</span>))),
+    ],
+));
+
+<span class="cm">// Update just the number later — spans are entities, so query them.</span>
+<span class="kw">fn</span> <span class="fnc">update_hp</span>(hp: <span class="ty">Res</span>&lt;<span class="ty">PlayerHp</span>&gt;, <span class="kw">mut</span> q: <span class="ty">Query</span>&lt;&amp;<span class="kw">mut</span> <span class="ty">TextSpan</span>, <span class="ty">With</span>&lt;<span class="ty">HpNumber</span>&gt;&gt;) {
+    <span class="kw">if</span> !hp.<span class="fnc">is_changed</span>() { <span class="kw">return</span>; }
+    <span class="kw">for</span> <span class="kw">mut</span> span <span class="kw">in</span> &amp;<span class="kw">mut</span> q {
+        span.<span class="nu">0</span> = hp.current.<span class="fnc">to_string</span>();
+    }
+}</pre>
+
+  <h3>Fonts got much better in 0.19</h3>
+<pre class="k-comp"><span class="ty">TextFont</span> {
+    <span class="cm">// Three ways to name a font now:</span>
+    font: <span class="ty">FontSource</span>::<span class="ty">Monospace</span>,                <span class="cm">// semantic category</span>
+    <span class="cm">// font: FontSource::Family("JetBrains Mono".into()),</span>
+    <span class="cm">// font: FontSource::Handle(asset_server.load("f.ttf")),</span>
+
+    weight: FontWeight::BOLD,                    <span class="cm">// variable-font axes</span>
+    style:  FontStyle::Italic,
+    width:  FontWidth::CONDENSED,
+
+    <span class="cm">// font_size is an enum now, not an f32</span>
+    font_size: <span class="ty">FontSize</span>::<span class="ty">Rem</span>(<span class="nu">1.5</span>),               <span class="cm">// scales with RemSize resource</span>
+    ..<span class="fnc">default</span>()
+}</pre>
+  <p><code>FontSize</code> mirrors CSS: <code>Px</code>, <code>Rem</code>, <code>Vw</code>, <code>Vh</code>, <code>VMin</code>, <code>VMax</code>. Driving everything off <code>Rem</code> gives you one <code>RemSize</code> knob for a UI-scale accessibility slider. <code>Underline</code>, <code>Strikethrough</code>, and <code>LetterSpacing</code> are separate components you add alongside.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="val">
+  <h2><span class="num">04</span>Val &amp; sizing <span class="tag t-lay">layout</span></h2>
+  <p class="lede">Every length in Bevy UI is a <code>Val</code>. Since 0.17 there are helper functions, and you should use them — they take any integer type and read far better than the enum variants.</p>
+
+  <div class="two">
+    <div>
+      <p class="cap">Verbose</p>
+<pre class="k-lay"><span class="ty">Node</span> {
+    width: Val::<span class="ty">Px</span>(<span class="nu">200.0</span>),
+    padding: <span class="ty">UiRect</span>::<span class="fnc">all</span>(Val::<span class="ty">Px</span>(<span class="nu">8.0</span>)),
+    margin: <span class="ty">UiRect</span>::<span class="fnc">left</span>(Val::<span class="ty">Percent</span>(<span class="nu">10.0</span>)),
+    ..<span class="fnc">default</span>()
+}</pre>
+    </div>
+    <div>
+      <p class="cap">Idiomatic 0.19</p>
+<pre class="k-lay"><span class="ty">Node</span> {
+    width: <span class="fnc">px</span>(<span class="nu">200</span>),
+    padding: <span class="fnc">px</span>(<span class="nu">8</span>).<span class="fnc">all</span>(),
+    margin: <span class="fnc">percent</span>(<span class="nu">10</span>).<span class="fnc">left</span>(),
+    ..<span class="fnc">default</span>()
+}</pre>
+    </div>
+  </div>
+
+  <table class="tbl">
+    <tr><th>Helper</th><th>Produces</th><th>Use for</th></tr>
+    <tr><td>px(n)</td><td>Val::Px</td><td>Fixed sizes, borders, gaps</td></tr>
+    <tr><td>percent(n)</td><td>Val::Percent</td><td>Relative to parent — the workhorse</td></tr>
+    <tr><td>vw(n) / vh(n)</td><td>Val::Vw / Vh</td><td>Relative to window; full-screen overlays</td></tr>
+    <tr><td>vmin(n) / vmax(n)</td><td>Val::VMin / VMax</td><td>Aspect-safe sizing across orientations</td></tr>
+    <tr><td>auto()</td><td>Val::Auto</td><td>Let the layout decide</td></tr>
+  </table>
+
+  <p>The <code>UiRect</code> builders chain: <code>all</code>, <code>horizontal</code>, <code>vertical</code>, <code>left</code>, <code>right</code>, <code>top</code>, <code>bottom</code>, plus <code>with_*</code> variants to override one side.</p>
+
+<pre class="k-lay"><span class="cm">// 20% left and right, 10px on top, nothing on the bottom</span>
+padding: <span class="fnc">percent</span>(<span class="nu">20</span>).<span class="fnc">horizontal</span>().<span class="fnc">with_top</span>(<span class="fnc">px</span>(<span class="nu">10</span>)),</pre>
+
+  <div class="note">
+    <b>Mixing units</b>
+    <p>You cannot interpolate between <code>Px</code> and <code>Percent</code>. If you animate a <code>Val</code> (0.18 added <code>TryStableInterpolate</code> for exactly this), keep both keyframes in the same unit or the animation will snap instead of sliding.</p>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="layout">
+  <h2><span class="num">05</span>Layout playground <span class="tag t-lay">layout</span></h2>
+  <p class="lede">Bevy's flexbox <em>is</em> CSS flexbox. Change the controls; the Rust below is what you'd write to get that result.</p>
+
+  <div class="pg">
+    <div class="pg-top">
+      <div class="stage-wrap">
+        <p class="stage-label">Parent node · three children</p>
+        <div class="stage" id="stage">
+          <div class="box" id="b1">1</div>
+          <div class="box" id="b2">2</div>
+          <div class="box" id="b3">3</div>
+        </div>
+      </div>
+      <div class="ctrls">
+        <div class="ctrl">
+          <label for="fd">flex_direction</label>
+          <select id="fd">
+            <option value="Row">Row</option>
+            <option value="Column">Column</option>
+            <option value="RowReverse">RowReverse</option>
+            <option value="ColumnReverse">ColumnReverse</option>
+          </select>
+        </div>
+        <div class="ctrl">
+          <label for="jc">justify_content</label>
+          <select id="jc">
+            <option value="Start">Start</option>
+            <option value="Center">Center</option>
+            <option value="End">End</option>
+            <option value="SpaceBetween">SpaceBetween</option>
+            <option value="SpaceAround">SpaceAround</option>
+            <option value="SpaceEvenly">SpaceEvenly</option>
+          </select>
+        </div>
+        <div class="ctrl">
+          <label for="ai">align_items</label>
+          <select id="ai">
+            <option value="Stretch">Stretch</option>
+            <option value="Start">Start</option>
+            <option value="Center">Center</option>
+            <option value="End">End</option>
+          </select>
+        </div>
+        <div class="ctrl">
+          <label for="gp">gap <span class="val" id="gpv">12px</span></label>
+          <input type="range" id="gp" min="0" max="48" value="12">
+        </div>
+        <div class="ctrl">
+          <label for="pd">padding <span class="val" id="pdv">12px</span></label>
+          <input type="range" id="pd" min="0" max="48" value="12">
+        </div>
+      </div>
+    </div>
+    <div class="pg-out"><pre id="pgcode"></pre></div>
+  </div>
+
+  <h3>The main axis rule</h3>
+  <p><code>justify_content</code> acts along the main axis (the one <code>flex_direction</code> points down); <code>align_items</code> acts across it. Flip to <code>Column</code> above and watch the two controls swap effect — that single behaviour causes most "why won't this centre" confusion.</p>
+
+  <h3>Centring anything, the canonical snippet</h3>
+<pre class="k-lay"><span class="ty">Node</span> {
+    width: <span class="fnc">percent</span>(<span class="nu">100</span>),
+    height: <span class="fnc">percent</span>(<span class="nu">100</span>),
+    align_items: AlignItems::Center,
+    justify_content: JustifyContent::Center,
+    ..<span class="fnc">default</span>()
+}</pre>
+
+  <h3>Absolute positioning &amp; overlays</h3>
+<pre class="k-lay"><span class="ty">Node</span> {
+    position_type: PositionType::Absolute,  <span class="cm">// out of the flex flow</span>
+    left: <span class="fnc">px</span>(<span class="nu">10</span>),
+    top: <span class="fnc">px</span>(<span class="nu">10</span>),
+    ..<span class="fnc">default</span>()
+}</pre>
+  <p>Absolute nodes position relative to their nearest <em>relatively positioned</em> ancestor, exactly like CSS. For a modal that must sit above everything regardless of tree position, pair absolute positioning with <code>GlobalZIndex</code>.</p>
+
+  <h3>Grid, for inventories</h3>
+<pre class="k-lay"><span class="ty">Node</span> {
+    display: Display::Grid,
+    grid_template_columns: <span class="ty">RepeatedGridTrack</span>::<span class="fnc">px</span>(<span class="nu">6</span>, <span class="nu">64.0</span>),  <span class="cm">// 6 × 64px</span>
+    grid_template_rows:    <span class="ty">RepeatedGridTrack</span>::<span class="fnc">px</span>(<span class="nu">4</span>, <span class="nu">64.0</span>),
+    row_gap: <span class="fnc">px</span>(<span class="nu">6</span>),
+    column_gap: <span class="fnc">px</span>(<span class="nu">6</span>),
+    ..<span class="fnc">default</span>()
+}</pre>
+  <p>Track helpers include <code>px</code>, <code>percent</code>, <code>flex</code>, <code>fr</code>, <code>auto</code>, <code>min_content</code>, <code>max_content</code>. A fixed grid of equal cells is nearly always the right structure for an inventory — you get consistent slot geometry for free.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="spawning">
+  <h2><span class="num">06</span>Spawning trees <span class="tag t-comp">components</span></h2>
+  <p class="lede">Four ways to build a hierarchy. Pick by whether your children are known at compile time.</p>
+
+  <h3>1 — <code>children!</code> for static structure</h3>
+<pre class="k-comp">commands.<span class="fnc">spawn</span>((
+    <span class="ty">Node</span> { flex_direction: FlexDirection::Column, ..<span class="fnc">default</span>() },
+    <span class="mac">children!</span>[
+        (<span class="ty">Text</span>::<span class="fnc">new</span>(<span class="st">"Title"</span>), <span class="ty">TextColor</span>(Color::WHITE)),
+        (<span class="ty">Button</span>, <span class="ty">Node</span> { width: <span class="fnc">px</span>(<span class="nu">120</span>), ..<span class="fnc">default</span>() }),
+    ],
+));</pre>
+  <p>Nests arbitrarily deep and — since 0.17 — takes as many children as Rust's recursion limit allows (~1400), not the old cap of 12.</p>
+
+  <h3>2 — <code>SpawnIter</code> for data you already have</h3>
+<pre class="k-comp"><span class="kw">use</span> bevy::ecs::spawn::<span class="ty">SpawnIter</span>;
+
+<span class="kw">let</span> entries = [(<span class="st">"Display"</span>, MenuAction::Display),
+               (<span class="st">"Sound"</span>,   MenuAction::Sound),
+               (<span class="st">"Back"</span>,    MenuAction::Back)];
+
+commands.<span class="fnc">spawn</span>((
+    <span class="ty">Node</span> { flex_direction: FlexDirection::Column, ..<span class="fnc">default</span>() },
+    <span class="ty">Children</span>::<span class="fnc">spawn</span>(<span class="ty">SpawnIter</span>(entries.<span class="fnc">into_iter</span>().<span class="fnc">map</span>(|(label, action)| {
+        (
+            <span class="ty">Button</span>,
+            <span class="ty">Node</span> { width: <span class="fnc">px</span>(<span class="nu">200</span>), height: <span class="fnc">px</span>(<span class="nu">56</span>), ..<span class="fnc">default</span>() },
+            action,
+            <span class="mac">children!</span>[<span class="ty">Text</span>::<span class="fnc">new</span>(label)],
+        )
+    }))),
+));</pre>
+
+  <h3>3 — <code>SpawnWith</code> when children need conditional logic</h3>
+<pre class="k-comp"><span class="kw">use</span> bevy::ecs::spawn::<span class="ty">SpawnWith</span>;
+
+<span class="kw">let</span> current = *quality;  <span class="cm">// copy out of Res before moving into the closure</span>
+
+<span class="ty">Children</span>::<span class="fnc">spawn</span>(<span class="ty">SpawnWith</span>(<span class="kw">move</span> |parent: &amp;<span class="kw">mut</span> <span class="ty">ChildSpawner</span>| {
+    <span class="kw">for</span> q <span class="kw">in</span> [Quality::Low, Quality::Medium, Quality::High] {
+        <span class="kw">let</span> <span class="kw">mut</span> e = parent.<span class="fnc">spawn</span>((
+            <span class="ty">Button</span>,
+            <span class="ty">Node</span> { width: <span class="fnc">px</span>(<span class="nu">150</span>), height: <span class="fnc">px</span>(<span class="nu">65</span>), ..<span class="fnc">default</span>() },
+            q,
+            <span class="mac">children!</span>[<span class="ty">Text</span>::<span class="fnc">new</span>(<span class="mac">format!</span>(<span class="st">"{q:?}"</span>))],
+        ));
+        <span class="kw">if</span> current == q {
+            e.<span class="fnc">insert</span>(<span class="ty">SelectedOption</span>);   <span class="cm">// per-child branching</span>
+        }
+    }
+}))</pre>
+  <p><code>SpawnWith</code> is the escape hatch: it hands you a real spawner, so you can branch, count, and insert conditionally. <code>Spawn(...)</code> wraps a single child, and the three compose inside one tuple.</p>
+
+  <h3>4 — helper functions returning <code>impl Bundle</code></h3>
+<pre class="k-comp"><span class="kw">fn</span> <span class="fnc">menu_button</span>(label: &amp;<span class="kw">str</span>, action: <span class="ty">MenuAction</span>) -&gt; <span class="kw">impl</span> <span class="ty">Bundle</span> {
+    (
+        <span class="ty">Button</span>,
+        <span class="ty">Node</span> {
+            width: <span class="fnc">px</span>(<span class="nu">300</span>), height: <span class="fnc">px</span>(<span class="nu">65</span>),
+            margin: <span class="fnc">px</span>(<span class="nu">20</span>).<span class="fnc">all</span>(),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..<span class="fnc">default</span>()
+        },
+        <span class="ty">BackgroundColor</span>(NORMAL_BUTTON),
+        action,
+        <span class="mac">children!</span>[(<span class="ty">Text</span>::<span class="fnc">new</span>(label), <span class="ty">TextFont</span> { font_size: <span class="nu">33.0</span>, ..<span class="fnc">default</span>() })],
+    )
+}
+
+<span class="cm">// then: children![menu_button("New Game", MenuAction::Play), ...]</span></pre>
+  <p>This is the pattern that scales in 0.19 without BSN. Its one weakness is dependencies: if the bundle needs an asset, you must thread <code>&amp;AssetServer</code> through every call. That's precisely the problem BSN solves.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="bsn">
+  <h2><span class="num">07</span>BSN scenes <span class="tag t-new">new in 0.19</span></h2>
+  <p class="lede">Bevy Scene Notation is the headline 0.19 feature and it targets UI directly. It's opt-in — the tuple style above still works everywhere — but for deep hierarchies it removes a lot of noise.</p>
+
+  <div class="note">
+    <b>Maturity</b>
+    <p>BSN landed in 0.19 and the release notes describe it as "hot off the presses" with rough edges expected for a few releases. The <code>.bsn</code> asset loader is <em>not</em> shipped yet — 0.19 is code-driven only via the <code>bsn!</code> macro. For a shipping project, weigh that against the ergonomics win.</p>
+  </div>
+
+  <h3>The basics</h3>
+<pre class="k-comp"><span class="cm">// A bsn! block is a list of components for one entity.</span>
+<span class="cm">// Unspecified fields take their Default — no ..default() needed.</span>
+<span class="mac">bsn!</span> {
+    <span class="ty">Node</span> { width: <span class="fnc">px</span>(<span class="nu">300</span>), height: <span class="fnc">px</span>(<span class="nu">65</span>) }
+    <span class="ty">BackgroundColor</span>(NORMAL_BUTTON)
+    <span class="ty">Button</span>
+}</pre>
+
+  <h3>Children inline</h3>
+<pre class="k-comp"><span class="kw">fn</span> <span class="fnc">menu_button</span>(label: &amp;<span class="kw">str</span>) -&gt; <span class="kw">impl</span> <span class="ty">Scene</span> {
+    <span class="mac">bsn!</span> {
+        <span class="ty">Button</span>
+        <span class="ty">Node</span> {
+            width: <span class="fnc">px</span>(<span class="nu">300</span>),
+            height: <span class="fnc">px</span>(<span class="nu">65</span>),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+        }
+        <span class="ty">BackgroundColor</span>(NORMAL_BUTTON)
+        <span class="ty">Children</span> [
+            <span class="ty">Text</span>(label)
+        ]
+    }
+}</pre>
+
+  <h3>Observers declared in place</h3>
+  <p>This is the big one for menus: behaviour and structure live together instead of being wired up in a separate <code>.observe()</code> call.</p>
+<pre class="k-evt"><span class="kw">fn</span> <span class="fnc">play_button</span>() -&gt; <span class="kw">impl</span> <span class="ty">Scene</span> {
+    <span class="mac">bsn!</span> {
+        <span class="fnc">menu_button</span>(<span class="st">"New Game"</span>)
+        <span class="fnc">on</span>(|_: <span class="ty">On</span>&lt;<span class="ty">Pointer</span>&lt;<span class="ty">Click</span>&gt;&gt;, <span class="kw">mut</span> next: <span class="ty">ResMut</span>&lt;<span class="ty">NextState</span>&lt;<span class="ty">GameState</span>&gt;&gt;| {
+            next.<span class="fnc">set</span>(GameState::Game);
+        })
+    }
+}</pre>
+
+  <h3>Scenes are patches, so they compose</h3>
+<pre class="k-comp"><span class="kw">fn</span> <span class="fnc">base_button</span>() -&gt; <span class="kw">impl</span> <span class="ty">Scene</span> {
+    <span class="mac">bsn!</span> { <span class="ty">Button</span> <span class="ty">Node</span> { width: <span class="fnc">px</span>(<span class="nu">300</span>) } }
+}
+
+<span class="kw">fn</span> <span class="fnc">tall_button</span>() -&gt; <span class="kw">impl</span> <span class="ty">Scene</span> {
+    <span class="mac">bsn!</span> {
+        <span class="fnc">base_button</span>()
+        <span class="ty">Node</span> { height: <span class="fnc">px</span>(<span class="nu">100</span>) }   <span class="cm">// layers on top; width survives</span>
+    }
+}</pre>
+  <p>Each layer writes only the fields it names. That's what makes theming and variants tractable — a "danger" variant is just another patch over the base.</p>
+
+  <h3>Lists &amp; passing children as arguments</h3>
+<pre class="k-comp"><span class="kw">fn</span> <span class="fnc">panel</span>(children: <span class="kw">impl</span> <span class="ty">SceneList</span>) -&gt; <span class="kw">impl</span> <span class="ty">Scene</span> {
+    <span class="mac">bsn!</span> {
+        <span class="ty">Node</span> { flex_direction: FlexDirection::Column, row_gap: <span class="fnc">px</span>(<span class="nu">8</span>) }
+        <span class="ty">Children</span> [ {children} ]
+    }
+}
+
+<span class="kw">fn</span> <span class="fnc">main_menu</span>() -&gt; <span class="kw">impl</span> <span class="ty">Scene</span> {
+    <span class="fnc">panel</span>(<span class="mac">bsn_list!</span>[
+        <span class="fnc">menu_button</span>(<span class="st">"New Game"</span>),
+        <span class="fnc">menu_button</span>(<span class="st">"Settings"</span>),
+        <span class="fnc">menu_button</span>(<span class="st">"Quit"</span>),
+    ])
+}</pre>
+
+  <h3>Assets by path, no <code>AssetServer</code> plumbing</h3>
+<pre class="k-comp"><span class="cm">// Before: every nested bundle fn needed &amp;AssetServer threaded in.</span>
+<span class="mac">bsn!</span> {
+    <span class="ty">ImageNode</span> { image: <span class="st">"ui/panel.png"</span> }
+}</pre>
+  <p>BSN components are <em>templates</em> with access to the <code>World</code>, so a string in an asset field resolves to a <code>Handle</code> at spawn time.</p>
+
+  <h3>SceneComponent: guaranteeing a widget's structure</h3>
+<pre class="k-comp"><span class="attr">#[derive(SceneComponent, Default, Clone)]</span>
+<span class="kw">struct</span> <span class="ty">HealthBar</span> { value: <span class="kw">f32</span> }
+
+<span class="kw">impl</span> <span class="ty">HealthBar</span> {
+    <span class="kw">fn</span> <span class="fnc">scene</span>() -&gt; <span class="kw">impl</span> <span class="ty">Scene</span> {
+        <span class="mac">bsn!</span> {
+            <span class="ty">Node</span> { width: <span class="fnc">px</span>(<span class="nu">200</span>), height: <span class="fnc">px</span>(<span class="nu">16</span>) }
+            <span class="ty">BackgroundColor</span>(Color::BLACK)
+            <span class="ty">Children</span> [ (#Fill <span class="ty">Node</span> { height: <span class="fnc">percent</span>(<span class="nu">100</span>) }) ]
+        }
+    }
+}
+
+<span class="cm">// Spawn with @ — the fill child is guaranteed present.</span>
+world.<span class="fnc">spawn_scene</span>(<span class="mac">bsn!</span> { @<span class="ty">HealthBar</span> { value: <span class="nu">1.0</span> } });</pre>
+  <p>This closes an old Bevy gap: any system querying <code>HealthBar</code> can now assume the fill child exists, because the component cannot be spawned without its scene.</p>
+
+  <h3>Spawning</h3>
+<pre class="k-comp"><span class="cm">// From a system</span>
+<span class="kw">fn</span> <span class="fnc">setup</span>(<span class="kw">mut</span> commands: Commands) {
+    commands.<span class="fnc">spawn_scene</span>(<span class="fnc">main_menu</span>());
+}
+
+<span class="cm">// Or turn a scene fn straight into a system</span>
+app.<span class="fnc">add_systems</span>(<span class="ty">OnEnter</span>(MenuState::Main), main_menu.<span class="fnc">spawn</span>());</pre>
+</section>
+
+<!-- ============================================================ -->
+<section id="events">
+  <h2><span class="num">08</span>Events vs Messages <span class="tag t-evt">events</span></h2>
+  <p class="lede">0.17 split one confusing concept into two clear ones. Getting this distinction right is most of "how do I change state from a button".</p>
+
+  <table class="tbl">
+    <tr><th></th><th>Event</th><th>Message</th></tr>
+    <tr><td><b>Trait</b></td><td><code>Event</code> / <code>EntityEvent</code></td><td><code>Message</code></td></tr>
+    <tr><td><b>Send</b></td><td><code>commands.trigger(..)</code></td><td><code>MessageWriter::write(..)</code></td></tr>
+    <tr><td><b>Receive</b></td><td>Observer: <code>On&lt;MyEvent&gt;</code></td><td><code>MessageReader&lt;MyMsg&gt;</code></td></tr>
+    <tr><td><b>Timing</b></td><td>Immediate, at the next command flush</td><td>Buffered; read when your system runs</td></tr>
+    <tr><td><b>Targets</b></td><td>Can target an entity and bubble up the tree</td><td>Global stream, no targeting</td></tr>
+    <tr><td><b>Reach for it</b></td><td>UI interactions, one-off reactions, per-entity behaviour</td><td>High-volume streams, input, cross-system fan-out</td></tr>
+  </table>
+
+  <h3>Global event</h3>
+<pre class="k-evt"><span class="attr">#[derive(Event)]</span>
+<span class="kw">struct</span> <span class="ty">GameOver</span> { score: <span class="kw">u32</span> }
+
+app.<span class="fnc">add_observer</span>(|game_over: <span class="ty">On</span>&lt;<span class="ty">GameOver</span>&gt;| {
+    <span class="mac">info!</span>(<span class="st">"scored {}"</span>, game_over.score);
+});
+
+commands.<span class="fnc">trigger</span>(<span class="ty">GameOver</span> { score: <span class="nu">100</span> });</pre>
+
+  <h3>Entity event — the one UI uses constantly</h3>
+<pre class="k-evt"><span class="attr">#[derive(EntityEvent)]</span>
+<span class="kw">struct</span> <span class="ty">SlotClicked</span> {
+    entity: <span class="ty">Entity</span>,     <span class="cm">// field named `entity` becomes the target by default</span>
+    slot: <span class="kw">usize</span>,
+}
+
+commands.<span class="fnc">trigger</span>(<span class="ty">SlotClicked</span> { entity: slot_entity, slot: <span class="nu">4</span> });
+
+<span class="cm">// Global observer: fires for every SlotClicked</span>
+app.<span class="fnc">add_observer</span>(|click: <span class="ty">On</span>&lt;<span class="ty">SlotClicked</span>&gt;| { <span class="cm">/* ... */</span> });
+
+<span class="cm">// Entity observer: only this entity</span>
+commands.<span class="fnc">entity</span>(slot_entity).<span class="fnc">observe</span>(|click: <span class="ty">On</span>&lt;<span class="ty">SlotClicked</span>&gt;| { <span class="cm">/* ... */</span> });</pre>
+
+  <p>Use <code>#[event_target]</code> when the target isn't the field called <code>entity</code>:</p>
+<pre class="k-evt"><span class="attr">#[derive(EntityEvent)]</span>
+<span class="kw">struct</span> <span class="ty">Attack</span> {
+    <span class="attr">#[event_target]</span>
+    attacker: <span class="ty">Entity</span>,
+    victim: <span class="ty">Entity</span>,
+}</pre>
+
+  <h3>Propagation — events bubbling up the UI tree</h3>
+<pre class="k-evt"><span class="attr">#[derive(EntityEvent)]</span>
+<span class="attr">#[entity_event(propagate)]</span>     <span class="cm">// walks up ChildOf by default</span>
+<span class="kw">struct</span> <span class="ty">Activate</span> { entity: <span class="ty">Entity</span> }
+
+app.<span class="fnc">add_observer</span>(|<span class="kw">mut</span> ev: <span class="ty">On</span>&lt;<span class="ty">Activate</span>&gt;| {
+    <span class="kw">if</span> handled {
+        ev.<span class="fnc">propagate</span>(<span class="kw">false</span>);              <span class="cm">// stop bubbling</span>
+    }
+    <span class="kw">let</span> original = ev.<span class="fnc">original_event_target</span>();  <span class="cm">// deepest node hit</span>
+});</pre>
+  <p>Propagation is what lets a click on a button's <em>text child</em> be handled by the button. Without it you'd be hit-testing leaf nodes forever.</p>
+
+  <h3>Messages</h3>
+<pre class="k-evt"><span class="attr">#[derive(Message)]</span>
+<span class="kw">struct</span> <span class="ty">DamageDealt</span> { amount: <span class="kw">f32</span> }
+
+<span class="kw">fn</span> <span class="fnc">write</span>(<span class="kw">mut</span> w: <span class="ty">MessageWriter</span>&lt;<span class="ty">DamageDealt</span>&gt;) { w.<span class="fnc">write</span>(<span class="ty">DamageDealt</span> { amount: <span class="nu">10.0</span> }); }
+<span class="kw">fn</span> <span class="fnc">read</span>(<span class="kw">mut</span> r: <span class="ty">MessageReader</span>&lt;<span class="ty">DamageDealt</span>&gt;) { <span class="kw">for</span> m <span class="kw">in</span> r.<span class="fnc">read</span>() { <span class="cm">/* ... */</span> } }</pre>
+
+  <div class="note">
+    <b>Renamed in 0.17 — expect stale tutorials</b>
+    <p><code>Trigger&lt;E&gt;</code> → <code>On&lt;E&gt;</code>. <code>EventWriter</code>/<code>EventReader</code> → <code>MessageWriter</code>/<code>MessageReader</code>. <code>trigger_targets</code> is gone — put the entity on the event and call <code>trigger</code>. Lifecycle events lost their <code>On</code> prefix: <code>OnAdd</code> → <code>Add</code>, so an observer reads <code>On&lt;Add, Player&gt;</code>.</p>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="observers">
+  <h2><span class="num">09</span>Observers in practice <span class="tag t-evt">events</span></h2>
+
+  <h3>Three ways to attach</h3>
+<pre class="k-evt"><span class="cm">// 1. Global — every event of this type</span>
+app.<span class="fnc">add_observer</span>(on_activate);
+
+<span class="cm">// 2. Per-entity, at spawn time</span>
+commands
+    .<span class="fnc">spawn</span>((<span class="ty">Button</span>, <span class="ty">Node</span>::<span class="fnc">default</span>()))
+    .<span class="fnc">observe</span>(|_: <span class="ty">On</span>&lt;<span class="ty">Pointer</span>&lt;<span class="ty">Click</span>&gt;&gt;| <span class="mac">info!</span>(<span class="st">"clicked"</span>));
+
+<span class="cm">// 3. Inside a bsn! scene (0.19)</span>
+<span class="mac">bsn!</span> { <span class="ty">Button</span> <span class="fnc">on</span>(|_: <span class="ty">On</span>&lt;<span class="ty">Pointer</span>&lt;<span class="ty">Click</span>&gt;&gt;| <span class="mac">info!</span>(<span class="st">"clicked"</span>)) }</pre>
+
+  <h3>Observers take full system params</h3>
+<pre class="k-evt"><span class="kw">fn</span> <span class="fnc">on_slot_click</span>(
+    click: <span class="ty">On</span>&lt;<span class="ty">Pointer</span>&lt;<span class="ty">Click</span>&gt;&gt;,
+    slots: <span class="ty">Query</span>&lt;&amp;<span class="ty">InventorySlot</span>&gt;,
+    <span class="kw">mut</span> inventory: <span class="ty">ResMut</span>&lt;<span class="ty">Inventory</span>&gt;,
+    <span class="kw">mut</span> commands: Commands,
+) {
+    <span class="kw">let</span> <span class="ty">Ok</span>(slot) = slots.<span class="fnc">get</span>(click.entity) <span class="kw">else</span> { <span class="kw">return</span> };
+    inventory.<span class="fnc">select</span>(slot.index);
+}</pre>
+
+  <h3>Run conditions on observers <span class="tag t-new">0.19</span></h3>
+<pre class="k-evt">app.<span class="fnc">add_observer</span>(
+    on_slot_click
+        .<span class="fnc">run_if</span>(<span class="fnc">in_state</span>(GameState::Playing))
+        .<span class="fnc">run_if</span>(|p: <span class="ty">Res</span>&lt;<span class="ty">Paused</span>&gt;| !p.<span class="nu">0</span>)
+);</pre>
+  <p>New in 0.19 and genuinely useful: previously you had to early-return inside the observer body to gate on state.</p>
+
+  <h3>Lifecycle observers — react to UI being built</h3>
+<pre class="k-evt"><span class="cm">// Fires whenever a Tooltip component is added to any entity</span>
+app.<span class="fnc">add_observer</span>(|add: <span class="ty">On</span>&lt;<span class="ty">Add</span>, <span class="ty">Tooltip</span>&gt;, <span class="kw">mut</span> commands: Commands| {
+    commands.<span class="fnc">entity</span>(add.entity).<span class="fnc">insert</span>(<span class="ty">GlobalZIndex</span>(<span class="nu">100</span>));
+});</pre>
+  <p>Available lifecycle events: <code>Add</code>, <code>Insert</code>, <code>Replace</code>, <code>Remove</code>, <code>Despawn</code>.</p>
+
+  <div class="note">
+    <b>Observers vs polling systems</b>
+    <p>Observers run at command-flush time, not in your schedule order. Don't rely on an observer having run before a specific system in the same frame. When ordering genuinely matters, have the observer write a <code>Message</code> or set a component, and let an ordered system act on it.</p>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="pointer">
+  <h2><span class="num">10</span>Pointer events <span class="tag t-evt">events</span></h2>
+  <p class="lede">All wrapped in <code>Pointer&lt;T&gt;</code>, delivered to the entity under the cursor, and bubbling up the hierarchy.</p>
+
+  <div class="scroll-x">
+  <table class="tbl">
+    <tr><th>Event</th><th>Fires</th></tr>
+    <tr><td>Pointer&lt;Over&gt;</td><td>Cursor enters the node's bounds</td></tr>
+    <tr><td>Pointer&lt;Out&gt;</td><td>Cursor leaves</td></tr>
+    <tr><td>Pointer&lt;Move&gt;</td><td>Cursor moves while over the node</td></tr>
+    <tr><td>Pointer&lt;Press&gt;</td><td>Button pressed down on the node</td></tr>
+    <tr><td>Pointer&lt;Release&gt;</td><td>Button released</td></tr>
+    <tr><td>Pointer&lt;Click&gt;</td><td>Press and release on the <em>same</em> node — carries <code>duration</code>, so you can detect long-press</td></tr>
+    <tr><td>Pointer&lt;DragStart&gt;</td><td>Press then move begins a drag</td></tr>
+    <tr><td>Pointer&lt;Drag&gt;</td><td>Each frame during a drag; carries <code>delta</code> and <code>distance</code></td></tr>
+    <tr><td>Pointer&lt;DragEnd&gt;</td><td>Drag finishes</td></tr>
+    <tr><td>Pointer&lt;DragEnter&gt;</td><td>A dragged thing enters <em>this</em> node</td></tr>
+    <tr><td>Pointer&lt;DragOver&gt;</td><td>A dragged thing hovers this node</td></tr>
+    <tr><td>Pointer&lt;DragDrop&gt;</td><td>A dragged thing is dropped on this node — the inventory workhorse</td></tr>
+    <tr><td>Pointer&lt;DragLeave&gt;</td><td>A dragged thing leaves this node</td></tr>
+    <tr><td>Pointer&lt;Cancel&gt;</td><td>Interaction aborted; nothing else follows</td></tr>
+  </table>
+  </div>
+
+  <p>Within a frame the dispatch order is fixed: <code>Out</code> → <code>DragLeave</code>, then <code>DragEnter</code> → <code>Over</code>, then per movement <code>DragStart</code> → <code>Drag</code> → <code>DragOver</code> → <code>Move</code>, then per press <code>Press</code> or <code>Click</code> → <code>Release</code> → <code>DragDrop</code> → <code>DragEnd</code> → <code>DragLeave</code>.</p>
+
+  <h3>Hover styling without a polling system</h3>
+<pre class="k-evt">commands
+    .<span class="fnc">spawn</span>((<span class="ty">Button</span>, <span class="ty">Node</span>::<span class="fnc">default</span>(), <span class="ty">BackgroundColor</span>(NORMAL)))
+    .<span class="fnc">observe</span>(|over: <span class="ty">On</span>&lt;<span class="ty">Pointer</span>&lt;<span class="ty">Over</span>&gt;&gt;, <span class="kw">mut</span> q: <span class="ty">Query</span>&lt;&amp;<span class="kw">mut</span> <span class="ty">BackgroundColor</span>&gt;| {
+        <span class="kw">if</span> <span class="kw">let</span> <span class="ty">Ok</span>(<span class="kw">mut</span> bg) = q.<span class="fnc">get_mut</span>(over.entity) { bg.<span class="nu">0</span> = HOVERED; }
+    })
+    .<span class="fnc">observe</span>(|out: <span class="ty">On</span>&lt;<span class="ty">Pointer</span>&lt;<span class="ty">Out</span>&gt;&gt;, <span class="kw">mut</span> q: <span class="ty">Query</span>&lt;&amp;<span class="kw">mut</span> <span class="ty">BackgroundColor</span>&gt;| {
+        <span class="kw">if</span> <span class="kw">let</span> <span class="ty">Ok</span>(<span class="kw">mut</span> bg) = q.<span class="fnc">get_mut</span>(out.entity) { bg.<span class="nu">0</span> = NORMAL; }
+    });</pre>
+
+  <h3>The older <code>Interaction</code> path</h3>
+  <p>The legacy polling API still ships and still works — Bevy's own <code>game_menu</code> example uses it in 0.19. It's fine for simple menus and easier to reason about ordering with.</p>
+<pre class="k-comp"><span class="kw">fn</span> <span class="fnc">button_colors</span>(
+    <span class="kw">mut</span> q: <span class="ty">Query</span>&lt;(&amp;<span class="ty">Interaction</span>, &amp;<span class="kw">mut</span> <span class="ty">BackgroundColor</span>),
+                 (<span class="ty">Changed</span>&lt;<span class="ty">Interaction</span>&gt;, <span class="ty">With</span>&lt;<span class="ty">Button</span>&gt;)&gt;,
+) {
+    <span class="kw">for</span> (interaction, <span class="kw">mut</span> bg) <span class="kw">in</span> &amp;<span class="kw">mut</span> q {
+        *bg = <span class="kw">match</span> *interaction {
+            Interaction::Pressed  =&gt; PRESSED.<span class="fnc">into</span>(),
+            Interaction::Hovered  =&gt; HOVERED.<span class="fnc">into</span>(),
+            Interaction::None     =&gt; NORMAL.<span class="fnc">into</span>(),
+        };
+    }
+}</pre>
+  <p>The <code>Changed&lt;Interaction&gt;</code> filter matters — without it you rewrite every button's colour every frame.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="states">
+  <h2><span class="num">11</span>States <span class="tag t-res">state</span></h2>
+  <p class="lede">States are how screens get created and destroyed. Menus are almost entirely a state-machine problem with some flexbox attached.</p>
+
+<pre class="k-res"><span class="attr">#[derive(States, Clone, Copy, Default, Eq, PartialEq, Debug, Hash)]</span>
+<span class="kw">enum</span> <span class="ty">GameState</span> {
+    <span class="attr">#[default]</span>
+    Splash,
+    Menu,
+    Game,
+}
+
+app.<span class="fnc">init_state</span>::&lt;<span class="ty">GameState</span>&gt;()
+   .<span class="fnc">add_systems</span>(<span class="ty">OnEnter</span>(GameState::Menu), spawn_menu)
+   .<span class="fnc">add_systems</span>(<span class="ty">OnExit</span>(GameState::Menu),  cleanup_menu)
+   .<span class="fnc">add_systems</span>(Update, tick.<span class="fnc">run_if</span>(<span class="fnc">in_state</span>(GameState::Game)));
+
+<span class="cm">// Transition from anywhere:</span>
+<span class="kw">fn</span> <span class="fnc">start</span>(<span class="kw">mut</span> next: <span class="ty">ResMut</span>&lt;<span class="ty">NextState</span>&lt;<span class="ty">GameState</span>&gt;&gt;) {
+    next.<span class="fnc">set</span>(GameState::Game);
+}</pre>
+
+  <h3><code>DespawnOnExit</code> — delete the cleanup boilerplate</h3>
+<pre class="k-res">commands.<span class="fnc">spawn</span>((
+    <span class="ty">DespawnOnExit</span>(MenuState::Main),   <span class="cm">// whole subtree dies on state exit</span>
+    <span class="ty">Node</span> { width: <span class="fnc">percent</span>(<span class="nu">100</span>), height: <span class="fnc">percent</span>(<span class="nu">100</span>), ..<span class="fnc">default</span>() },
+    <span class="mac">children!</span>[ <span class="cm">/* ... */</span> ],
+));</pre>
+  <p>You no longer need a marker component plus a <code>despawn_all::&lt;T&gt;</code> generic system on every screen. Put it on the root node and the children go with it.</p>
+
+  <h3>Sub-states — pause menus that only exist in-game</h3>
+<pre class="k-res"><span class="attr">#[derive(SubStates, Clone, Copy, Default, Eq, PartialEq, Debug, Hash)]</span>
+<span class="attr">#[source(GameState = GameState::Game)]</span>
+<span class="kw">enum</span> <span class="ty">PauseState</span> {
+    <span class="attr">#[default]</span>
+    Running,
+    Paused,
+}
+
+app.<span class="fnc">add_sub_state</span>::&lt;<span class="ty">PauseState</span>&gt;();</pre>
+  <p><code>PauseState</code> only exists while <code>GameState::Game</code> is active, and is removed automatically on exit — so a paused game can't leak a pause overlay into the main menu. <code>ComputedStates</code> is the sibling API for states derived from others (e.g. "is any menu open").</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="menus">
+  <h2><span class="num">12</span>Menus, end to end</h2>
+  <p class="lede">The architecture Bevy's own <code>game_menu</code> example uses, condensed. Two states: one for the app, one for which menu screen is showing.</p>
+
+<pre class="k-res"><span class="attr">#[derive(States, Clone, Copy, Default, Eq, PartialEq, Debug, Hash)]</span>
+<span class="kw">enum</span> <span class="ty">MenuState</span> {
+    Main,
+    Settings,
+    SettingsDisplay,
+    SettingsSound,
+    <span class="attr">#[default]</span>
+    Disabled,          <span class="cm">// nothing showing — the menu isn't open</span>
+}
+
+<span class="attr">#[derive(Component)]</span>
+<span class="kw">enum</span> <span class="ty">MenuButtonAction</span> {
+    Play, Settings, SettingsDisplay, SettingsSound,
+    BackToMainMenu, BackToSettings, Quit,
+}
+
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="fnc">menu_plugin</span>(app: &amp;<span class="kw">mut</span> App) {
+    app.<span class="fnc">init_state</span>::&lt;<span class="ty">MenuState</span>&gt;()
+        <span class="cm">// entering GameState::Menu switches the inner state on</span>
+        .<span class="fnc">add_systems</span>(<span class="ty">OnEnter</span>(GameState::Menu), |<span class="kw">mut</span> m: <span class="ty">ResMut</span>&lt;<span class="ty">NextState</span>&lt;<span class="ty">MenuState</span>&gt;&gt;| {
+            m.<span class="fnc">set</span>(MenuState::Main);
+        })
+        <span class="cm">// one setup system per screen</span>
+        .<span class="fnc">add_systems</span>(<span class="ty">OnEnter</span>(MenuState::Main), main_menu_setup)
+        .<span class="fnc">add_systems</span>(<span class="ty">OnEnter</span>(MenuState::Settings), settings_setup)
+        .<span class="fnc">add_systems</span>(<span class="ty">OnEnter</span>(MenuState::SettingsDisplay), display_setup)
+        .<span class="fnc">add_systems</span>(<span class="ty">OnEnter</span>(MenuState::SettingsSound), sound_setup)
+        <span class="cm">// one action handler for all of them</span>
+        .<span class="fnc">add_systems</span>(Update, menu_action.<span class="fnc">run_if</span>(<span class="fnc">in_state</span>(GameState::Menu)));
+}</pre>
+
+  <h3>The single action handler</h3>
+<pre class="k-res"><span class="kw">fn</span> <span class="fnc">menu_action</span>(
+    q: <span class="ty">Query</span>&lt;(&amp;<span class="ty">Interaction</span>, &amp;<span class="ty">MenuButtonAction</span>), (<span class="ty">Changed</span>&lt;<span class="ty">Interaction</span>&gt;, <span class="ty">With</span>&lt;<span class="ty">Button</span>&gt;)&gt;,
+    <span class="kw">mut</span> exit: <span class="ty">MessageWriter</span>&lt;<span class="ty">AppExit</span>&gt;,
+    <span class="kw">mut</span> menu: <span class="ty">ResMut</span>&lt;<span class="ty">NextState</span>&lt;<span class="ty">MenuState</span>&gt;&gt;,
+    <span class="kw">mut</span> game: <span class="ty">ResMut</span>&lt;<span class="ty">NextState</span>&lt;<span class="ty">GameState</span>&gt;&gt;,
+) {
+    <span class="kw">for</span> (interaction, action) <span class="kw">in</span> &amp;q {
+        <span class="kw">if</span> *interaction != Interaction::Pressed { <span class="kw">continue</span>; }
+        <span class="kw">match</span> action {
+            MenuButtonAction::Quit =&gt; { exit.<span class="fnc">write</span>(AppExit::Success); }
+            MenuButtonAction::Play =&gt; {
+                game.<span class="fnc">set</span>(GameState::Game);
+                menu.<span class="fnc">set</span>(MenuState::Disabled);   <span class="cm">// tear the menu down</span>
+            }
+            MenuButtonAction::Settings        =&gt; menu.<span class="fnc">set</span>(MenuState::Settings),
+            MenuButtonAction::SettingsDisplay =&gt; menu.<span class="fnc">set</span>(MenuState::SettingsDisplay),
+            MenuButtonAction::SettingsSound   =&gt; menu.<span class="fnc">set</span>(MenuState::SettingsSound),
+            MenuButtonAction::BackToMainMenu  =&gt; menu.<span class="fnc">set</span>(MenuState::Main),
+            MenuButtonAction::BackToSettings  =&gt; menu.<span class="fnc">set</span>(MenuState::Settings),
+        }
+    }
+}</pre>
+
+  <div class="note good">
+    <b>Why this scales</b>
+    <p>Buttons carry an <em>action component</em> rather than a callback. Adding a screen means adding an enum variant, an <code>OnEnter</code> system, and a match arm — never touching the others. And because each screen root carries <code>DespawnOnExit</code>, transitions clean up for free.</p>
+  </div>
+
+  <h3>Settings buttons with a generic system</h3>
+  <p>A neat trick from the official example: make the setting value itself a component, then write one generic system for every setting type.</p>
+<pre class="k-res"><span class="attr">#[derive(Resource, Component, Debug, PartialEq, Eq, Clone, Copy)]</span>
+<span class="kw">enum</span> <span class="ty">DisplayQuality</span> { Low, Medium, High }
+
+<span class="attr">#[derive(Component)]</span>
+<span class="kw">struct</span> <span class="ty">SelectedOption</span>;
+
+<span class="kw">fn</span> <span class="fnc">setting_button</span>&lt;T: <span class="ty">Resource</span> + <span class="ty">Component</span> + <span class="ty">PartialEq</span> + <span class="ty">Copy</span>&gt;(
+    q: <span class="ty">Query</span>&lt;(&amp;<span class="ty">Interaction</span>, &amp;T, <span class="ty">Entity</span>), (<span class="ty">Changed</span>&lt;<span class="ty">Interaction</span>&gt;, <span class="ty">With</span>&lt;<span class="ty">Button</span>&gt;)&gt;,
+    selected: <span class="ty">Single</span>&lt;(<span class="ty">Entity</span>, &amp;<span class="kw">mut</span> <span class="ty">BackgroundColor</span>), <span class="ty">With</span>&lt;<span class="ty">SelectedOption</span>&gt;&gt;,
+    <span class="kw">mut</span> commands: Commands,
+    <span class="kw">mut</span> setting: <span class="ty">ResMut</span>&lt;T&gt;,
+) {
+    <span class="kw">let</span> (prev, <span class="kw">mut</span> prev_color) = selected.<span class="fnc">into_inner</span>();
+    <span class="kw">for</span> (interaction, value, entity) <span class="kw">in</span> &amp;q {
+        <span class="kw">if</span> *interaction == Interaction::Pressed &amp;&amp; *setting != *value {
+            *prev_color = NORMAL.<span class="fnc">into</span>();
+            commands.<span class="fnc">entity</span>(prev).<span class="fnc">remove</span>::&lt;<span class="ty">SelectedOption</span>&gt;();
+            commands.<span class="fnc">entity</span>(entity).<span class="fnc">insert</span>(<span class="ty">SelectedOption</span>);
+            *setting = *value;
+        }
+    }
+}
+
+<span class="cm">// Register once per setting type:</span>
+app.<span class="fnc">add_systems</span>(Update, (
+    setting_button::&lt;<span class="ty">DisplayQuality</span>&gt;.<span class="fnc">run_if</span>(<span class="fnc">in_state</span>(MenuState::SettingsDisplay)),
+    setting_button::&lt;<span class="ty">Volume</span>&gt;.<span class="fnc">run_if</span>(<span class="fnc">in_state</span>(MenuState::SettingsSound)),
+));</pre>
+</section>
+
+<!-- ============================================================ -->
+<section id="submenus">
+  <h2><span class="num">13</span>Submenu stacks &amp; back navigation</h2>
+  <p class="lede">Flat states break down once "Back" has to remember where you came from. Two solutions, depending on depth.</p>
+
+  <h3>Shallow: hardcode the return target</h3>
+  <p>With three or four screens, <code>BackToSettings</code> and <code>BackToMainMenu</code> as separate actions is honest and readable. Don't over-engineer.</p>
+
+  <h3>Deep: keep an explicit stack</h3>
+<pre class="k-res"><span class="attr">#[derive(Resource, Default)]</span>
+<span class="kw">struct</span> <span class="ty">MenuStack</span>(<span class="ty">Vec</span>&lt;<span class="ty">MenuState</span>&gt;);
+
+<span class="attr">#[derive(Event)]</span>
+<span class="kw">struct</span> <span class="ty">PushMenu</span>(<span class="ty">MenuState</span>);
+
+<span class="attr">#[derive(Event)]</span>
+<span class="kw">struct</span> <span class="ty">PopMenu</span>;
+
+<span class="kw">fn</span> <span class="fnc">on_push</span>(
+    push: <span class="ty">On</span>&lt;<span class="ty">PushMenu</span>&gt;,
+    current: <span class="ty">Res</span>&lt;<span class="ty">State</span>&lt;<span class="ty">MenuState</span>&gt;&gt;,
+    <span class="kw">mut</span> stack: <span class="ty">ResMut</span>&lt;<span class="ty">MenuStack</span>&gt;,
+    <span class="kw">mut</span> next: <span class="ty">ResMut</span>&lt;<span class="ty">NextState</span>&lt;<span class="ty">MenuState</span>&gt;&gt;,
+) {
+    stack.<span class="nu">0</span>.<span class="fnc">push</span>(*current.<span class="fnc">get</span>());
+    next.<span class="fnc">set</span>(push.<span class="nu">0</span>);
+}
+
+<span class="kw">fn</span> <span class="fnc">on_pop</span>(
+    _: <span class="ty">On</span>&lt;<span class="ty">PopMenu</span>&gt;,
+    <span class="kw">mut</span> stack: <span class="ty">ResMut</span>&lt;<span class="ty">MenuStack</span>&gt;,
+    <span class="kw">mut</span> next: <span class="ty">ResMut</span>&lt;<span class="ty">NextState</span>&lt;<span class="ty">MenuState</span>&gt;&gt;,
+) {
+    <span class="kw">if</span> <span class="kw">let</span> <span class="ty">Some</span>(prev) = stack.<span class="nu">0</span>.<span class="fnc">pop</span>() {
+        next.<span class="fnc">set</span>(prev);
+    } <span class="kw">else</span> {
+        next.<span class="fnc">set</span>(MenuState::Main);
+    }
+}
+
+<span class="cm">// Escape key pops, universally:</span>
+<span class="kw">fn</span> <span class="fnc">escape_pops</span>(keys: <span class="ty">Res</span>&lt;<span class="ty">ButtonInput</span>&lt;<span class="ty">KeyCode</span>&gt;&gt;, <span class="kw">mut</span> commands: Commands) {
+    <span class="kw">if</span> keys.<span class="fnc">just_pressed</span>(KeyCode::Escape) {
+        commands.<span class="fnc">trigger</span>(<span class="ty">PopMenu</span>);
+    }
+}</pre>
+
+  <h3>Overlay submenus that don't destroy the parent</h3>
+  <p>Sometimes a submenu should sit <em>on top of</em> the menu behind it rather than replacing it — a confirmation dialog, say. Don't model that as a state transition; spawn a modal and dim the parent.</p>
+<pre class="k-comp">commands.<span class="fnc">spawn</span>((
+    <span class="ty">ConfirmDialog</span>,
+    <span class="ty">GlobalZIndex</span>(<span class="nu">100</span>),                      <span class="cm">// above everything</span>
+    <span class="ty">Node</span> {
+        position_type: PositionType::Absolute,
+        width: <span class="fnc">percent</span>(<span class="nu">100</span>), height: <span class="fnc">percent</span>(<span class="nu">100</span>),
+        align_items: AlignItems::Center,
+        justify_content: JustifyContent::Center,
+        ..<span class="fnc">default</span>()
+    },
+    <span class="ty">BackgroundColor</span>(Color::<span class="fnc">srgba</span>(<span class="nu">0.</span>, <span class="nu">0.</span>, <span class="nu">0.</span>, <span class="nu">0.7</span>)),  <span class="cm">// scrim blocks clicks</span>
+    <span class="mac">children!</span>[ <span class="cm">/* the dialog box */</span> ],
+));</pre>
+  <p>The full-screen scrim is doing real work: because it's a node with default <code>Pickable</code> behaviour, it absorbs pointer events and the menu behind becomes unclickable without any extra input gating.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="widgets">
+  <h2><span class="num">14</span>Widgets <span class="tag t-comp">components</span></h2>
+  <p class="lede">Two layers ship in-tree, both still experimental. Understand which one you want before you commit.</p>
+
+  <table class="tbl">
+    <tr><th>Layer</th><th>Crate</th><th>What you get</th></tr>
+    <tr><td>Headless</td><td><code>bevy_ui_widgets</code></td><td>Behaviour only — focus, keyboard, accessibility, events. Zero styling. You paint it.</td></tr>
+    <tr><td>Styled</td><td><code>bevy_feathers</code></td><td>Opinionated editor-flavoured look built on the headless set. Made for tooling, not games.</td></tr>
+  </table>
+
+  <h3>Headless widget set</h3>
+  <p>Add the component to any node to give it widget behaviour: <code>Button</code>, <code>Slider</code>, <code>Scrollbar</code>, <code>Checkbox</code>, <code>RadioButton</code>, <code>RadioGroup</code>, <code>Popover</code>, <code>MenuPopup</code>.</p>
+
+<pre class="k-evt">commands.<span class="fnc">spawn</span>((
+    <span class="ty">Checkbox</span>,
+    <span class="ty">Node</span> { width: <span class="fnc">px</span>(<span class="nu">24</span>), height: <span class="fnc">px</span>(<span class="nu">24</span>), ..<span class="fnc">default</span>() },
+    <span class="ty">BackgroundColor</span>(Color::<span class="fnc">srgb</span>(<span class="nu">0.2</span>, <span class="nu">0.2</span>, <span class="nu">0.25</span>)),
+))
+.<span class="fnc">observe</span>(|change: <span class="ty">On</span>&lt;<span class="ty">ValueChange</span>&lt;<span class="kw">bool</span>&gt;&gt;, <span class="kw">mut</span> cfg: <span class="ty">ResMut</span>&lt;<span class="ty">Settings</span>&gt;| {
+    cfg.shadows = change.value;
+});</pre>
+
+  <h4>Widget events</h4>
+  <table class="tbl">
+    <tr><td>Activate</td><td>Widget was activated — button pressed, radio selected</td></tr>
+    <tr><td>ValueChange&lt;T&gt;</td><td>Value changed — slider moved, checkbox toggled</td></tr>
+  </table>
+
+  <h4>Widget state components</h4>
+  <p>These are plain boolean components, so change detection works on them and you can drive styling from ordinary queries.</p>
+  <table class="tbl">
+    <tr><td>Hovered</td><td>Pointer is over the widget</td></tr>
+    <tr><td>Pressed</td><td>Held down right now</td></tr>
+    <tr><td>Checked</td><td>Checkbox / radio state</td></tr>
+    <tr><td>InteractionDisabled</td><td>Greyed out and non-interactive</td></tr>
+  </table>
+
+<pre class="k-comp"><span class="cm">// Style from widget state — one system, any number of buttons</span>
+<span class="kw">fn</span> <span class="fnc">style_buttons</span>(
+    <span class="kw">mut</span> q: <span class="ty">Query</span>&lt;
+        (&amp;<span class="ty">Hovered</span>, &amp;<span class="ty">Pressed</span>, <span class="ty">Has</span>&lt;<span class="ty">InteractionDisabled</span>&gt;, &amp;<span class="kw">mut</span> <span class="ty">BackgroundColor</span>),
+        (<span class="ty">With</span>&lt;<span class="ty">Button</span>&gt;, <span class="ty">Or</span>&lt;(<span class="ty">Changed</span>&lt;<span class="ty">Hovered</span>&gt;, <span class="ty">Changed</span>&lt;<span class="ty">Pressed</span>&gt;)&gt;),
+    &gt;,
+) {
+    <span class="kw">for</span> (hovered, pressed, disabled, <span class="kw">mut</span> bg) <span class="kw">in</span> &amp;<span class="kw">mut</span> q {
+        bg.<span class="nu">0</span> = <span class="kw">if</span> disabled   { DISABLED }
+                <span class="kw">else</span> <span class="kw">if</span> pressed.<span class="nu">0</span> { PRESSED }
+                <span class="kw">else</span> <span class="kw">if</span> hovered.<span class="nu">0</span> { HOVERED }
+                <span class="kw">else</span>              { NORMAL };
+    }
+}</pre>
+
+  <h3>Dropdown menus &amp; popovers <span class="tag t-new">0.18</span></h3>
+  <p><code>Popover</code> does automatic placement against an anchor — it flips sides to stay on screen, follows the anchor if it scrolls, and reflows on window resize. <code>MenuPopup</code> builds a dropdown on top of it, with keyboard navigation and focus handling included.</p>
+
+<pre class="k-comp">commands.<span class="fnc">spawn</span>((
+    <span class="ty">MenuPopup</span>::<span class="fnc">default</span>(),
+    <span class="ty">Popover</span> {
+        anchor: menu_button_entity,
+        placements: <span class="mac">vec!</span>[Placement::BottomStart, Placement::TopStart],
+        ..<span class="fnc">default</span>()
+    },
+    <span class="ty">Node</span> { position_type: PositionType::Absolute, ..<span class="fnc">default</span>() },
+    <span class="mac">children!</span>[ <span class="cm">/* menu items */</span> ],
+));</pre>
+  <p>Use it for tooltips too — it's the same positioning machinery.</p>
+
+  <h3>Feathers, if you're building tools</h3>
+<pre class="k-comp"><span class="cm">// 0.19: Feathers was ported to BSN — caption, extras and observer in one block</span>
+<span class="mac">bsn!</span> {
+    @<span class="ty">FeathersCheckbox</span> {
+        @caption: <span class="mac">bsn!</span> { <span class="ty">Text</span>(<span class="st">"Enable shadows"</span>) <span class="ty">ThemedText</span> }
+    }
+    <span class="fnc">on</span>(|change: <span class="ty">On</span>&lt;<span class="ty">ValueChange</span>&lt;<span class="kw">bool</span>&gt;&gt;, <span class="kw">mut</span> cfg: <span class="ty">ResMut</span>&lt;<span class="ty">ShadowConfig</span>&gt;| {
+        cfg.enabled = change.value;
+    })
+}</pre>
+  <p>Feathers has text input, number input, dropdowns, disclosure toggles, list views, scrollbars, panes. Its look is deliberately utilitarian — it exists for the Bevy Editor. For a game, the recommended move is to copy the Feathers source into your project and restyle it.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="textinput">
+  <h2><span class="num">15</span>Text input <span class="tag t-new">new in 0.19</span></h2>
+  <p class="lede">Upstream text entry finally exists. Add <code>EditableText</code> and you get a working field.</p>
+
+<pre class="k-comp">commands.<span class="fnc">spawn</span>((
+    <span class="ty">EditableText</span> {
+        max_characters: <span class="ty">Some</span>(<span class="nu">24</span>),
+        ..<span class="fnc">default</span>()
+    },
+    <span class="ty">SelectAllOnFocus</span>,
+    <span class="ty">Node</span> { width: <span class="fnc">px</span>(<span class="nu">280</span>), padding: <span class="fnc">px</span>(<span class="nu">6</span>).<span class="fnc">all</span>(), ..<span class="fnc">default</span>() },
+    <span class="ty">BackgroundColor</span>(Color::<span class="fnc">srgb</span>(<span class="nu">0.08</span>, <span class="nu">0.09</span>, <span class="nu">0.12</span>)),
+));</pre>
+
+  <p>Working out of the box: typing, arrow/Home/End and word-level navigation, shift-selection, double-click for word and triple-click for line, backspace and delete by character or word, OS clipboard (with the <code>system_clipboard</code> feature), unicode-correct editing, bidirectional text, IME for CJK, multiline with soft wrap and vertical scroll, horizontal scroll, and per-character filtering via <code>EditableTextFilter</code>.</p>
+
+  <div class="note">
+    <b>Not yet implemented</b>
+    <p>Placeholder text, undo/redo, and password masking are missing in 0.19. The internals are documented and exposed so you can build them yourself, but budget for that if you need a login field or a rename dialog with undo.</p>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="focus">
+  <h2><span class="num">16</span>Focus, keyboard &amp; gamepad <span class="tag t-res">state</span></h2>
+  <p class="lede">If your menu can't be driven with a controller, it isn't finished. 0.18 made this dramatically less tedious.</p>
+
+  <h3>Automatic directional navigation</h3>
+<pre class="k-comp">commands.<span class="fnc">spawn</span>((
+    <span class="ty">Button</span>,
+    <span class="ty">Node</span> { <span class="cm">/* ... */</span> ..<span class="fnc">default</span>() },
+    <span class="ty">AutoDirectionalNavigation</span>::<span class="fnc">default</span>(),   <span class="cm">// that's it</span>
+));</pre>
+  <p>Bevy computes the navigation graph from on-screen positions, picking the nearest neighbour in each of eight compass directions using distance, alignment, and perpendicular overlap. Before 0.18 you wired every edge by hand.</p>
+
+<pre class="k-res"><span class="kw">fn</span> <span class="fnc">navigate</span>(
+    <span class="kw">mut</span> nav: <span class="ty">AutoDirectionalNavigator</span>,
+    keys: <span class="ty">Res</span>&lt;<span class="ty">ButtonInput</span>&lt;<span class="ty">KeyCode</span>&gt;&gt;,
+) {
+    <span class="kw">if</span> keys.<span class="fnc">just_pressed</span>(KeyCode::ArrowRight) { nav.<span class="fnc">navigate</span>(CompassOctant::East); }
+    <span class="kw">if</span> keys.<span class="fnc">just_pressed</span>(KeyCode::ArrowDown)  { nav.<span class="fnc">navigate</span>(CompassOctant::South); }
+}
+
+<span class="cm">// Tune the heuristics</span>
+app.<span class="fnc">insert_resource</span>(<span class="ty">AutoNavigationConfig</span> {
+    min_alignment_factor: <span class="nu">0.0</span>,
+    max_search_distance: <span class="ty">Some</span>(<span class="nu">500.0</span>),
+    prefer_aligned: <span class="kw">true</span>,
+});</pre>
+
+  <p>Manual edges added via <code>DirectionalNavigationMap::add_edge</code> or <code>add_symmetrical_edge</code> take precedence over the generated ones — use them for screen-edge wrapping.</p>
+
+  <h3>Focus</h3>
+  <p><code>InputFocus</code> is the resource holding the currently focused entity. <code>TabIndex</code> and <code>TabGroup</code> drive tab-order traversal. Headless widgets already respond to Space and Enter when focused, so wiring focus gets you keyboard activation for free.</p>
+
+  <h3>Accessibility</h3>
+<pre class="k-comp">commands.<span class="fnc">spawn</span>((
+    <span class="ty">Button</span>,
+    <span class="ty">AccessibleLabel</span>::<span class="fnc">new</span>(<span class="st">"Close inventory"</span>),   <span class="cm">// 0.19</span>
+    <span class="ty">Node</span>::<span class="fnc">default</span>(),
+));</pre>
+  <p>Splitting the label into its own component means widget authors define behaviour and widget <em>users</em> supply the label — which is the right division, since only you know what your button means.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="databind">
+  <h2><span class="num">17</span>Binding data to UI <span class="tag t-res">state</span></h2>
+  <p class="lede">"Stuff that needs data" is where most Bevy UI code goes wrong. There is no reactive binding layer — you choose an update strategy, and the wrong one is either a stutter or a bug.</p>
+
+  <h3>Strategy 1 — change detection (default choice)</h3>
+<pre class="k-res"><span class="kw">fn</span> <span class="fnc">sync_gold_label</span>(
+    wallet: <span class="ty">Res</span>&lt;<span class="ty">Wallet</span>&gt;,
+    <span class="kw">mut</span> q: <span class="ty">Query</span>&lt;&amp;<span class="kw">mut</span> <span class="ty">Text</span>, <span class="ty">With</span>&lt;<span class="ty">GoldLabel</span>&gt;&gt;,
+) {
+    <span class="kw">if</span> !wallet.<span class="fnc">is_changed</span>() { <span class="kw">return</span>; }        <span class="cm">// cheap early out</span>
+    <span class="kw">for</span> <span class="kw">mut</span> text <span class="kw">in</span> &amp;<span class="kw">mut</span> q {
+        **text = <span class="mac">format!</span>(<span class="st">"{} gold"</span>, wallet.gold);
+    }
+}
+
+<span class="cm">// Or gate the whole system:</span>
+app.<span class="fnc">add_systems</span>(Update, sync_gold_label.<span class="fnc">run_if</span>(<span class="fnc">resource_changed</span>::&lt;<span class="ty">Wallet</span>&gt;));</pre>
+  <p>Mutate the UI in place; never despawn and respawn a label to change its text.</p>
+
+  <h3>Strategy 2 — observers on data changes</h3>
+<pre class="k-evt"><span class="cm">// Push-based: the data layer announces, the UI listens.</span>
+<span class="attr">#[derive(Event)]</span>
+<span class="kw">struct</span> <span class="ty">InventoryChanged</span>;
+
+app.<span class="fnc">add_observer</span>(|_: <span class="ty">On</span>&lt;<span class="ty">InventoryChanged</span>&gt;,
+                  inv: <span class="ty">Res</span>&lt;<span class="ty">Inventory</span>&gt;,
+                  <span class="kw">mut</span> commands: Commands,
+                  slots: <span class="ty">Query</span>&lt;<span class="ty">Entity</span>, <span class="ty">With</span>&lt;<span class="ty">SlotIcon</span>&gt;&gt;| {
+    <span class="cm">// rebuild only the icons, not the whole panel</span>
+});</pre>
+  <p>Better than change detection when the update is expensive and rare: you rebuild exactly when something happened rather than checking every frame.</p>
+
+  <h3>Strategy 3 — marker components carrying an index</h3>
+<pre class="k-comp"><span class="attr">#[derive(Component)]</span>
+<span class="kw">struct</span> <span class="ty">SlotIndex</span>(<span class="kw">usize</span>);
+
+<span class="kw">fn</span> <span class="fnc">sync_slots</span>(
+    inv: <span class="ty">Res</span>&lt;<span class="ty">Inventory</span>&gt;,
+    <span class="kw">mut</span> q: <span class="ty">Query</span>&lt;(&amp;<span class="ty">SlotIndex</span>, &amp;<span class="kw">mut</span> <span class="ty">ImageNode</span>)&gt;,
+    assets: <span class="ty">Res</span>&lt;<span class="ty">AssetServer</span>&gt;,
+) {
+    <span class="kw">if</span> !inv.<span class="fnc">is_changed</span>() { <span class="kw">return</span>; }
+    <span class="kw">for</span> (idx, <span class="kw">mut</span> image) <span class="kw">in</span> &amp;<span class="kw">mut</span> q {
+        image.image = <span class="kw">match</span> inv.slots.<span class="fnc">get</span>(idx.<span class="nu">0</span>) {
+            <span class="ty">Some</span>(<span class="ty">Some</span>(item)) =&gt; assets.<span class="fnc">load</span>(item.icon_path()),
+            _ =&gt; assets.<span class="fnc">load</span>(<span class="st">"ui/empty_slot.png"</span>),
+        };
+    }
+}</pre>
+  <p>Spawn a fixed number of slot entities once, then only ever mutate their contents. This is the single most important performance pattern for inventories.</p>
+
+  <div class="note">
+    <b>The mistake to avoid</b>
+    <p>Despawning and respawning a UI subtree every frame — or every time data changes — thrashes the layout engine, destroys focus, kills any in-progress drag, and resets scroll position. Build once, mutate in place, and only rebuild when the <em>structure</em> genuinely changes (item count, not item value).</p>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="inventory">
+  <h2><span class="num">18</span>Inventories</h2>
+  <p class="lede">A grid of slot entities, a data source, and drag-and-drop. The interesting decision is how items relate to the player.</p>
+
+  <h3>Option A — relationships (ECS-native)</h3>
+<pre class="k-comp"><span class="attr">#[derive(Component)]</span>
+<span class="attr">#[relationship(relationship_target = Inventory)]</span>
+<span class="kw">struct</span> <span class="ty">StoredIn</span>(<span class="ty">Entity</span>);
+
+<span class="attr">#[derive(Component)]</span>
+<span class="attr">#[relationship_target(relationship = StoredIn)]</span>
+<span class="kw">struct</span> <span class="ty">Inventory</span>(<span class="ty">Vec</span>&lt;<span class="ty">Entity</span>&gt;);
+
+<span class="cm">// Items are real entities with real components.</span>
+commands.<span class="fnc">spawn</span>((<span class="ty">Item</span>, <span class="ty">Name</span>::<span class="fnc">new</span>(<span class="st">"Iron Sword"</span>), <span class="ty">Damage</span>(<span class="nu">12</span>), <span class="ty">StoredIn</span>(player)));
+
+<span class="cm">// Query the contents:</span>
+<span class="kw">fn</span> <span class="fnc">list</span>(inv: <span class="ty">Query</span>&lt;&amp;<span class="ty">Inventory</span>&gt;, items: <span class="ty">Query</span>&lt;&amp;<span class="ty">Name</span>&gt;) {
+    <span class="kw">for</span> inventory <span class="kw">in</span> &amp;inv {
+        <span class="kw">for</span> &amp;item <span class="kw">in</span> inventory.<span class="fnc">iter</span>() {
+            <span class="kw">if</span> <span class="kw">let</span> <span class="ty">Ok</span>(name) = items.<span class="fnc">get</span>(item) { <span class="mac">info!</span>(<span class="st">"{name}"</span>); }
+        }
+    }
+}</pre>
+  <p>Items get the full ECS: components for stats, observers for behaviour, queries across all items in the world. Bevy maintains both sides of the relationship automatically. In BSN you can spawn related entities inline with <code>Inventory [ Apple, Potion ]</code>.</p>
+
+  <h3>Option B — a plain resource</h3>
+<pre class="k-res"><span class="attr">#[derive(Resource, Default)]</span>
+<span class="kw">struct</span> <span class="ty">PlayerInventory</span> {
+    slots: <span class="ty">Vec</span>&lt;<span class="ty">Option</span>&lt;<span class="ty">ItemStack</span>&gt;&gt;,
+}
+
+<span class="attr">#[derive(Clone)]</span>
+<span class="kw">struct</span> <span class="ty">ItemStack</span> { id: <span class="ty">ItemId</span>, count: <span class="kw">u32</span> }</pre>
+  <p>Simpler to serialise, simpler to reason about, trivially cloneable for undo. Choose this if items are mostly data rather than behaviour. Don't feel obliged to make everything an entity.</p>
+
+  <h3>The grid</h3>
+<pre class="k-lay"><span class="kw">fn</span> <span class="fnc">spawn_inventory</span>(<span class="kw">mut</span> commands: Commands) {
+    commands.<span class="fnc">spawn</span>((
+        <span class="ty">InventoryRoot</span>,
+        <span class="ty">DespawnOnExit</span>(UiState::Inventory),
+        <span class="ty">Node</span> {
+            display: Display::Grid,
+            grid_template_columns: <span class="ty">RepeatedGridTrack</span>::<span class="fnc">px</span>(<span class="nu">6</span>, <span class="nu">64.0</span>),
+            row_gap: <span class="fnc">px</span>(<span class="nu">6</span>),
+            column_gap: <span class="fnc">px</span>(<span class="nu">6</span>),
+            padding: <span class="fnc">px</span>(<span class="nu">10</span>).<span class="fnc">all</span>(),
+            ..<span class="fnc">default</span>()
+        },
+        <span class="ty">BackgroundColor</span>(PANEL_BG),
+        <span class="ty">Children</span>::<span class="fnc">spawn</span>(<span class="ty">SpawnIter</span>((<span class="nu">0</span>..<span class="nu">24</span>).<span class="fnc">map</span>(|i| (
+            <span class="ty">SlotIndex</span>(i),
+            <span class="ty">Node</span> {
+                width: <span class="fnc">px</span>(<span class="nu">64</span>), height: <span class="fnc">px</span>(<span class="nu">64</span>),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..<span class="fnc">default</span>()
+            },
+            <span class="ty">BackgroundColor</span>(SLOT_BG),
+            <span class="ty">BorderRadius</span>::<span class="fnc">all</span>(<span class="fnc">px</span>(<span class="nu">4</span>)),
+        )))),
+    ));
+}</pre>
+
+  <h3>Drag and drop</h3>
+<pre class="k-evt"><span class="attr">#[derive(Resource, Default)]</span>
+<span class="kw">struct</span> <span class="ty">DragSource</span>(<span class="ty">Option</span>&lt;<span class="kw">usize</span>&gt;);
+
+<span class="kw">fn</span> <span class="fnc">setup_slot_observers</span>(<span class="kw">mut</span> commands: Commands, slots: <span class="ty">Query</span>&lt;<span class="ty">Entity</span>, <span class="ty">With</span>&lt;<span class="ty">SlotIndex</span>&gt;&gt;) {
+    <span class="kw">for</span> slot <span class="kw">in</span> &amp;slots {
+        commands.<span class="fnc">entity</span>(slot)
+            .<span class="fnc">observe</span>(|start: <span class="ty">On</span>&lt;<span class="ty">Pointer</span>&lt;<span class="ty">DragStart</span>&gt;&gt;,
+                      q: <span class="ty">Query</span>&lt;&amp;<span class="ty">SlotIndex</span>&gt;,
+                      <span class="kw">mut</span> drag: <span class="ty">ResMut</span>&lt;<span class="ty">DragSource</span>&gt;| {
+                <span class="kw">if</span> <span class="kw">let</span> <span class="ty">Ok</span>(idx) = q.<span class="fnc">get</span>(start.entity) { drag.<span class="nu">0</span> = <span class="ty">Some</span>(idx.<span class="nu">0</span>); }
+            })
+            .<span class="fnc">observe</span>(|drop: <span class="ty">On</span>&lt;<span class="ty">Pointer</span>&lt;<span class="ty">DragDrop</span>&gt;&gt;,
+                      q: <span class="ty">Query</span>&lt;&amp;<span class="ty">SlotIndex</span>&gt;,
+                      <span class="kw">mut</span> drag: <span class="ty">ResMut</span>&lt;<span class="ty">DragSource</span>&gt;,
+                      <span class="kw">mut</span> inv: <span class="ty">ResMut</span>&lt;<span class="ty">PlayerInventory</span>&gt;| {
+                <span class="kw">let</span> (<span class="ty">Some</span>(from), <span class="ty">Ok</span>(to)) = (drag.<span class="nu">0</span>.<span class="fnc">take</span>(), q.<span class="fnc">get</span>(drop.entity)) <span class="kw">else</span> { <span class="kw">return</span> };
+                inv.slots.<span class="fnc">swap</span>(from, to.<span class="nu">0</span>);   <span class="cm">// change detection fires; UI resyncs</span>
+            });
+    }
+}</pre>
+
+  <h3>Drag ghost</h3>
+  <p>For an icon that follows the cursor, spawn one absolutely-positioned node with a high <code>GlobalZIndex</code> on <code>DragStart</code>, move it on <code>Pointer&lt;Drag&gt;</code> using <code>drag.delta</code>, and despawn it on <code>DragEnd</code>. Give it <code>Pickable::IGNORE</code> — otherwise the ghost sits under the cursor and eats the <code>DragDrop</code> event meant for the slot beneath it.</p>
+
+  <h3>Tooltips</h3>
+  <p><code>Popover</code> anchored to the hovered slot handles placement and edge-flipping for you. Show it on <code>Pointer&lt;Over&gt;</code>, hide on <code>Pointer&lt;Out&gt;</code>, and add a short delay via a timer so tooltips don't strobe as the cursor crosses the grid.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="dialog">
+  <h2><span class="num">19</span>Dialogue</h2>
+  <p class="lede">Conversation is a small state machine plus text reveal. Keep the dialogue <em>data</em> out of the UI code entirely.</p>
+
+  <h3>Data model</h3>
+<pre class="k-res"><span class="attr">#[derive(Asset, Reflect, Clone)]</span>
+<span class="kw">struct</span> <span class="ty">DialogueTree</span> {
+    nodes: <span class="ty">HashMap</span>&lt;<span class="ty">NodeId</span>, <span class="ty">DialogueNode</span>&gt;,
+    start: <span class="ty">NodeId</span>,
+}
+
+<span class="attr">#[derive(Reflect, Clone)]</span>
+<span class="kw">struct</span> <span class="ty">DialogueNode</span> {
+    speaker: <span class="ty">String</span>,
+    line: <span class="ty">String</span>,
+    choices: <span class="ty">Vec</span>&lt;<span class="ty">Choice</span>&gt;,     <span class="cm">// empty = press to continue</span>
+}
+
+<span class="attr">#[derive(Reflect, Clone)]</span>
+<span class="kw">struct</span> <span class="ty">Choice</span> {
+    text: <span class="ty">String</span>,
+    goto: <span class="ty">Option</span>&lt;<span class="ty">NodeId</span>&gt;,       <span class="cm">// None = end conversation</span>
+}
+
+<span class="attr">#[derive(Resource)]</span>
+<span class="kw">struct</span> <span class="ty">ActiveDialogue</span> {
+    tree: <span class="ty">Handle</span>&lt;<span class="ty">DialogueTree</span>&gt;,
+    current: <span class="ty">NodeId</span>,
+    revealed: <span class="kw">usize</span>,        <span class="cm">// chars shown so far</span>
+    timer: <span class="ty">Timer</span>,
+}</pre>
+
+  <h3>Advancing, as events</h3>
+<pre class="k-evt"><span class="attr">#[derive(Event)]</span>
+<span class="kw">struct</span> <span class="ty">AdvanceDialogue</span>;
+
+<span class="attr">#[derive(Event)]</span>
+<span class="kw">struct</span> <span class="ty">ChooseOption</span>(<span class="kw">usize</span>);
+
+<span class="attr">#[derive(Event)]</span>
+<span class="kw">struct</span> <span class="ty">DialogueEnded</span>(<span class="ty">NodeId</span>);   <span class="cm">// quest systems observe this</span>
+
+<span class="kw">fn</span> <span class="fnc">on_advance</span>(
+    _: <span class="ty">On</span>&lt;<span class="ty">AdvanceDialogue</span>&gt;,
+    <span class="kw">mut</span> active: <span class="ty">ResMut</span>&lt;<span class="ty">ActiveDialogue</span>&gt;,
+    trees: <span class="ty">Res</span>&lt;<span class="ty">Assets</span>&lt;<span class="ty">DialogueTree</span>&gt;&gt;,
+    <span class="kw">mut</span> commands: Commands,
+) {
+    <span class="kw">let</span> <span class="ty">Some</span>(tree) = trees.<span class="fnc">get</span>(&amp;active.tree) <span class="kw">else</span> { <span class="kw">return</span> };
+    <span class="kw">let</span> node = &amp;tree.nodes[&amp;active.current];
+
+    <span class="cm">// First press completes the typewriter instead of advancing —</span>
+    <span class="cm">// players expect this and its absence feels broken.</span>
+    <span class="kw">if</span> active.revealed &lt; node.line.<span class="fnc">chars</span>().<span class="fnc">count</span>() {
+        active.revealed = node.line.<span class="fnc">chars</span>().<span class="fnc">count</span>();
+        <span class="kw">return</span>;
+    }
+
+    <span class="kw">match</span> node.choices.<span class="fnc">first</span>() {
+        <span class="ty">None</span> =&gt; { commands.<span class="fnc">trigger</span>(<span class="ty">DialogueEnded</span>(active.current)); }
+        <span class="ty">Some</span>(_) =&gt; { <span class="cm">/* wait for ChooseOption */</span> }
+    }
+}</pre>
+
+  <h3>Typewriter reveal</h3>
+<pre class="k-res"><span class="kw">fn</span> <span class="fnc">typewriter</span>(
+    time: <span class="ty">Res</span>&lt;<span class="ty">Time</span>&gt;,
+    <span class="kw">mut</span> active: <span class="ty">ResMut</span>&lt;<span class="ty">ActiveDialogue</span>&gt;,
+    trees: <span class="ty">Res</span>&lt;<span class="ty">Assets</span>&lt;<span class="ty">DialogueTree</span>&gt;&gt;,
+    <span class="kw">mut</span> q: <span class="ty">Query</span>&lt;&amp;<span class="kw">mut</span> <span class="ty">Text</span>, <span class="ty">With</span>&lt;<span class="ty">DialogueLine</span>&gt;&gt;,
+) {
+    <span class="kw">let</span> <span class="ty">Some</span>(tree) = trees.<span class="fnc">get</span>(&amp;active.tree) <span class="kw">else</span> { <span class="kw">return</span> };
+    <span class="kw">let</span> full = &amp;tree.nodes[&amp;active.current].line;
+    <span class="kw">let</span> total = full.<span class="fnc">chars</span>().<span class="fnc">count</span>();
+    <span class="kw">if</span> active.revealed &gt;= total { <span class="kw">return</span>; }
+
+    active.timer.<span class="fnc">tick</span>(time.<span class="fnc">delta</span>());
+    <span class="kw">if</span> active.timer.<span class="fnc">just_finished</span>() {
+        active.revealed = (active.revealed + <span class="nu">1</span>).<span class="fnc">min</span>(total);
+        <span class="kw">for</span> <span class="kw">mut</span> text <span class="kw">in</span> &amp;<span class="kw">mut</span> q {
+            **text = full.<span class="fnc">chars</span>().<span class="fnc">take</span>(active.revealed).<span class="fnc">collect</span>();
+        }
+    }
+}</pre>
+  <p>Count <code>chars()</code>, not bytes — slicing a <code>String</code> by byte index will panic the moment someone writes an accented character or an emoji.</p>
+
+  <h3>Choice buttons</h3>
+  <p>Choices <em>are</em> structural change, so respawning them per node is correct here — unlike inventory slots. Spawn them with <code>SpawnIter</code> over the node's choices, each carrying a <code>ChoiceIndex</code> component, and have their observer trigger <code>ChooseOption(index)</code>.</p>
+
+  <div class="note good">
+    <b>Keep the seam clean</b>
+    <p>The dialogue UI should read <code>ActiveDialogue</code> and emit events. It should never mutate quest flags or inventory directly. Then your dialogue system is testable headlessly, and swapping in a different UI skin touches nothing else.</p>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="scroll">
+  <h2><span class="num">20</span>Scrolling <span class="tag t-lay">layout</span></h2>
+
+<pre class="k-lay">commands.<span class="fnc">spawn</span>((
+    <span class="ty">Node</span> {
+        height: <span class="fnc">px</span>(<span class="nu">400</span>),
+        flex_direction: FlexDirection::Column,
+        overflow: <span class="ty">Overflow</span>::<span class="fnc">scroll_y</span>(),   <span class="cm">// clip + allow scrolling</span>
+        ..<span class="fnc">default</span>()
+    },
+    <span class="mac">children!</span>[ <span class="cm">/* long list */</span> ],
+));</pre>
+
+  <p>The container's <code>ScrollPosition</code> component holds the offset; mouse wheel input updates it. To scroll programmatically — jumping to a quest log entry, say — write to <code>ScrollPosition</code> directly.</p>
+
+  <h3>Sticky headers</h3>
+<pre class="k-lay"><span class="cm">// 0.18: opt a child out of its parent's scroll offset per axis</span>
+commands.<span class="fnc">spawn</span>((
+    <span class="ty">Node</span>::<span class="fnc">default</span>(),
+    <span class="ty">IgnoreScroll</span>::<span class="fnc">y</span>(),      <span class="cm">// stays put vertically while siblings scroll</span>
+));</pre>
+
+  <p>Pair the container with a <code>Scrollbar</code> widget from <code>bevy_ui_widgets</code> for a visible, draggable bar.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="settings">
+  <h2><span class="num">21</span>Persisting settings <span class="tag t-new">new in 0.19</span></h2>
+  <p class="lede">Your settings menu needs somewhere to write to. 0.19 ships a first-party answer.</p>
+
+<pre class="k-res"><span class="attr">#[derive(Resource, SettingsGroup, Reflect, Default)]</span>
+<span class="attr">#[reflect(Resource, SettingsGroup, Default)]</span>
+<span class="kw">struct</span> <span class="ty">AudioSettings</span> {
+    music_volume: <span class="kw">f32</span>,
+    sfx_volume: <span class="kw">f32</span>,
+}
+
+app.<span class="fnc">add_plugins</span>(<span class="ty">SettingsPlugin</span>::<span class="fnc">new</span>(<span class="st">"com.example.mygame"</span>));
+
+<span class="cm">// Loaded on startup and inserted as a normal resource.</span>
+<span class="kw">fn</span> <span class="fnc">apply</span>(audio: <span class="ty">Res</span>&lt;<span class="ty">AudioSettings</span>&gt;, <span class="kw">mut</span> sink: <span class="ty">ResMut</span>&lt;<span class="ty">AudioSink</span>&gt;) {
+    sink.<span class="fnc">set_volume</span>(audio.music_volume);
+}
+
+<span class="cm">// Save when the player leaves the settings screen.</span>
+<span class="kw">fn</span> <span class="fnc">save</span>(<span class="kw">mut</span> commands: Commands) {
+    commands.<span class="fnc">queue</span>(<span class="ty">SaveSettingsDeferred</span>);
+}</pre>
+  <p>Good candidates: graphics options, audio levels, window size and position, key bindings, and "don't show this again" flags.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="perf">
+  <h2><span class="num">22</span>Gotchas &amp; performance</h2>
+
+  <ul class="body">
+    <li><strong>No UI camera, no UI.</strong> Spawn a <code>Camera2d</code> (or use an existing 3D camera). The most common "nothing renders" cause.</li>
+    <li><strong>Filter interaction queries.</strong> <code>Changed&lt;Interaction&gt;</code> turns a per-frame loop over every button into an occasional one.</li>
+    <li><strong>Don't rebuild subtrees for value changes.</strong> Mutate components in place. Rebuild only when structure changes.</li>
+    <li><strong>Use <code>GlobalZIndex</code> for modals.</strong> Local <code>ZIndex</code> only orders siblings; a deeply nested dialog can't escape its parent's stacking context without it.</li>
+    <li><strong><code>Pickable::IGNORE</code> on decorative overlays.</strong> Vignettes, drag ghosts, and full-screen effects silently swallow clicks otherwise.</li>
+    <li><strong>Text is a child entity.</strong> A button's text is its own entity, so a naive click handler may target the text. Rely on event propagation, or query up with <code>ChildOf</code>.</li>
+    <li><strong>Percentage heights need a sized parent.</strong> Same trap as CSS: <code>height: percent(100)</code> inside an auto-height parent resolves to nothing.</li>
+    <li><strong>Observers aren't schedule-ordered.</strong> Don't assume an observer ran before a given system this frame.</li>
+    <li><strong>Watch <code>UiTransform</code>, not <code>Transform</code>.</strong> Since 0.17, UI nodes use <code>UiTransform</code>; writing <code>Transform</code> on a UI node does nothing.</li>
+    <li><strong>Prefer a fixed pool of slot entities</strong> over spawn/despawn churn for grids and lists.</li>
+  </ul>
+
+  <h3>Debugging</h3>
+<pre class="k-res"><span class="cm">// Frame timing overlay</span>
+app.<span class="fnc">add_plugins</span>(<span class="ty">FpsOverlayPlugin</span>::<span class="fnc">default</span>());
+
+<span class="cm">// 0.19: built-in diagnostics overlay</span>
+commands.<span class="fnc">spawn</span>(<span class="ty">DiagnosticsOverlay</span>::<span class="fnc">fps</span>());
+
+<span class="cm">// Outline every UI node to see your layout boxes</span>
+app.<span class="fnc">add_plugins</span>(<span class="ty">DebugUiPlugin</span>);</pre>
+</section>
+
+<!-- ============================================================ -->
+<section id="migration">
+  <h2><span class="num">23</span>Version drift 0.16 → 0.19</h2>
+  <p class="lede">If you're reading a tutorial and it doesn't compile, the answer is probably in this table.</p>
+
+  <div class="scroll-x">
+  <table class="tbl">
+    <tr><th>Old</th><th>Current</th><th>Since</th></tr>
+    <tr><td>NodeBundle, ButtonBundle, TextBundle</td><td>Plain components: <code>Node</code>, <code>Button</code>, <code>Text</code></td><td>0.15</td></tr>
+    <tr><td>Style</td><td><code>Node</code></td><td>0.15</td></tr>
+    <tr><td>Trigger&lt;E&gt;</td><td><code>On&lt;E&gt;</code></td><td>0.17</td></tr>
+    <tr><td>EventWriter / EventReader</td><td><code>MessageWriter</code> / <code>MessageReader</code></td><td>0.17</td></tr>
+    <tr><td>#[derive(Event)] + trigger_targets</td><td><code>#[derive(EntityEvent)]</code>, entity on the event</td><td>0.17</td></tr>
+    <tr><td>OnAdd, OnInsert, OnRemove</td><td><code>Add</code>, <code>Insert</code>, <code>Remove</code></td><td>0.17</td></tr>
+    <tr><td>Transform on UI nodes</td><td><code>UiTransform</code></td><td>0.17</td></tr>
+    <tr><td>Val::Px(20.0)</td><td><code>px(20)</code> (helpers)</td><td>0.17</td></tr>
+    <tr><td>TargetCamera</td><td><code>UiTargetCamera</code></td><td>0.16</td></tr>
+    <tr><td>font_size: f32</td><td><code>font_size: FontSize</code> enum</td><td>0.19</td></tr>
+    <tr><td>PickSet, Animation (system sets)</td><td><code>PickingSystems</code>, <code>AnimationSystems</code></td><td>0.17</td></tr>
+    <tr><td>Manual despawn-on-state-exit systems</td><td><code>DespawnOnExit(State)</code></td><td>0.17</td></tr>
+    <tr><td>Nested bundle fns taking &amp;AssetServer</td><td><code>bsn!</code> scenes with asset paths</td><td>0.19</td></tr>
+  </table>
+  </div>
+
+  <div class="note">
+    <b>Checking a specific signature</b>
+    <p>This card covers structure and idiom. For exact field names and constructor signatures — especially on newer surfaces like <code>Popover</code>, <code>EditableText</code>, and the settings API — check <code>docs.rs/bevy/0.19.0</code>, and read the in-tree examples, which are the only docs guaranteed to compile against the release.</p>
+  </div>
+
+  <h3>Examples worth reading in the Bevy repo</h3>
+  <table class="tbl">
+    <tr><td>games/game_menu.rs</td><td>States, screens, settings buttons — the canonical menu</td></tr>
+    <tr><td>ui/ui.rs</td><td>Broad layout tour</td></tr>
+    <tr><td>ui/grid.rs</td><td>CSS Grid, the inventory foundation</td></tr>
+    <tr><td>ui/scroll.rs</td><td>Scrolling and sticky headers</td></tr>
+    <tr><td>ui/text_input.rs</td><td><code>EditableText</code> in practice</td></tr>
+    <tr><td>ui/widgets/feathers_gallery.rs</td><td>Every Feathers widget, interactive</td></tr>
+    <tr><td>ui/drag_and_drop.rs</td><td>Pointer drag events</td></tr>
+    <tr><td>state/*.rs</td><td>States, sub-states, computed states</td></tr>
+    <tr><td>ecs/observers.rs</td><td>Observer patterns</td></tr>
+  </table>
+</section>
+
+<footer>
+  <p>Bevy 0.19.0 · released 18 June 2026 · checked against the release notes and the shipped <code>game_menu</code> example.<br>
+  Bevy moves fast — when in doubt, the in-tree examples for your exact tag are the source of truth.</p>
+</footer>
+
+</main>
+</div>
+
+<script>
+(function(){
+  // ---- layout playground ----
+  var stage = document.getElementById('stage');
+  var out   = document.getElementById('pgcode');
+  var fd = document.getElementById('fd'), jc = document.getElementById('jc'),
+      ai = document.getElementById('ai'), gp = document.getElementById('gp'),
+      pd = document.getElementById('pd');
+
+  var DIR = { Row:'row', Column:'column', RowReverse:'row-reverse', ColumnReverse:'column-reverse' };
+  var JUS = { Start:'flex-start', Center:'center', End:'flex-end',
+              SpaceBetween:'space-between', SpaceAround:'space-around', SpaceEvenly:'space-evenly' };
+  var ALI = { Stretch:'stretch', Start:'flex-start', Center:'center', End:'flex-end' };
+
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+
+  function render(){
+    var d = fd.value, j = jc.value, a = ai.value,
+        g = parseInt(gp.value,10), p = parseInt(pd.value,10);
+
+    stage.style.flexDirection = DIR[d];
+    stage.style.justifyContent = JUS[j];
+    stage.style.alignItems = ALI[a];
+    stage.style.gap = g + 'px';
+    stage.style.padding = p + 'px';
+
+    document.getElementById('gpv').textContent = g + 'px';
+    document.getElementById('pdv').textContent = p + 'px';
+
+    // Stretch needs the cross-axis size released, or the fixed box sizes win.
+    ['b1','b2','b3'].forEach(function(id){
+      var el = document.getElementById(id);
+      var vertical = (d === 'Column' || d === 'ColumnReverse');
+      if (a === 'Stretch') {
+        if (vertical) { el.style.width = 'auto'; el.style.height = el.dataset.h; }
+        else          { el.style.height = 'auto'; el.style.width  = el.dataset.w; }
+      } else {
+        el.style.width  = el.dataset.w;
+        el.style.height = el.dataset.h;
+      }
+    });
+
+    var code =
+      '<span class="ty">Node</span> {\n' +
+      '    flex_direction: FlexDirection::' + d + ',\n' +
+      '    justify_content: JustifyContent::' + j + ',\n' +
+      '    align_items: AlignItems::' + a + ',\n' +
+      (d === 'Column' || d === 'ColumnReverse'
+        ? '    row_gap: <span class="fnc">px</span>(<span class="nu">' + g + '</span>),\n'
+        : '    column_gap: <span class="fnc">px</span>(<span class="nu">' + g + '</span>),\n') +
+      '    padding: <span class="fnc">px</span>(<span class="nu">' + p + '</span>).<span class="fnc">all</span>(),\n' +
+      '    ..<span class="fnc">default</span>()\n' +
+      '}';
+    out.innerHTML = code;
+  }
+
+  // remember intrinsic sizes so Stretch can be undone
+  [['b1','76px','52px'],['b2','76px','76px'],['b3','76px','38px']].forEach(function(t){
+    var el = document.getElementById(t[0]);
+    el.dataset.w = t[1]; el.dataset.h = t[2];
+  });
+
+  [fd,jc,ai,gp,pd].forEach(function(el){
+    el.addEventListener('input', render);
+    el.addEventListener('change', render);
+  });
+  render();
+
+  // ---- scrollspy ----
+  var links = Array.prototype.slice.call(document.querySelectorAll('.rail a'));
+  var secs  = links.map(function(a){ return document.querySelector(a.getAttribute('href')); });
+
+  if ('IntersectionObserver' in window) {
+    var seen = new Map();
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){ seen.set(e.target.id, e.intersectionRatio); });
+      var bestId = null, best = -1;
+      seen.forEach(function(v,k){ if (v > best) { best = v; bestId = k; } });
+      if (bestId) {
+        links.forEach(function(a){
+          a.classList.toggle('on', a.getAttribute('href') === '#' + bestId);
+        });
+      }
+    }, { rootMargin: '-10% 0px -70% 0px', threshold: [0, 0.25, 0.5, 1] });
+    secs.forEach(function(s){ if (s) io.observe(s); });
+  }
+
+  // ---- mobile rail ----
+  var rail = document.getElementById('rail');
+  var toggle = document.getElementById('railtoggle');
+  toggle.addEventListener('click', function(){ rail.classList.toggle('open'); });
+  rail.addEventListener('click', function(e){
+    if (e.target.tagName === 'A') rail.classList.remove('open');
+  });
+})();
+</script>
+</body>
+</html>

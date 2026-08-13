@@ -1,0 +1,2249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Field Guide — Procedural Generation in Rust, Bevy & WGSL</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0F1518; --ink2:#151D21; --ink3:#212C31; --line:#2A373D;
+  --paper:#E8E4D9; --muted:#93A19F; --dim:#6B7A78;
+  --abyss:#0A2E33; --deep:#1B6E7A; --shore:#2E9AA0;
+  --sand:#D9C27E; --moss:#86A25C; --clay:#C0784F; --snow:#EFE9DC;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --cond:"IBM Plex Sans Condensed","IBM Plex Sans",system-ui,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,Segoe UI,sans-serif;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--ink);color:var(--paper);font-family:var(--body);
+  font-size:16px;line-height:1.65;
+  background-image:repeating-linear-gradient(to bottom,rgba(255,255,255,.018) 0 1px,transparent 1px 4px);
+}
+::selection{background:var(--sand);color:#12191C}
+a{color:var(--sand);text-decoration:none;border-bottom:1px solid rgba(217,194,126,.35)}
+a:hover{border-bottom-color:var(--sand)}
+:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
+
+.wrap{max-width:1260px;margin:0 auto;padding:0 24px;display:grid;grid-template-columns:232px minmax(0,1fr);gap:56px}
+@media(max-width:1080px){.wrap{grid-template-columns:minmax(0,1fr);gap:0}}
+
+/* ── rail ─────────────────────────────── */
+.rail{position:sticky;top:0;height:100vh;overflow-y:auto;padding:34px 0 60px;border-right:1px solid var(--ink3);scrollbar-width:thin}
+.rail .mark{font-family:var(--cond);font-weight:700;font-size:1.05rem;letter-spacing:.01em;line-height:1.15;margin-bottom:4px}
+.rail .sub{font-family:var(--mono);font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin-bottom:26px}
+.rail nav a{display:block;font-family:var(--mono);font-size:.76rem;letter-spacing:.02em;color:var(--muted);padding:5px 14px 5px 0;border:0;border-left:2px solid transparent;padding-left:12px;margin-left:-12px}
+.rail nav a:hover{color:var(--paper)}
+.rail nav a.on{color:var(--sand);border-left-color:var(--sand)}
+.rail .grp{font-family:var(--mono);font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);margin:22px 0 8px;padding-left:12px}
+@media(max-width:1080px){
+  .rail{position:static;height:auto;border-right:0;border-bottom:1px solid var(--ink3);padding:22px 0 16px}
+  .rail nav{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px}
+  .rail nav a{white-space:nowrap;border:1px solid var(--ink3);border-radius:2px;padding:5px 10px;margin:0}
+  .rail nav a.on{border-color:var(--sand)}
+  .rail .grp{display:none}
+}
+
+/* ── type ─────────────────────────────── */
+h1{font-family:var(--cond);font-weight:700;font-size:clamp(2.7rem,6.6vw,4.6rem);line-height:.94;letter-spacing:-.022em;margin:0 0 18px}
+h2{font-family:var(--cond);font-weight:700;font-size:clamp(1.7rem,3.4vw,2.3rem);line-height:1.05;letter-spacing:-.015em;margin:0 0 12px}
+h3{font-family:var(--cond);font-weight:600;font-size:1.22rem;letter-spacing:-.005em;margin:34px 0 10px}
+h4{font-family:var(--mono);font-weight:500;font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;color:var(--sand);margin:26px 0 8px}
+p{margin:0 0 14px;max-width:74ch}
+.lede{font-size:1.06rem;color:#CFCCC2;max-width:70ch}
+.eyebrow{font-family:var(--mono);font-size:.68rem;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);margin-bottom:10px}
+.eyebrow b{color:var(--shore);font-weight:500}
+ul,ol{max-width:74ch;padding-left:20px;margin:0 0 14px}
+li{margin-bottom:5px}
+li::marker{color:var(--dim)}
+strong{font-weight:600;color:var(--snow)}
+em{color:var(--sand);font-style:normal}
+code{font-family:var(--mono);font-size:.86em;color:var(--sand);background:rgba(217,194,126,.08);padding:1px 4px;border-radius:2px}
+.k{color:var(--shore)}
+
+/* ── sections ─────────────────────────── */
+section{padding:64px 0;border-top:1px solid var(--ink3);scroll-margin-top:12px}
+section:first-of-type{border-top:0}
+.swatch{display:block;width:100%;max-width:560px;height:16px;margin:14px 0 20px;border:1px solid var(--ink3);image-rendering:pixelated}
+
+/* ── hero ─────────────────────────────── */
+.hero{padding:52px 0 56px;border-top:0}
+.heroCanvas{width:100%;height:clamp(170px,26vw,260px);display:block;border:1px solid var(--ink3);background:#0A1114;image-rendering:pixelated;margin:26px 0 10px}
+.heroMeta{display:flex;flex-wrap:wrap;gap:6px 26px;font-family:var(--mono);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.heroMeta span b{color:var(--muted);font-weight:400}
+.tagline{font-family:var(--mono);font-size:.74rem;letter-spacing:.18em;text-transform:uppercase;color:var(--shore);margin-bottom:22px}
+
+/* ── code ─────────────────────────────── */
+figure.code{margin:18px 0 22px;border:1px solid var(--ink3);background:var(--ink2);border-radius:3px;overflow:hidden}
+figure.code .bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 12px;border-bottom:1px solid var(--ink3);background:#121A1E}
+figure.code .bar .lang{font-family:var(--mono);font-size:.64rem;letter-spacing:.18em;text-transform:uppercase;color:var(--dim)}
+figure.code .bar .cap{font-family:var(--mono);font-size:.68rem;color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+figure.code .bar button{font-family:var(--mono);font-size:.64rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);background:transparent;border:1px solid var(--line);border-radius:2px;padding:3px 8px;cursor:pointer}
+figure.code .bar button:hover{color:var(--sand);border-color:var(--sand)}
+pre{margin:0;padding:16px 18px;overflow-x:auto;font-family:var(--mono);font-size:.795rem;line-height:1.6;tab-size:4;color:#D2CFC6}
+pre .c{color:#5E6E6C;font-style:italic}
+pre .s{color:#7FC4C9}
+pre .n{color:var(--clay)}
+pre .kw{color:var(--sand)}
+pre .ty{color:var(--moss)}
+pre .fn{color:var(--snow)}
+pre .at{color:#C58FB4}
+
+/* ── tables ───────────────────────────── */
+.tbl{width:100%;border-collapse:collapse;margin:16px 0 22px;font-size:.87rem}
+.tbl th{text-align:left;font-family:var(--mono);font-size:.64rem;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);font-weight:500;padding:8px 12px 8px 0;border-bottom:1px solid var(--line)}
+.tbl td{padding:9px 12px 9px 0;border-bottom:1px solid var(--ink3);vertical-align:top}
+.tbl td:first-child{font-family:var(--mono);font-size:.82rem;color:var(--shore);white-space:nowrap}
+.tbl.wide td:first-child{white-space:normal}
+
+/* ── callouts ─────────────────────────── */
+.note{border-left:2px solid var(--sand);background:rgba(217,194,126,.055);padding:12px 16px;margin:18px 0;font-size:.93rem}
+.note.warn{border-left-color:var(--clay);background:rgba(192,120,79,.06)}
+.note.warn b,.note b{font-family:var(--mono);font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;display:block;margin-bottom:4px;color:var(--sand)}
+.note.warn b{color:var(--clay)}
+.note p:last-child{margin-bottom:0}
+
+/* ── panels / demos ───────────────────── */
+.panel{border:1px solid var(--ink3);background:var(--ink2);border-radius:3px;padding:18px;margin:22px 0}
+.panel h4{margin-top:0}
+.ctrls{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px 20px;margin-bottom:16px}
+.ctrl label{display:block;font-family:var(--mono);font-size:.64rem;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-bottom:5px}
+.ctrl label b{color:var(--sand);font-weight:500;float:right}
+.ctrl input[type=range]{width:100%;accent-color:var(--shore);height:18px}
+.ctrl select{width:100%;background:#0F1619;color:var(--paper);border:1px solid var(--line);border-radius:2px;padding:5px 7px;font-family:var(--mono);font-size:.76rem}
+.btnrow{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 0}
+button.b{font-family:var(--mono);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--paper);background:#141C20;border:1px solid var(--line);border-radius:2px;padding:7px 12px;cursor:pointer}
+button.b:hover{border-color:var(--shore);color:var(--shore)}
+button.b.on{border-color:var(--sand);color:var(--sand)}
+button.b.pri{border-color:var(--sand);color:var(--sand)}
+.stage{display:flex;gap:0;flex-wrap:wrap;margin-bottom:14px;border:1px solid var(--line);border-radius:2px;overflow:hidden}
+.stage button{flex:1;min-width:110px;font-family:var(--mono);font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;background:#111A1D;color:var(--muted);border:0;border-right:1px solid var(--line);padding:9px 6px;cursor:pointer;text-align:left}
+.stage button:last-child{border-right:0}
+.stage button i{display:block;font-style:normal;color:var(--dim);font-size:.6rem;letter-spacing:.14em}
+.stage button.on{background:#1A252A;color:var(--sand)}
+.stage button.on i{color:var(--shore)}
+canvas.demo{width:100%;display:block;border:1px solid var(--ink3);background:#0B1215}
+canvas.lab{image-rendering:pixelated;aspect-ratio:1/1;max-height:420px;margin:0 auto}
+.labwrap{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+@media(min-width:760px){.labwrap{grid-template-columns:1fr 260px}}
+.readout{font-family:var(--mono);font-size:.7rem;color:var(--dim);margin-top:8px;line-height:1.5}
+.readout b{color:var(--muted);font-weight:400}
+
+.cols{display:grid;grid-template-columns:minmax(0,1fr);gap:0 34px}
+@media(min-width:860px){.cols.two{grid-template-columns:1fr 1fr}}
+
+.steps{counter-reset:st;list-style:none;padding:0;margin:20px 0}
+.steps>li{counter-increment:st;position:relative;padding-left:46px;margin-bottom:26px;max-width:74ch}
+.steps>li::before{content:counter(st,decimal-leading-zero);position:absolute;left:0;top:1px;font-family:var(--mono);font-size:.74rem;color:var(--shore);border:1px solid var(--line);border-radius:2px;padding:2px 6px}
+.steps>li h3{margin:0 0 6px;font-size:1.08rem}
+
+footer{border-top:1px solid var(--ink3);padding:40px 0 70px;color:var(--dim);font-family:var(--mono);font-size:.72rem;line-height:1.8}
+footer a{color:var(--muted)}
+.links{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:2px 28px;margin:14px 0 0;font-size:.8rem;font-family:var(--body)}
+.links div{padding:7px 0;border-bottom:1px solid var(--ink3)}
+.links span{display:block;font-family:var(--mono);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<aside class="rail">
+  <div class="mark">Procedural Generation<br>Field Guide</div>
+  <div class="sub">Rust · Bevy 0.19 · WGSL</div>
+  <nav id="nav">
+    <div class="grp">Noise</div>
+    <a href="#taxonomy">Taxonomy &amp; parameters</a>
+    <a href="#hashing">Hashing &amp; determinism</a>
+    <a href="#perlin">Perlin 2D / 3D / nD</a>
+    <a href="#simplex">Simplex &amp; friends</a>
+    <a href="#voronoi">Voronoi / Worley</a>
+    <a href="#lab">Noise lab</a>
+    <div class="grp">Shaping</div>
+    <a href="#modifiers">Modifier cookbook</a>
+    <a href="#warp">Domain warping</a>
+    <a href="#tiling">Seamless &amp; spherical</a>
+    <div class="grp">Engine</div>
+    <a href="#bevy">Bevy wiring</a>
+    <a href="#chunks">Chunks &amp; threading</a>
+    <div class="grp">Grids</div>
+    <a href="#townscaper">The Townscaper grid</a>
+    <a href="#gridlab">Grid lab</a>
+    <a href="#tiles">Tiles on irregular quads</a>
+    <div class="grp">Wider net</div>
+    <a href="#toolbox">Other techniques</a>
+    <a href="#gotchas">Gotchas</a>
+    <a href="#reading">Reading list</a>
+  </nav>
+</aside>
+
+<main>
+<section class="hero" id="top">
+  <div class="tagline">A working reference — every figure on this page is generated by the algorithms it documents</div>
+  <h1>Noise, warps<br>and irregular grids.</h1>
+  <p class="lede">Copy-paste formulas for procedural generation in Rust and WGSL, wired for Bevy — plus a full derivation of the Townscaper quad grid, from triangle lattice to relaxed organic cells.</p>
+  <canvas class="heroCanvas" id="heroCanvas" aria-label="A procedurally generated terrain field: domain-warped fractal Perlin noise coloured with a hypsometric elevation ramp"></canvas>
+  <div class="heroMeta">
+    <span><b>field</b> &nbsp;domain-warped fBm</span>
+    <span><b>octaves</b> &nbsp;6</span>
+    <span><b>warp</b> &nbsp;2×, 0.55</span>
+    <span><b>ramp</b> &nbsp;hypsometric</span>
+    <span><b>seed</b> &nbsp;<i id="heroSeed">—</i></span>
+  </div>
+</section>
+<section id="taxonomy">
+  <div class="eyebrow"><b>Noise</b> · taxonomy</div>
+  <h2>Pick the right field, then shape it</h2>
+  <canvas class="swatch" data-swatch="fbm"></canvas>
+  <p class="lede">Almost every "organic" look in procedural generation is one cheap noise function plus three or four cheap transforms. Know what each base field is good at before you start stacking octaves.</p>
+
+  <table class="tbl">
+    <tr><th>Field</th><th>Cost</th><th>Character</th><th>Reach for it when</th></tr>
+    <tr><td>Value</td><td>Cheapest</td><td>Blobby, visible axis-aligned grid</td><td>You need a scalar fast and will warp or filter it anyway</td></tr>
+    <tr><td>Perlin (gradient)</td><td>Low</td><td>Smooth, zero at lattice points, mild 45° bias</td><td>Terrain height, clouds, the default workhorse</td></tr>
+    <tr><td>Simplex / OpenSimplex2</td><td>Low–mid</td><td>Isotropic, no lattice bias, scales to 4D cheaply</td><td>3D/4D volumes, animated fields, anything rotated</td></tr>
+    <tr><td>Worley / Voronoi</td><td>Mid (9–27 cells)</td><td>Cellular, hard features, usable cell IDs</td><td>Rock, cracks, scales, biome regions, region IDs</td></tr>
+    <tr><td>Curl of noise</td><td>2–3× base</td><td>Divergence-free vector field</td><td>Flow maps, smoke, particle advection, fur direction</td></tr>
+    <tr><td>Blue noise / Poisson</td><td>Precompute</td><td>Even spacing, no clumps</td><td>Object scatter, sampling, dithering</td></tr>
+  </table>
+
+  <h3>The six knobs</h3>
+  <table class="tbl wide">
+    <tr><th>Knob</th><th>What it does</th><th>Typical</th></tr>
+    <tr><td>frequency</td><td>Scale of the input coordinate. <code>noise(p * frequency)</code>. Doubling it halves feature size.</td><td>1/64 … 1/512 in world units</td></tr>
+    <tr><td>amplitude</td><td>Output scale of one octave.</td><td>Normalise the sum, not each term</td></tr>
+    <tr><td>octaves</td><td>How many layers you sum. Each one doubles cost.</td><td>4–8; stop when features &lt; 1 pixel/vertex</td></tr>
+    <tr><td>lacunarity</td><td>Frequency multiplier per octave.</td><td>2.0 (use 1.9 or 2.03 to break lattice alignment)</td></tr>
+    <tr><td>gain / persistence</td><td>Amplitude multiplier per octave. Controls roughness.</td><td>0.5 = pink-ish; &gt;0.5 rough, &lt;0.5 smooth</td></tr>
+    <tr><td>seed</td><td>Mixed into the hash, not added to coordinates.</td><td>u32; never <code>p + seed</code> — that just pans the field</td></tr>
+  </table>
+
+  <div class="note"><b>Range discipline</b>
+  <p>Decide once that every base field returns <code>-1..1</code> and every fBm returns <code>-1..1</code>, and normalise at the source. Half of all "why is my terrain flat/clipped" bugs are an un-normalised octave sum: the theoretical max of a Perlin sum is <code>Σ amp</code>, so divide by it. Perlin's own bound is <code>sqrt(n)/2</code> for <code>n</code> dimensions, so multiply raw output by <code>2/sqrt(n)</code>: 1.4142 in 2D, 1.1547 in 3D.</p></div>
+</section>
+
+<section id="hashing">
+  <div class="eyebrow"><b>Noise</b> · hashing</div>
+  <h2>Everything starts with a good integer hash</h2>
+  <canvas class="swatch" data-swatch="hash"></canvas>
+  <p>Noise is a hash plus an interpolation scheme. If the hash is bad you get visible repeats, axis correlation, and platform-dependent output. Use an integer bit-mixer, not <code>sin</code>.</p>
+
+  <figure class="code" data-lang="wgsl" data-caption="hash.wgsl — bit-mixer + helpers, shared by every function below">
+<script type="text/plain">
+// Chris Wellons' "lowbias32" mixer. Fast, no visible structure.
+fn hash_u(a: u32) -> u32 {
+    var h = a;
+    h ^= h >> 16u;  h *= 0x7feb352du;
+    h ^= h >> 15u;  h *= 0x846ca68bu;
+    h ^= h >> 16u;
+    return h;
+}
+
+// Lattice cell -> hash. Mixing per axis (not just XOR) avoids diagonal artefacts.
+fn hash_i2(c: vec2<i32>, seed: u32) -> u32 {
+    return hash_u(u32(c.x) * 0x27d4eb2du ^ hash_u(u32(c.y) ^ seed));
+}
+fn hash_i3(c: vec3<i32>, seed: u32) -> u32 {
+    return hash_u(u32(c.x) * 0x27d4eb2du ^ hash_u(u32(c.y) * 0x9e3779b9u ^ hash_u(u32(c.z) ^ seed)));
+}
+
+// u32 -> [0,1). Uses the high bits, which mix best.
+fn u2f(h: u32) -> f32 { return f32(h >> 8u) * (1.0 / 16777216.0); }
+
+// Two independent floats from one cell (feature-point offsets, colours, ...)
+fn hash2f(c: vec2<i32>, seed: u32) -> vec2<f32> {
+    let h = hash_i2(c, seed);
+    return vec2<f32>(u2f(h), u2f(hash_u(h ^ 0x68bc21ebu)));
+}
+</script>
+  </figure>
+
+  <figure class="code" data-lang="rust" data-caption="hash.rs — the same mixer; identical results on CPU and GPU">
+<script type="text/plain">
+use bevy::math::{Vec2, Vec3};
+
+#[inline]
+pub fn hash_u(a: u32) -> u32 {
+    let mut h = a;
+    h ^= h >> 16;  h = h.wrapping_mul(0x7feb_352d);
+    h ^= h >> 15;  h = h.wrapping_mul(0x846c_a68b);
+    h ^= h >> 16;
+    h
+}
+
+#[inline]
+pub fn hash_i2(x: i32, y: i32, seed: u32) -> u32 {
+    hash_u((x as u32).wrapping_mul(0x27d4_eb2d) ^ hash_u(y as u32 ^ seed))
+}
+
+#[inline]
+pub fn u2f(h: u32) -> f32 { (h >> 8) as f32 * (1.0 / 16_777_216.0) }
+</script>
+  </figure>
+
+  <div class="note warn"><b>Do not use sin-hashes</b>
+  <p><code>fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453)</code> is everywhere in shader tutorials and it is a trap: <code>sin</code> precision differs between GPU vendors and drivers, so your "deterministic" world differs per machine, and it degrades badly at large coordinates. Integer mixers are exact everywhere <code>u32</code> wrapping is defined — which is all of WGSL and all of Rust (<code>wrapping_mul</code>).</p></div>
+
+  <h3>Seeding strategy</h3>
+  <ul>
+    <li>One <em>master seed</em> per world. Derive a distinct <code>u32</code> per system by hashing the master with a constant: <code>hash_u(master ^ 0xC0FFEE)</code> for caves, <code>^ 0xBEEF</code> for biomes. Systems then never disturb each other's sequences.</li>
+    <li>Chunked generation must be <em>position-seeded</em>, never sequence-seeded. A chunk's content is a pure function of <code>(world_pos, seed)</code>, so it is identical whether you generated it first or thousandth.</li>
+    <li>For sequential randomness inside one chunk, seed a small PRNG (<code>rand_pcg::Pcg32</code>) from <code>hash_i2(chunk.x, chunk.y, seed)</code> rather than the global RNG.</li>
+  </ul>
+</section>
+
+<section id="perlin">
+  <div class="eyebrow"><b>Noise</b> · gradient noise</div>
+  <h2>Perlin, in every dimension you need</h2>
+  <canvas class="swatch" data-swatch="perlin"></canvas>
+  <p>Gradient noise: assign a random unit gradient to each lattice corner, take the dot product with the offset from that corner to the sample point, and interpolate with the quintic fade <code>6t⁵ − 15t⁴ + 10t³</code> (its first and second derivatives vanish at 0 and 1, so no creases across cell borders).</p>
+
+  <figure class="code" data-lang="wgsl" data-caption="perlin.wgsl — 2D and 3D, normalised to −1..1">
+<script type="text/plain">
+fn fade2(t: vec2<f32>) -> vec2<f32> { return t * t * t * (t * (t * 6.0 - 15.0) + 10.0); }
+fn fade3(t: vec3<f32>) -> vec3<f32> { return t * t * t * (t * (t * 6.0 - 15.0) + 10.0); }
+
+fn grad2(c: vec2<i32>, seed: u32) -> vec2<f32> {
+    let a = u2f(hash_i2(c, seed)) * 6.283185307;
+    return vec2<f32>(cos(a), sin(a));       // uniform on the unit circle
+}
+
+fn perlin2(p: vec2<f32>, seed: u32) -> f32 {
+    let i = vec2<i32>(floor(p));
+    let f = p - floor(p);
+    let u = fade2(f);
+    let n00 = dot(grad2(i + vec2<i32>(0, 0), seed), f - vec2<f32>(0.0, 0.0));
+    let n10 = dot(grad2(i + vec2<i32>(1, 0), seed), f - vec2<f32>(1.0, 0.0));
+    let n01 = dot(grad2(i + vec2<i32>(0, 1), seed), f - vec2<f32>(0.0, 1.0));
+    let n11 = dot(grad2(i + vec2<i32>(1, 1), seed), f - vec2<f32>(1.0, 1.0));
+    return mix(mix(n00, n10, u.x), mix(n01, n11, u.x), u.y) * 1.4142136;  // 2/sqrt(2)
+}
+
+// Uniform point on the unit sphere: pick z uniformly, then an azimuth.
+fn grad3(c: vec3<i32>, seed: u32) -> vec3<f32> {
+    let h = hash_i3(c, seed);
+    let z = u2f(h) * 2.0 - 1.0;
+    let a = u2f(hash_u(h ^ 0x9e3779b9u)) * 6.283185307;
+    let r = sqrt(max(0.0, 1.0 - z * z));
+    return vec3<f32>(r * cos(a), r * sin(a), z);
+}
+
+fn perlin3(p: vec3<f32>, seed: u32) -> f32 {
+    let i = vec3<i32>(floor(p));
+    let f = p - floor(p);
+    let u = fade3(f);
+    var n: array<f32, 8>;
+    for (var k = 0u; k < 8u; k = k + 1u) {
+        let o = vec3<i32>(i32(k & 1u), i32((k >> 1u) & 1u), i32((k >> 2u) & 1u));
+        n[k] = dot(grad3(i + o, seed), f - vec3<f32>(o));
+    }
+    let x00 = mix(n[0], n[1], u.x);   let x10 = mix(n[2], n[3], u.x);
+    let x01 = mix(n[4], n[5], u.x);   let x11 = mix(n[6], n[7], u.x);
+    return mix(mix(x00, x10, u.y), mix(x01, x11, u.y), u.z) * 1.1547005;  // 2/sqrt(3)
+}
+</script>
+  </figure>
+
+  <figure class="code" data-lang="rust" data-caption="perlin.rs — CPU twin; same seed, same values, so GPU preview matches CPU collision meshes">
+<script type="text/plain">
+use bevy::math::Vec2;
+use core::f32::consts::TAU;
+
+#[inline]
+fn fade(t: f32) -> f32 { t * t * t * (t * (t * 6.0 - 15.0) + 10.0) }
+
+#[inline]
+fn grad2(ix: i32, iy: i32, seed: u32) -> Vec2 {
+    let a = u2f(hash_i2(ix, iy, seed)) * TAU;
+    Vec2::new(a.cos(), a.sin())
+}
+
+pub fn perlin2(p: Vec2, seed: u32) -> f32 {
+    let ix = p.x.floor(); let iy = p.y.floor();
+    let (i, j) = (ix as i32, iy as i32);
+    let f = Vec2::new(p.x - ix, p.y - iy);
+    let (u, v) = (fade(f.x), fade(f.y));
+
+    let n00 = grad2(i,     j,     seed).dot(f - Vec2::new(0.0, 0.0));
+    let n10 = grad2(i + 1, j,     seed).dot(f - Vec2::new(1.0, 0.0));
+    let n01 = grad2(i,     j + 1, seed).dot(f - Vec2::new(0.0, 1.0));
+    let n11 = grad2(i + 1, j + 1, seed).dot(f - Vec2::new(1.0, 1.0));
+
+    let a = n00 + u * (n10 - n00);
+    let b = n01 + u * (n11 - n01);
+    (a + v * (b - a)) * std::f32::consts::SQRT_2
+}
+</script>
+  </figure>
+
+  <h3>Going to n dimensions</h3>
+  <p>Perlin generalises directly: <code>2ⁿ</code> corners, <code>n</code> nested lerps. That exponential is the whole story — 2D is 4 corners, 3D is 8, 4D is 16, 5D is 32. Simplex noise exists precisely to replace that with <code>n+1</code> corners and <code>O(n²)</code> work.</p>
+  <table class="tbl">
+    <tr><th>Dim</th><th>Perlin corners</th><th>Simplex corners</th><th>What you use it for</th></tr>
+    <tr><td>2D</td><td>4</td><td>3</td><td>Heightmaps, masks, flow fields</td></tr>
+    <tr><td>3D</td><td>8</td><td>4</td><td>Caves, volumetrics, animated 2D (z = time)</td></tr>
+    <tr><td>4D</td><td>16</td><td>5</td><td>Seamlessly tiling 2D (torus), animated 3D</td></tr>
+    <tr><td>5D+</td><td>32+</td><td>6+</td><td>Tiling 3D volumes; rare, and simplex-only in practice</td></tr>
+  </table>
+  <div class="note"><b>The cheap trick</b>
+  <p>You rarely need real nD noise. To animate a 2D field, sample 3D noise at <code>(x, y, t)</code>. To seamlessly tile a 2D field, sample 4D noise on a torus (see <a href="#tiling">Seamless &amp; spherical</a>). To texture a sphere, sample 3D noise at the surface position. Dimensions are a coordinate trick far more often than a noise-function requirement.</p></div>
+
+  <h3>Analytic derivatives</h3>
+  <p>If you need normals, slope masks, or erosion-style fBm, do not finite-difference — carry the derivative through. For 2D Perlin the derivative of the interpolation is available in closed form; the practical shortcut is the <em>derivative fade</em> <code>30t⁴ − 60t³ + 30t²</code>. Returning <code>vec3(value, ddx, ddy)</code> from your noise function costs perhaps 20% more and buys exact normals plus the <code>uber-noise</code> family in the <a href="#modifiers">cookbook</a>.</p>
+</section>
+
+<section id="simplex">
+  <div class="eyebrow"><b>Noise</b> · simplex</div>
+  <h2>Simplex, OpenSimplex2 and when to bother</h2>
+  <p>Perlin's lattice is a square grid, so features align to axes and diagonals — obvious once you fBm it hard or warp it. Simplex noise uses a skewed triangular (simplex) lattice: fewer corners, isotropic gradients, and no directional bias. In 2D the visual difference is modest; in 3D/4D it is both faster and cleaner.</p>
+  <ul>
+    <li><strong>Ken Perlin's simplex noise patent expired in 2022</strong> — the old licensing worry is gone. That said, <strong>OpenSimplex2</strong> (the <code>OpenSimplex2S</code>/<code>2F</code> variants) has better visual quality than classic simplex in 3D and is what most modern libraries ship.</li>
+    <li>Writing simplex from scratch in WGSL is a page of skew constants and corner ranking. Unless you enjoy that, port a known-good implementation or use a library on the CPU side.</li>
+    <li>Cheap middle ground: keep Perlin, but rotate each octave by an irrational angle and offset it. Rotating octaves destroys the lattice alignment that makes Perlin fBm look like Perlin fBm — see <code>fbm_rot</code> in the cookbook.</li>
+  </ul>
+
+  <h3>Rust noise crates</h3>
+  <table class="tbl wide">
+    <tr><th>Crate</th><th>Shape</th><th>Notes</th></tr>
+    <tr><td>noise</td><td><code>NoiseFn</code> trait, composable modules</td><td>The classic (noise-rs). f64, builder-style chaining, wide algorithm set. Builds a permutation table per instance, so keep instances alive.</td></tr>
+    <tr><td>noise-functions</td><td>Static hashing, f32, method chaining</td><td>Newer and leaner: no per-instance permutation table, so <code>Perlin.fbm(3, 0.5, 2.0).seed(42).sample2(p)</code> is free to construct inline. Good default for Bevy.</td></tr>
+    <tr><td>fastnoise-lite</td><td>One configurable struct</td><td>Rust port of FastNoise Lite. Mutate the struct, then <code>get_noise_2d/3d</code>. Has built-in domain warp. <code>no_std</code> capable.</td></tr>
+    <tr><td>libnoise</td><td>Generator + adapter chains</td><td>Dimensionality via const generics, cache-friendly <code>NoiseBuffer</code> sampling, built-in visualiser for debugging.</td></tr>
+  </table>
+  <div class="note"><b>Parity matters</b>
+  <p>If a crate generates your collision heightmap on the CPU while a WGSL function shades the terrain on the GPU, they must agree exactly or you get visible skating between the visual and physical surface. Either (a) port one hash to both sides, as in this guide, or (b) generate on one side only and upload a texture/buffer to the other. Do not eyeball two implementations into agreement.</p></div>
+</section>
+
+<section id="voronoi">
+  <div class="eyebrow"><b>Noise</b> · cellular</div>
+  <h2>Voronoi &amp; Worley: F1, F2, IDs and borders</h2>
+  <canvas class="swatch" data-swatch="voronoi"></canvas>
+  <p>Jitter one feature point into every lattice cell, then for a sample point search the 3×3 neighbourhood. <strong>F1</strong> is the distance to the nearest point, <strong>F2</strong> the second nearest. Everything cellular comes out of combining those two plus the cell's identity.</p>
+
+  <figure class="code" data-lang="wgsl" data-caption="voronoi.wgsl — one pass returning F1, F2, cell id and the offset to the feature point">
+<script type="text/plain">
+struct Cell {
+    f1:     f32,        // distance to nearest feature point
+    f2:     f32,        // distance to second nearest
+    id:     vec2<i32>,  // lattice cell that owns the nearest point
+    to_pt:  vec2<f32>,  // vector from sample point to nearest feature point
+};
+
+fn voronoi(p: vec2<f32>, seed: u32, jitter: f32) -> Cell {
+    let ip = vec2<i32>(floor(p));
+    let fp = p - floor(p);
+
+    var f1 = 1e9; var f2 = 1e9;
+    var id = ip;  var to_pt = vec2<f32>(0.0);
+
+    for (var j = -1; j <= 1; j = j + 1) {
+        for (var i = -1; i <= 1; i = i + 1) {
+            let g   = vec2<i32>(i, j);
+            let off = hash2f(ip + g, seed);                    // point inside that cell
+            let r   = vec2<f32>(g) + (vec2<f32>(0.5) + (off - 0.5) * jitter) - fp;
+            let d   = dot(r, r);                               // keep it squared while comparing
+            if (d < f1) {
+                f2 = f1; f1 = d; id = ip + g; to_pt = r;
+            } else if (d < f2) {
+                f2 = d;
+            }
+        }
+    }
+    return Cell(sqrt(f1), sqrt(f2), id, to_pt);
+}
+
+// --- the useful combinations ------------------------------------------
+// c.f1                     : classic Worley, dark at cell centres
+// 1.0 - c.f1               : bright cell centres, "bubbles"
+// c.f2 - c.f1              : ridges along cell boundaries -> cracks, scales
+// c.f1 * c.f1              : rounder falloff
+// u2f(hash_i2(c.id, seed)) : flat random value per cell -> regions, biomes, colours
+</script>
+  </figure>
+
+  <h3>True border distance</h3>
+  <p><code>f2 − f1</code> approximates edges but its width varies with cell size. For a geometrically correct distance to the Voronoi border — crisp, uniform cracks — run a second pass measuring the distance to the perpendicular bisector between the nearest point and each neighbour.</p>
+
+  <figure class="code" data-lang="wgsl" data-caption="voronoi_border.wgsl — second pass over a 5×5 neighbourhood">
+<script type="text/plain">
+fn voronoi_border(p: vec2<f32>, seed: u32, jitter: f32) -> f32 {
+    let c  = voronoi(p, seed, jitter);      // pass 1: nearest point, as vector c.to_pt
+    let ip = vec2<i32>(floor(p));
+    let fp = p - floor(p);
+
+    var d = 1e9;
+    for (var j = -2; j <= 2; j = j + 1) {
+        for (var i = -2; i <= 2; i = i + 1) {
+            let g   = vec2<i32>(i, j);
+            let off = hash2f(ip + g, seed);
+            let r   = vec2<f32>(g) + (vec2<f32>(0.5) + (off - 0.5) * jitter) - fp;
+            let diff = r - c.to_pt;
+            // skip the nearest point itself
+            if (dot(diff, diff) > 1e-5) {
+                // distance from p to the bisector between the two feature points
+                d = min(d, dot(0.5 * (c.to_pt + r), normalize(diff)));
+            }
+        }
+    }
+    return d;                                // 0 on the border, grows inward
+}
+</script>
+  </figure>
+
+  <table class="tbl wide">
+    <tr><th>Variant</th><th>How</th><th>Look</th></tr>
+    <tr><td>Metric swap</td><td>Replace <code>dot(r,r)</code> with <code>abs(r.x)+abs(r.y)</code> (Manhattan) or <code>max(abs(r.x),abs(r.y))</code> (Chebyshev)</td><td>Diamond / square cells — good for crystals, city blocks</td></tr>
+    <tr><td>Smooth Voronoi</td><td>Accumulate <code>exp(-k*d)</code> over the neighbourhood, then <code>-log(sum)/k</code></td><td>No hard creases; differentiable, so it plays well with lighting</td></tr>
+    <tr><td>Voronoise</td><td>Blend the weighting between "nearest wins" and "average of all" with one parameter</td><td>A continuous dial from Voronoi to value noise</td></tr>
+    <tr><td>jitter &lt; 1</td><td>Scale the offset toward the cell centre</td><td>At 0 it is a perfect square grid — useful for stylised tiling</td></tr>
+    <tr><td>3D Worley</td><td>27-cell search with <code>vec3</code></td><td>Rock volumes, cave carving, cloud detail</td></tr>
+  </table>
+
+  <div class="note warn"><b>Search radius</b>
+  <p>A 3×3 search is only correct while jitter keeps every feature point inside its own cell. If you push points outside their cells, or you need exact F2 in pathological configurations, widen to 5×5 — at nearly 3× the cost. For dense scattering (trees, rocks) prefer <a href="#toolbox">Poisson-disc sampling</a>, which gives you the same evenness without the per-pixel search.</p></div>
+
+  <h3>When the field is too big: jump flooding</h3>
+  <p>For a full-screen or full-map Voronoi/distance field over thousands of seeds, do not evaluate per pixel. Seed a texture with your points and run the <strong>Jump Flood Algorithm</strong>: <code>log₂(n)</code> compute passes with halving step sizes, each pixel taking the best of 9 samples at offset <code>k</code>. Result: an approximate nearest-seed map plus a signed distance field in ~10 passes at 1024². This is the standard tool for region maps, outlines and SDF generation on the GPU.</p>
+</section>
+<section id="lab">
+  <div class="eyebrow"><b>Noise</b> · live</div>
+  <h2>Noise lab</h2>
+  <p>Every mode below is the JavaScript twin of a WGSL function on this page — same hash, same fade curve, same normalisation. Drag the knobs to build an intuition for what each parameter costs you.</p>
+  <div class="panel">
+    <div class="labwrap">
+      <div>
+        <canvas class="demo lab" id="labCanvas" width="256" height="256" aria-label="Live noise field preview"></canvas>
+        <div class="readout" id="labRead">—</div>
+      </div>
+      <div>
+        <div class="ctrl" style="margin-bottom:12px">
+          <label for="labMode">Field</label>
+          <select id="labMode">
+            <optgroup label="Fractal">
+              <option value="fbm" selected>fBm — plain sum</option>
+              <option value="ridged">Ridged multifractal</option>
+              <option value="billow">Billow</option>
+              <option value="turb">Turbulence (abs)</option>
+              <option value="uber">Erosion-damped fBm</option>
+              <option value="terrace">Terraced fBm</option>
+              <option value="marble">Marble (sine remap)</option>
+            </optgroup>
+            <optgroup label="Warped">
+              <option value="warp1">Domain warp ×1</option>
+              <option value="warp2">Domain warp ×2</option>
+            </optgroup>
+            <optgroup label="Cellular">
+              <option value="v_f1">Voronoi F1</option>
+              <option value="v_f21">Voronoi F2 − F1</option>
+              <option value="v_id">Voronoi cell ID</option>
+              <option value="v_border">Voronoi border distance</option>
+              <option value="v_warp">Warped Voronoi cracks</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="ctrl"><label for="labFreq">Frequency <b id="vFreq"></b></label><input type="range" id="labFreq" min="1" max="24" step="0.5" value="4"></div>
+        <div class="ctrl"><label for="labOct">Octaves <b id="vOct"></b></label><input type="range" id="labOct" min="1" max="8" step="1" value="5"></div>
+        <div class="ctrl"><label for="labLac">Lacunarity <b id="vLac"></b></label><input type="range" id="labLac" min="1.4" max="3" step="0.01" value="2"></div>
+        <div class="ctrl"><label for="labGain">Gain <b id="vGain"></b></label><input type="range" id="labGain" min="0.2" max="0.8" step="0.01" value="0.5"></div>
+        <div class="ctrl"><label for="labWarp">Warp amount <b id="vWarp"></b></label><input type="range" id="labWarp" min="0" max="2" step="0.02" value="0.6"></div>
+        <div class="ctrl"><label for="labRamp">Colour ramp</label>
+          <select id="labRamp">
+            <option value="hyps" selected>Hypsometric</option>
+            <option value="grey">Greyscale</option>
+            <option value="contour">Contours</option>
+          </select>
+        </div>
+        <div class="btnrow"><button class="b pri" id="labSeed">Reseed</button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="modifiers">
+  <div class="eyebrow"><b>Shaping</b> · cookbook</div>
+  <h2>Modifier cookbook</h2>
+  <canvas class="swatch" data-swatch="ridged"></canvas>
+  <p>The base field is raw material. These are the transforms that turn one Perlin call into mountains, canyons, marble, cracked mud or cave systems. They compose — most good-looking terrain is three of them stacked.</p>
+
+  <h4>Fractal sums</h4>
+  <figure class="code" data-lang="wgsl" data-caption="fractal.wgsl — the four classic accumulators, all normalised to a predictable range">
+<script type="text/plain">
+struct Fractal { octaves: u32, freq: f32, lacunarity: f32, gain: f32, seed: u32 };
+
+// Plain fBm. Output ~ -1..1. Soft, cloudy, the default.
+fn fbm(p: vec2<f32>, c: Fractal) -> f32 {
+    var sum = 0.0; var amp = 1.0; var f = c.freq; var norm = 0.0;
+    for (var i = 0u; i < c.octaves; i = i + 1u) {
+        sum  += amp * perlin2(p * f, c.seed + i * 1013u);
+        norm += amp;
+        amp  *= c.gain;
+        f    *= c.lacunarity;
+    }
+    return sum / norm;
+}
+
+// Turbulence: |noise| creates creases at every zero crossing. 0..1. Fire, smoke, rock.
+fn turbulence(p: vec2<f32>, c: Fractal) -> f32 {
+    var sum = 0.0; var amp = 1.0; var f = c.freq; var norm = 0.0;
+    for (var i = 0u; i < c.octaves; i = i + 1u) {
+        sum  += amp * abs(perlin2(p * f, c.seed + i * 1013u));
+        norm += amp; amp *= c.gain; f *= c.lacunarity;
+    }
+    return sum / norm;
+}
+
+// Billow: turbulence remapped to -1..1. Puffy, cumulus, boulder fields.
+fn billow(p: vec2<f32>, c: Fractal) -> f32 { return turbulence(p, c) * 2.0 - 1.0; }
+
+// Ridged multifractal. Sharp crests, and each octave is *masked by the previous*
+// one, so detail only appears on the ridges. This is the mountain look.
+fn ridged(p: vec2<f32>, c: Fractal) -> f32 {
+    var sum = 0.0; var amp = 1.0; var f = c.freq; var norm = 0.0;
+    var weight = 1.0;
+    for (var i = 0u; i < c.octaves; i = i + 1u) {
+        var n = 1.0 - abs(perlin2(p * f, c.seed + i * 1013u));
+        n = n * n;                       // sharpen the crest
+        n = n * weight;                  // suppress detail in the valleys
+        weight = clamp(n * 2.0, 0.0, 1.0);
+        sum  += amp * n;
+        norm += amp; amp *= c.gain; f *= c.lacunarity;
+    }
+    return sum / norm * 2.0 - 1.0;
+}
+</script>
+  </figure>
+
+  <h4>Derivative-aware fBm (the erosion look)</h4>
+  <p>Real mountains have smooth valley floors and sharp ridges because deposition fills flat areas. You can fake it for free: carry the analytic gradient and damp each octave by how steep the terrain already is. This is dramatically cheaper than a hydraulic erosion simulation and gets you 70% of the way.</p>
+
+  <figure class="code" data-lang="wgsl" data-caption="perlin_d.wgsl — value + derivative, then slope-damped accumulation">
+<script type="text/plain">
+fn fade_d(t: f32) -> f32 { return 30.0 * t * t * (t * (t - 2.0) + 1.0); }  // 30t⁴−60t³+30t²
+
+// returns vec3(value, d/dx, d/dy)
+fn perlin2_d(p: vec2<f32>, seed: u32) -> vec3<f32> {
+    let i = vec2<i32>(floor(p));
+    let f = p - floor(p);
+    let u  = fade2(f);
+    let du = vec2<f32>(fade_d(f.x), fade_d(f.y));
+
+    let g00 = grad2(i + vec2<i32>(0, 0), seed);  let g10 = grad2(i + vec2<i32>(1, 0), seed);
+    let g01 = grad2(i + vec2<i32>(0, 1), seed);  let g11 = grad2(i + vec2<i32>(1, 1), seed);
+
+    let a = dot(g00, f - vec2<f32>(0.0, 0.0));
+    let b = dot(g10, f - vec2<f32>(1.0, 0.0));
+    let c = dot(g01, f - vec2<f32>(0.0, 1.0));
+    let d = dot(g11, f - vec2<f32>(1.0, 1.0));
+
+    let k = a - b - c + d;
+    let value = a + u.x * (b - a) + u.y * (c - a) + u.x * u.y * k;
+    let grad  = g00 + u.x * (g10 - g00) + u.y * (g01 - g00) + u.x * u.y * (g00 - g10 - g01 + g11)
+              + vec2<f32>(du.x * ((b - a) + u.y * k),
+                          du.y * ((c - a) + u.x * k));
+    return vec3<f32>(value, grad) * 1.4142136;
+}
+
+// Each octave is divided down by the accumulated slope: steep areas stop
+// gaining detail, flat areas keep it. Ridges stay sharp, valleys go smooth.
+fn fbm_eroded(p: vec2<f32>, c: Fractal) -> f32 {
+    var sum = 0.0; var amp = 1.0; var f = c.freq; var norm = 0.0;
+    var dsum = vec2<f32>(0.0);
+    for (var i = 0u; i < c.octaves; i = i + 1u) {
+        let n = perlin2_d(p * f, c.seed + i * 1013u);
+        dsum += n.yz * f;
+        sum  += amp * n.x / (1.0 + dot(dsum, dsum));
+        norm += amp; amp *= c.gain; f *= c.lacunarity;
+    }
+    return sum / norm;
+}
+
+// Free bonus: exact normals for a heightfield, no finite differences.
+fn height_normal(p: vec2<f32>, height_scale: f32, c: Fractal) -> vec3<f32> {
+    let n = perlin2_d(p * c.freq, c.seed);
+    return normalize(vec3<f32>(-n.y * c.freq * height_scale, 1.0, -n.z * c.freq * height_scale));
+}
+</script>
+  </figure>
+
+  <h4>Remaps: cheap, high impact</h4>
+  <figure class="code" data-lang="wgsl" data-caption="remap.wgsl — apply to any field in -1..1">
+<script type="text/plain">
+// Terracing / plateaus. k = number of steps, s = how sharp the risers are.
+fn terrace(n: f32, k: f32, s: f32) -> f32 {
+    let t = n * k;
+    let i = floor(t);
+    let f = t - i;
+    return (i + smoothstep(0.5 - s * 0.5, 0.5 + s * 0.5, f)) / k;
+}
+
+// Marble / wood: fold the field through a sine. Turbulence supplies the wobble.
+fn marble(p: vec2<f32>, c: Fractal) -> f32 {
+    return sin((p.x + turbulence(p, c) * 8.0) * 3.14159);
+}
+
+// Perlin's bias/gain: bias pushes the midpoint, gain steepens the S-curve. 0..1 input.
+fn bias(x: f32, b: f32) -> f32 { return pow(x, log(b) / log(0.5)); }
+fn gain_curve(x: f32, g: f32) -> f32 {
+    if (x < 0.5) { return bias(2.0 * x, 1.0 - g) * 0.5; }
+    return 1.0 - bias(2.0 - 2.0 * x, 1.0 - g) * 0.5;
+}
+
+// Island falloff: multiply height by a radial mask so the map ends in water.
+fn island(n: f32, uv: vec2<f32>, edge: f32) -> f32 {
+    let d = length(uv * 2.0 - 1.0);
+    return n * (1.0 - smoothstep(edge, 1.0, d)) - smoothstep(edge, 1.2, d);
+}
+
+// Smooth minimum: blends two heightfields without a crease. k = blend width.
+fn smin(a: f32, b: f32, k: f32) -> f32 {
+    let h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
+    return mix(b, a, h) - k * h * (1.0 - h);
+}
+
+// Rotate every octave to kill Perlin's axis alignment. Cheaper than simplex.
+fn rot2(a: f32) -> mat2x2<f32> { let c = cos(a); let s = sin(a); return mat2x2<f32>(c, -s, s, c); }
+fn fbm_rot(p: vec2<f32>, c: Fractal) -> f32 {
+    let R = rot2(0.5);                     // any irrational-ish angle
+    var q = p * c.freq; var sum = 0.0; var amp = 1.0; var norm = 0.0;
+    for (var i = 0u; i < c.octaves; i = i + 1u) {
+        sum  += amp * perlin2(q, c.seed + i * 1013u);
+        norm += amp; amp *= c.gain;
+        q = R * q * c.lacunarity + vec2<f32>(37.1, 11.7);   // rotate AND offset
+    }
+    return sum / norm;
+}
+</script>
+  </figure>
+
+  <h4>Combination patterns</h4>
+  <table class="tbl wide">
+    <tr><th>Recipe</th><th>Construction</th></tr>
+    <tr><td>Mountains + plains</td><td>Blend <code>ridged</code> and <code>fbm</code> with a third, very low-frequency noise as the mask. Use <code>smoothstep</code> on the mask so the transition is a foothill band, not a line.</td></tr>
+    <tr><td>Modulated amplitude</td><td><code>height = fbm(p) * (0.2 + 0.8 * fbm(p * 0.1, other_seed))</code>. Instant regional variety in relief.</td></tr>
+    <tr><td>Caves</td><td>3D ridged noise thresholded: <code>solid = perlin3(p) &gt; -0.2 + ridged3(p) * 0.6</code>. Tune with depth so caves close near the surface.</td></tr>
+    <tr><td>Perlin worms</td><td>Take <code>1 − abs(noise3)</code> and keep only values above ~0.93. The thin shells that survive are winding tunnels. Two independent worms intersecting gives junctions.</td></tr>
+    <tr><td>Rivers</td><td><code>abs(fbm)</code> near zero is a network of thin channels. Carve with <code>smoothstep</code> and use the same field to place water.</td></tr>
+    <tr><td>Cracked mud</td><td><code>voronoi_border</code> thresholded, warped by a small fBm, multiplied by a large-scale mask so cracks only appear in dry regions.</td></tr>
+    <tr><td>Biome regions</td><td>Voronoi <em>cell ID</em> for the region, <code>f2 − f1</code> for the blend width at the boundary. Warp the input first so borders are not polygonal.</td></tr>
+    <tr><td>Scattering weights</td><td>Low-frequency fBm as a density field, sampled by a Poisson/blue-noise point set. Density controls acceptance, blue noise controls spacing.</td></tr>
+  </table>
+</section>
+
+<section id="warp">
+  <div class="eyebrow"><b>Shaping</b> · warping</div>
+  <h2>Domain warping: the single highest-value trick</h2>
+  <canvas class="swatch" data-swatch="warp"></canvas>
+  <p>Instead of changing the noise, change <em>where you sample it</em>. Feed a noise-derived offset into the coordinate, and straight fractal mush becomes swirling, geological, hand-drawn-looking structure. One extra fBm evaluation per axis; enormous payoff.</p>
+
+  <figure class="code" data-lang="wgsl" data-caption="warp.wgsl — single and double warp, plus flow fields">
+<script type="text/plain">
+// One level: f(p + a·g(p))
+fn warp1(p: vec2<f32>, c: Fractal, amount: f32) -> f32 {
+    let q = vec2<f32>(fbm(p, c),
+                      fbm(p + vec2<f32>(5.2, 1.3), c));
+    return fbm(p + amount * q, c);
+}
+
+// Two levels: f(p + a·g(p + b·h(p))). Much richer — filaments and eddies.
+fn warp2(p: vec2<f32>, c: Fractal, amount: f32) -> f32 {
+    let q = vec2<f32>(fbm(p, c),
+                      fbm(p + vec2<f32>(5.2, 1.3), c));
+    let r = vec2<f32>(fbm(p + amount * q + vec2<f32>(1.7, 9.2), c),
+                      fbm(p + amount * q + vec2<f32>(8.3, 2.8), c));
+    return fbm(p + amount * r, c);
+}
+
+// Keep q and r around: they are excellent shading masks. |q| highlights the
+// stretched regions, |r| the folded ones. Terrain colour looks 3× better for free.
+
+// Curl noise: a divergence-free 2D flow field, straight from the gradient.
+// Particles advected by this never bunch up or leave holes.
+fn curl2(p: vec2<f32>, seed: u32) -> vec2<f32> {
+    let n = perlin2_d(p, seed);        // vec3(value, dx, dy)
+    return vec2<f32>(n.z, -n.y);       // (∂/∂y, −∂/∂x) of the potential
+}
+</script>
+  </figure>
+
+  <div class="note"><b>Tuning</b>
+  <p>Warp <em>amount</em> is in the same units as the coordinate you feed the noise. Start at 0.3–0.6 of one feature wavelength; beyond ~1.0 the field folds over itself and the fractal structure dissolves into paisley. Use a lower-octave fBm for the warp than for the final field — the warp only needs shape, not detail, and this halves the cost.</p></div>
+</section>
+
+<section id="tiling">
+  <div class="eyebrow"><b>Shaping</b> · topology</div>
+  <h2>Seamless tiles, spheres and animation</h2>
+  <p>Three coordinate tricks solve nearly every "my noise has a seam" problem. None of them require a different noise function — only a different input space.</p>
+
+  <figure class="code" data-lang="wgsl" data-caption="topology.wgsl — periodic lattice, sphere and time">
+<script type="text/plain">
+// 1. EXACTLY TILING 2D NOISE — wrap the lattice cell before hashing.
+//    `period` is in lattice units, so it must be an integer.
+fn hash_i2_wrapped(c: vec2<i32>, period: vec2<i32>, seed: u32) -> u32 {
+    let w = ((c % period) + period) % period;    // true modulo, negatives included
+    return hash_i2(w, seed);
+}
+// Copy perlin2 and swap hash_i2 for hash_i2_wrapped inside grad2 to get perlin2_tile.
+// For a tiling fBm, the period must scale with the frequency:
+//    octave i uses period * i32(pow(lacunarity, f32(i)))   (keep lacunarity = 2.0)
+
+// 2. SPHERE — no poles, no seam, no UV distortion: sample 3D noise at the
+//    surface point itself. Works for planets, ball textures, anything closed.
+fn sphere_noise(dir: vec3<f32>, radius: f32, c: Fractal) -> f32 {
+    return fbm3(dir * radius, c);
+}
+
+// 3. LOOPING ANIMATION — a 2D field animated on a circle in the 3rd and 4th
+//    dimension loops perfectly after `period` seconds. With 3D noise you get a
+//    loop in one axis; with 4D noise you can loop time AND tile space.
+fn looping2(p: vec2<f32>, t: f32, period: f32, c: Fractal) -> f32 {
+    let a = t / period * 6.283185307;
+    return fbm3(vec3<f32>(p, 0.0) + vec3<f32>(0.0, 0.0, 1.0) * cos(a)
+              + vec3<f32>(0.0, 1.0, 0.0) * sin(a), c);
+}
+</script>
+  </figure>
+
+  <table class="tbl wide">
+    <tr><th>Problem</th><th>Fix</th></tr>
+    <tr><td>Seam between chunks</td><td>Sample in <em>world</em> space, never chunk-local space. A chunk at (10, 4) samples <code>noise(chunk_origin + local)</code>. Nine times out of ten this is the entire bug.</td></tr>
+    <tr><td>Precision wobble far from origin</td><td>At 10⁶ world units <code>f32</code> has ~0.06 unit precision. Subtract a large integer offset before sampling, or keep the lattice cell as <code>i32</code> and only the fraction as <code>f32</code> — which the integer-hash formulation above already does.</td></tr>
+    <tr><td>Visible repeats in a tiling texture</td><td>Tile at a large period and break the repetition with a second, non-tiling low-frequency variation, or use stochastic texture sampling.</td></tr>
+    <tr><td>Pinching at sphere poles</td><td>Never UV-map noise onto a sphere. Sample 3D noise at the direction vector.</td></tr>
+  </table>
+</section>
+<section id="bevy">
+  <div class="eyebrow"><b>Engine</b> · wiring</div>
+  <h2>Getting it into Bevy</h2>
+  <p>Two routes, and you will usually want both: build a <code>Mesh</code> on the CPU when the geometry itself must exist (collision, gameplay queries, navmesh), and evaluate noise in WGSL when it is only ever pixels.</p>
+
+  <figure class="code" data-lang="toml" data-caption="Cargo.toml — Bevy 0.19">
+<script type="text/plain">
+[dependencies]
+bevy = "0.19"
+noise-functions = "0.6"     # or: noise = "0.9" / fastnoise-lite = "1" / libnoise = "1"
+rand = "0.10"
+rand_pcg = "0.10"           # small, seedable, reproducible
+
+# Always worth it while iterating — Bevy is slow to compile in debug otherwise.
+[profile.dev.package."*"]
+opt-level = 3
+[profile.dev]
+opt-level = 1
+</script>
+  </figure>
+
+  <h3>CPU: heightmap to Mesh</h3>
+  <figure class="code" data-lang="rust" data-caption="terrain.rs — grid mesh with analytic normals, ready for Mesh3d">
+<script type="text/plain">
+use bevy::{
+    asset::RenderAssetUsages,
+    mesh::{Indices, PrimitiveTopology},
+    prelude::*,
+};
+
+/// `res` quads per side, `size` world units across, sampled around `origin`.
+pub fn terrain_mesh(origin: Vec2, size: f32, res: usize, seed: u32) -> Mesh {
+    let n = res + 1;                       // vertices per side
+    let step = size / res as f32;
+    let mut positions = Vec::with_capacity(n * n);
+    let mut normals   = Vec::with_capacity(n * n);
+    let mut uvs       = Vec::with_capacity(n * n);
+
+    for z in 0..n {
+        for x in 0..n {
+            let local = Vec2::new(x as f32 * step, z as f32 * step);
+            let world = origin + local;                   // sample in WORLD space
+            let (h, grad) = height_and_gradient(world, seed);
+            positions.push([local.x, h, local.y]);        // mesh is chunk-local...
+            normals.push(Vec3::new(-grad.x, 1.0, -grad.y).normalize().to_array());
+            uvs.push([x as f32 / res as f32, z as f32 / res as f32]);
+        }
+    }
+
+    let mut indices = Vec::with_capacity(res * res * 6);
+    for z in 0..res {
+        for x in 0..res {
+            let i = (z * n + x) as u32;
+            let d = n as u32;
+            // counter-clockwise seen from +Y, so the surface faces up
+            indices.extend_from_slice(&[i, i + d, i + 1, i + 1, i + d, i + d + 1]);
+        }
+    }
+
+    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default())
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+        .with_inserted_indices(Indices::U32(indices))
+}
+
+fn setup(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    let origin = Vec2::new(0.0, 0.0);
+    commands.spawn((
+        Mesh3d(meshes.add(terrain_mesh(origin, 256.0, 128, 1337))),
+        MeshMaterial3d(materials.add(Color::srgb(0.45, 0.52, 0.36))),
+        // ...and the chunk-local mesh is positioned by its Transform
+        Transform::from_xyz(origin.x, 0.0, origin.y),
+    ));
+}
+</script>
+  </figure>
+
+  <div class="note"><b>RenderAssetUsages</b>
+  <p><code>RenderAssetUsages::default()</code> keeps the mesh in both the main world and the render world. If you never read the vertices again (no collider, no raycast, no CPU picking), pass <code>RenderAssetUsages::RENDER_WORLD</code> alone and Bevy drops the CPU copy after upload — a real memory saving across hundreds of terrain chunks. If you <em>do</em> build colliders from the mesh, keep <code>MAIN_WORLD</code>, or better: keep the raw height array and build the collider from that instead of from the mesh.</p></div>
+
+  <h3>GPU: a noise material</h3>
+  <figure class="code" data-lang="rust" data-caption="noise_material.rs — Material2d; the 3D version is identical with Material / Mesh3d / MeshMaterial3d">
+<script type="text/plain">
+use bevy::{
+    prelude::*,
+    reflect::TypePath,
+    render::render_resource::{AsBindGroup, ShaderType},
+    shader::ShaderRef,
+    sprite_render::{AlphaMode2d, Material2d, Material2dPlugin},
+};
+
+const SHADER: &str = "shaders/noise_field.wgsl";
+
+#[derive(ShaderType, Clone, Copy, Debug)]
+pub struct NoiseParams {
+    pub freq: f32,
+    pub lacunarity: f32,
+    pub gain: f32,
+    pub warp: f32,
+    pub time: f32,
+    pub octaves: u32,
+    pub seed: u32,
+    pub _pad: u32,            // keep the struct 16-byte aligned
+}
+
+#[derive(Asset, TypePath, AsBindGroup, Clone)]
+pub struct NoiseMaterial {
+    #[uniform(0)]
+    pub params: NoiseParams,
+}
+
+impl Material2d for NoiseMaterial {
+    fn fragment_shader() -> ShaderRef { SHADER.into() }
+    fn alpha_mode(&self) -> AlphaMode2d { AlphaMode2d::Opaque }
+}
+
+fn main() {
+    App::new()
+        .add_plugins((DefaultPlugins, Material2dPlugin::<NoiseMaterial>::default()))
+        .add_systems(Startup, setup)
+        .add_systems(Update, animate)
+        .run();
+}
+
+fn setup(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<NoiseMaterial>>,
+) {
+    commands.spawn(Camera2d);
+    commands.spawn((
+        Mesh2d(meshes.add(Rectangle::new(512.0, 512.0))),
+        MeshMaterial2d(materials.add(NoiseMaterial {
+            params: NoiseParams {
+                freq: 4.0, lacunarity: 2.0, gain: 0.5, warp: 0.6,
+                time: 0.0, octaves: 5, seed: 1337, _pad: 0,
+            },
+        })),
+    ));
+}
+
+fn animate(
+    time: Res<Time>,
+    mut materials: ResMut<Assets<NoiseMaterial>>,
+    q: Query<&MeshMaterial2d<NoiseMaterial>>,
+) {
+    for handle in &q {
+        if let Some(mut mat) = materials.get_mut(handle) {
+            mat.params.time = time.elapsed_secs();
+        }
+    }
+}
+</script>
+  </figure>
+
+  <figure class="code" data-lang="wgsl" data-caption="assets/shaders/noise_field.wgsl — material bindings live in @group(2)">
+<script type="text/plain">
+// 0.17+ split sprite rendering into its own crate. If this import fails to
+// resolve, try `bevy_sprite_render::mesh2d_vertex_output::VertexOutput`.
+#import bevy_sprite::mesh2d_vertex_output::VertexOutput
+// For a 3D Material, the equivalent is:
+// #import bevy_pbr::forward_io::VertexOutput
+
+struct NoiseParams {
+    freq: f32,
+    lacunarity: f32,
+    gain: f32,
+    warp: f32,
+    time: f32,
+    octaves: u32,
+    seed: u32,
+    _pad: u32,
+};
+
+// Bevy binds material data at group 2 (0 = view, 1 = mesh, 2 = material).
+@group(2) @binding(0) var<uniform> params: NoiseParams;
+
+// ... paste hash_u / hash_i2 / u2f / fade2 / grad2 / perlin2 / fbm here,
+//     or #import them from your own shader library (see below).
+
+@fragment
+fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
+    let c = Fractal(params.octaves, params.freq, params.lacunarity, params.gain, params.seed);
+    let p = in.uv + vec2<f32>(params.time * 0.02, 0.0);
+    let h = warp2(p, c, params.warp) * 0.5 + 0.5;
+
+    // hypsometric ramp
+    let water = vec3<f32>(0.04, 0.18, 0.20);
+    let shore = vec3<f32>(0.85, 0.76, 0.49);
+    let grass = vec3<f32>(0.53, 0.64, 0.36);
+    let rock  = vec3<f32>(0.69, 0.54, 0.41);
+    var col = mix(water, shore, smoothstep(0.44, 0.52, h));
+    col = mix(col, grass, smoothstep(0.52, 0.60, h));
+    col = mix(col, rock,  smoothstep(0.72, 0.86, h));
+    col = mix(col, vec3<f32>(0.94, 0.92, 0.86), smoothstep(0.88, 0.97, h));
+    return vec4<f32>(col, 1.0);
+}
+</script>
+  </figure>
+
+  <h4>Shader libraries</h4>
+  <p>Do not paste your noise into six shaders. Bevy's shader pipeline supports imports, so put the hash and noise functions in one file and reuse them:</p>
+  <figure class="code" data-lang="wgsl" data-caption="assets/shaders/lib/noise.wgsl — importable module">
+<script type="text/plain">
+#define_import_path mygame::noise
+
+fn hash_u(a: u32) -> u32 { /* ... */ return a; }
+fn perlin2(p: vec2<f32>, seed: u32) -> f32 { /* ... */ return 0.0; }
+
+// then, in any other shader:
+//   #import mygame::noise::{perlin2, hash_u}
+// Register the library file so the importer can find it, e.g. by loading it as
+// an asset at startup and keeping the handle alive, or with embedded_asset!.
+</script>
+  </figure>
+
+  <h3>Which side should generate?</h3>
+  <table class="tbl wide">
+    <tr><th>Need</th><th>Where</th></tr>
+    <tr><td>Terrain you can walk on</td><td>CPU. Physics needs vertex data; keep the height array, not just the mesh.</td></tr>
+    <tr><td>Millions of pixels of surface detail</td><td>GPU fragment shader. Never bake what you can evaluate.</td></tr>
+    <tr><td>Huge voxel/marching-cubes volumes</td><td>GPU compute writing to a storage buffer, read back only if gameplay needs it. Read-back is the expensive part — design to avoid it.</td></tr>
+    <tr><td>Gameplay decisions (biome at a point, spawn tables)</td><td>CPU, and it must match what the GPU draws — same hash, same constants.</td></tr>
+    <tr><td>One-off textures</td><td>Generate once into an <code>Image</code> asset at startup, or bake offline. Do not re-evaluate 8 octaves per pixel per frame for a static texture.</td></tr>
+  </table>
+</section>
+
+<section id="chunks">
+  <div class="eyebrow"><b>Engine</b> · streaming</div>
+  <h2>Chunks without frame hitches</h2>
+  <p>Generating a chunk on the main schedule stalls the frame. Push it to the task pool, poll for completion, and spawn when the mesh is ready.</p>
+
+  <figure class="code" data-lang="rust" data-caption="streaming.rs — async chunk generation">
+<script type="text/plain">
+use bevy::{
+    prelude::*,
+    tasks::{block_on, futures_lite::future, AsyncComputeTaskPool, Task},
+    platform::collections::{HashMap, HashSet},
+};
+
+#[derive(Resource, Default)]
+struct Chunks { loaded: HashMap<IVec2, Entity>, pending: HashSet<IVec2> }
+
+#[derive(Component)]
+struct BuildChunk(IVec2, Task<Mesh>);
+
+const CHUNK: f32 = 128.0;
+const VIEW: i32 = 6;
+
+fn queue_chunks(
+    mut commands: Commands,
+    mut chunks: ResMut<Chunks>,
+    cam: Single<&GlobalTransform, With<Camera3d>>,
+) {
+    let pool = AsyncComputeTaskPool::get();
+    let c = cam.translation();
+    let centre = IVec2::new((c.x / CHUNK).floor() as i32, (c.z / CHUNK).floor() as i32);
+
+    for dz in -VIEW..=VIEW {
+        for dx in -VIEW..=VIEW {
+            let key = centre + IVec2::new(dx, dz);
+            if chunks.loaded.contains_key(&key) || chunks.pending.contains(&key) { continue; }
+            if (dx * dx + dz * dz) > VIEW * VIEW { continue; }        // circular, not square
+
+            chunks.pending.insert(key);
+            let origin = Vec2::new(key.x as f32 * CHUNK, key.y as f32 * CHUNK);
+            // Cheap LOD: fewer quads the further out the ring.
+            let res = if dx.abs().max(dz.abs()) > 3 { 32 } else { 128 };
+            let task = pool.spawn(async move { terrain_mesh(origin, CHUNK, res, 1337) });
+            commands.spawn(BuildChunk(key, task));
+        }
+    }
+}
+
+fn finish_chunks(
+    mut commands: Commands,
+    mut chunks: ResMut<Chunks>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    material: Res<TerrainMaterial>,
+    mut q: Query<(Entity, &mut BuildChunk)>,
+) {
+    for (entity, mut build) in &mut q {
+        let Some(mesh) = block_on(future::poll_once(&mut build.1)) else { continue };
+        let key = build.0;
+        let e = commands.spawn((
+            Mesh3d(meshes.add(mesh)),
+            MeshMaterial3d(material.0.clone()),
+            Transform::from_xyz(key.x as f32 * CHUNK, 0.0, key.y as f32 * CHUNK),
+        )).id();
+        chunks.pending.remove(&key);
+        chunks.loaded.insert(key, e);
+        commands.entity(entity).despawn();
+    }
+}
+</script>
+  </figure>
+
+  <table class="tbl wide">
+    <tr><th>Trap</th><th>Fix</th></tr>
+    <tr><td>Cracks between LOD levels</td><td>Add a <em>skirt</em>: extend the chunk border downward by more than the maximum height delta. Ugly, invisible, and free. Stitching index buffers is the correct fix but rarely worth it.</td></tr>
+    <tr><td>Seams in normals at borders</td><td>Analytic normals from the noise gradient are continuous across chunks by construction. Finite-difference normals are not, unless you sample one vertex beyond the border.</td></tr>
+    <tr><td>Frame spike on spawn</td><td>Cap how many chunks you accept per frame in <code>finish_chunks</code> — <code>.take(2)</code> on the iterator is usually enough.</td></tr>
+    <tr><td>Chunks generated in a different order give different worlds</td><td>You seeded a sequential RNG. Position-seed everything.</td></tr>
+  </table>
+</section>
+<section id="townscaper">
+  <div class="eyebrow"><b>Grids</b> · the main event</div>
+  <h2>The Townscaper grid, step by step</h2>
+  <canvas class="swatch" data-swatch="grid"></canvas>
+  <p class="lede">Oskar Stålberg's grid looks impossible — an infinite, deterministic, irregular field of near-square quads with no repeating pattern. The construction is four operations long, and none of them is hard.</p>
+
+  <p>Stålberg described the technique publicly, and Boris the Brave's <a href="https://boristhebrave.com/docs/sylves/1/articles/tutorials/townscaper.html">Sylves tutorial</a> works through a full implementation. Reduced to its four operations: build a hexagon of equilateral triangles, dissolve random pairs of them into quads, subdivide every remaining face into quads, and relax. The infinite version tiles hexagonal chunks and relaxes across the assembled result rather than per chunk.</p>
+
+  <ol class="steps">
+    <li>
+      <h3>Start with a triangle lattice, bounded to a hexagon</h3>
+      <p>Two basis vectors 60° apart. Each lattice rhombus splits into an "up" and a "down" triangle. Bound it with the axial hex test <code>|q| ≤ R ∧ |r| ≤ R ∧ |q+r| ≤ R</code>, which carves a regular hexagon out of the lattice — the shape matters because hexagons tile the plane and have no long straight edges to leave visible scars.</p>
+      <p><em>Why triangles?</em> Because a triangulation is the one thing you can always merge into quads. Start from squares and you can only ever get squares.</p>
+    </li>
+    <li>
+      <h3>Randomly merge pairs of triangles into quads</h3>
+      <p>This is a <strong>random maximal matching on the dual graph</strong>: each interior edge is a candidate to be dissolved, and each triangle can only be consumed once. Shuffle the edges, walk the list, dissolve an edge whenever both of its triangles are still free.</p>
+      <p>You will not match everything — roughly one triangle in ten is left unmatched, and that is fine, because the next step turns any polygon into quads. Chasing a <em>perfect</em> matching (Blossom algorithm) is not worth it.</p>
+      <p class="k"><strong>The trick that buys you infinity:</strong> instead of shuffling, give every edge a priority from <code>hash(endpoint lattice coords, seed)</code> and process edges in priority order. The outcome for any given edge then depends only on its immediate neighbourhood, not on a global shuffle order — so two chunks generated independently, in any order, on any machine, agree along their shared border.</p>
+    </li>
+    <li>
+      <h3>Subdivide everything into quads</h3>
+      <p>The Conway <em>ortho</em> operator, which is one step of Catmull–Clark topology: add a centroid to each face and a midpoint to each edge, then emit one quad per corner — <code>[corner, next edge midpoint, centroid, previous edge midpoint]</code>. An <em>n</em>-gon becomes <em>n</em> quads, so quads become 4 and leftover triangles become 3. After this step the mesh is 100% quads and every vertex has valence 3, 4 or 6.</p>
+      <p>Edge midpoints must be <strong>shared</strong> between the two faces that touch the edge, or the mesh comes apart. Key them by the sorted vertex pair.</p>
+    </li>
+    <li>
+      <h3>Relax until the quads look square</h3>
+      <p>Plain Laplacian smoothing (move each vertex toward the average of its neighbours) shrinks the mesh and gives you rhombi. The version that produces the Townscaper look fits a <em>square</em> to each quad and pulls the corners toward it:</p>
+      <p>For a quad with centroid <code>c</code>, corner <code>i</code> should sit 90°·<em>i</em> around <code>c</code> from corner 0. So rotate each <code>pᵢ − c</code> back by −90°·<em>i</em>, average the four results into one vector, then rotate it forward again to get four target corners. That average is the best-fitting square, at the right size and orientation, for free — no trigonometry, just index swizzles and sign flips. Each vertex then moves toward the average of the targets contributed by every quad it belongs to.</p>
+      <p>10–20 iterations at a step of ~0.5 is plenty. Pin the outer boundary if the grid is finite, or let it breathe if it is a chunk interior.</p>
+    </li>
+  </ol>
+
+  <h3>The code</h3>
+  <figure class="code" data-lang="rust" data-caption="irregular_grid.rs — mesh types, the hex of triangles, and edge keys">
+<script type="text/plain">
+use bevy::math::Vec2;
+use bevy::platform::collections::HashMap;
+
+/// A polygon soup. Faces hold 3 or 4 indices before subdivision, 4 after.
+#[derive(Clone, Default)]
+pub struct PolyMesh {
+    pub verts: Vec<Vec2>,
+    pub faces: Vec<Vec<u32>>,
+    /// Lattice coordinate per original vertex — used for stable, position-based
+    /// hashing so that independently generated chunks agree.
+    pub coords: Vec<IVec2Key>,
+}
+
+pub type IVec2Key = (i32, i32);
+
+#[inline]
+fn edge_key(a: u32, b: u32) -> (u32, u32) { if a < b { (a, b) } else { (b, a) } }
+
+const AX: Vec2 = Vec2::new(1.0, 0.0);
+const AY: Vec2 = Vec2::new(0.5, 0.866_025_4);      // 60 degrees
+
+#[inline]
+fn lattice_pos(q: i32, r: i32, side: f32) -> Vec2 {
+    (AX * q as f32 + AY * r as f32) * side
+}
+
+#[inline]
+fn in_hex(q: i32, r: i32, radius: i32) -> bool {
+    q.abs() <= radius && r.abs() <= radius && (q + r).abs() <= radius
+}
+
+struct Builder { mesh: PolyMesh, index: HashMap<IVec2Key, u32>, side: f32 }
+
+impl Builder {
+    fn vert(&mut self, q: i32, r: i32) -> u32 {
+        if let Some(&i) = self.index.get(&(q, r)) { return i; }
+        let i = self.mesh.verts.len() as u32;
+        self.mesh.verts.push(lattice_pos(q, r, self.side));
+        self.mesh.coords.push((q, r));
+        self.index.insert((q, r), i);
+        i
+    }
+}
+
+/// STEP 1 — a hexagon of equilateral triangles, `radius` cells from the centre.
+pub fn hex_of_triangles(radius: i32, side: f32) -> PolyMesh {
+    let mut b = Builder { mesh: PolyMesh::default(), index: HashMap::default(), side };
+
+    for r in -radius..=radius {
+        for q in -radius..=radius {
+            // "up" triangle: (q,r) (q+1,r) (q,r+1)   — counter-clockwise
+            if in_hex(q, r, radius) && in_hex(q + 1, r, radius) && in_hex(q, r + 1, radius) {
+                let f = vec![b.vert(q, r), b.vert(q + 1, r), b.vert(q, r + 1)];
+                b.mesh.faces.push(f);
+            }
+            // "down" triangle: (q+1,r) (q+1,r+1) (q,r+1)
+            if in_hex(q + 1, r, radius) && in_hex(q + 1, r + 1, radius) && in_hex(q, r + 1, radius) {
+                let f = vec![b.vert(q + 1, r), b.vert(q + 1, r + 1), b.vert(q, r + 1)];
+                b.mesh.faces.push(f);
+            }
+        }
+    }
+    b.mesh
+}
+</script>
+  </figure>
+
+  <figure class="code" data-lang="rust" data-caption="irregular_grid.rs — STEP 2: hash-priority random matching">
+<script type="text/plain">
+/// Merge two faces that share `e`, preserving winding.
+/// A = [.. u v ..], B = [.. v u ..]  ->  walk A from v round to u, then B's rest.
+fn merge_faces(a: &[u32], b: &[u32], e: (u32, u32)) -> Vec<u32> {
+    let ka = (0..a.len()).find(|&i| edge_key(a[i], a[(i + 1) % a.len()]) == e).unwrap();
+    let kb = (0..b.len()).find(|&i| edge_key(b[i], b[(i + 1) % b.len()]) == e).unwrap();
+    let mut out = Vec::with_capacity(a.len() + b.len() - 2);
+    for i in 0..a.len()          { out.push(a[(ka + 1 + i) % a.len()]); }
+    for i in 0..b.len() - 2      { out.push(b[(kb + 2 + i) % b.len()]); }
+    out
+}
+
+/// STEP 2 — dissolve a maximal set of interior edges, at most one per triangle.
+pub fn merge_pairs(mesh: &mut PolyMesh, seed: u32) {
+    // edge -> the (at most two) faces touching it
+    let mut edge_faces: HashMap<(u32, u32), Vec<usize>> = HashMap::default();
+    for (fi, f) in mesh.faces.iter().enumerate() {
+        for k in 0..f.len() {
+            edge_faces.entry(edge_key(f[k], f[(k + 1) % f.len()])).or_default().push(fi);
+        }
+    }
+
+    // Priority from the *lattice coordinates* of the endpoints, not the vertex
+    // indices: this makes the result independent of generation order and of
+    // which chunk you happen to be building.
+    let mut candidates: Vec<((u32, u32), usize, usize, u32)> = edge_faces
+        .iter()
+        .filter(|(_, fs)| fs.len() == 2)
+        .map(|(&e, fs)| {
+            let (c0, c1) = (mesh.coords[e.0 as usize], mesh.coords[e.1 as usize]);
+            let h = hash_u(hash_i2(c0.0, c0.1, seed) ^ hash_i2(c1.0, c1.1, seed).rotate_left(16));
+            (e, fs[0], fs[1], h)
+        })
+        .collect();
+    candidates.sort_unstable_by(|a, b| b.3.cmp(&a.3).then(a.0.cmp(&b.0)));
+
+    let mut consumed = vec![false; mesh.faces.len()];
+    let mut out: Vec<Vec<u32>> = Vec::with_capacity(mesh.faces.len());
+
+    for (e, fa, fb, _) in candidates {
+        if consumed[fa] || consumed[fb] { continue; }
+        consumed[fa] = true;
+        consumed[fb] = true;
+        out.push(merge_faces(&mesh.faces[fa], &mesh.faces[fb], e));
+    }
+    for (i, f) in mesh.faces.iter().enumerate() {
+        if !consumed[i] { out.push(f.clone()); }   // leftover triangles are fine
+    }
+    mesh.faces = out;
+}
+</script>
+  </figure>
+
+  <figure class="code" data-lang="rust" data-caption="irregular_grid.rs — STEP 3: ortho subdivision, everything becomes quads">
+<script type="text/plain">
+/// STEP 3 — one Catmull-Clark topology step: n-gon -> n quads.
+pub fn subdivide_to_quads(mesh: &PolyMesh) -> PolyMesh {
+    let mut out = PolyMesh { verts: mesh.verts.clone(), faces: Vec::new(), coords: Vec::new() };
+    let mut midpoint: HashMap<(u32, u32), u32> = HashMap::default();
+
+    for f in &mesh.faces {
+        let n = f.len();
+
+        // face centroid
+        let mut c = Vec2::ZERO;
+        for &i in f { c += out.verts[i as usize]; }
+        c /= n as f32;
+        out.verts.push(c);
+        let ci = (out.verts.len() - 1) as u32;
+
+        // shared edge midpoints
+        let mut mids = Vec::with_capacity(n);
+        for k in 0..n {
+            let (a, b) = (f[k], f[(k + 1) % n]);
+            let key = edge_key(a, b);
+            let id = match midpoint.get(&key) {
+                Some(&id) => id,
+                None => {
+                    let m = (out.verts[a as usize] + out.verts[b as usize]) * 0.5;
+                    out.verts.push(m);
+                    let id = (out.verts.len() - 1) as u32;
+                    midpoint.insert(key, id);
+                    id
+                }
+            };
+            mids.push(id);
+        }
+
+        // one quad per corner: corner, next midpoint, centroid, previous midpoint
+        for k in 0..n {
+            out.faces.push(vec![f[k], mids[k], ci, mids[(k + n - 1) % n]]);
+        }
+    }
+    out
+}
+</script>
+  </figure>
+
+  <figure class="code" data-lang="rust" data-caption="irregular_grid.rs — STEP 4: square-fitting relaxation">
+<script type="text/plain">
+/// Rotate by k * 90 degrees. No trig, no error accumulation.
+#[inline]
+fn rot90(v: Vec2, k: usize) -> Vec2 {
+    match k & 3 {
+        0 => v,
+        1 => Vec2::new(-v.y, v.x),
+        2 => -v,
+        _ => Vec2::new(v.y, -v.x),
+    }
+}
+
+/// STEP 4 — pull every quad toward its own best-fitting square.
+/// `step` 0.3..0.7, `iterations` 10..25. Pin the boundary for finite grids.
+pub fn relax(mesh: &mut PolyMesh, iterations: u32, step: f32, pinned: &[bool]) {
+    let n = mesh.verts.len();
+    let mut target = vec![Vec2::ZERO; n];
+    let mut weight = vec![0.0f32; n];
+
+    for _ in 0..iterations {
+        target.iter_mut().for_each(|t| *t = Vec2::ZERO);
+        weight.iter_mut().for_each(|w| *w = 0.0);
+
+        for f in &mesh.faces {
+            if f.len() != 4 { continue; }
+            let p = [
+                mesh.verts[f[0] as usize], mesh.verts[f[1] as usize],
+                mesh.verts[f[2] as usize], mesh.verts[f[3] as usize],
+            ];
+            let c = (p[0] + p[1] + p[2] + p[3]) * 0.25;
+
+            // Undo the 90*i rotation each corner "should" have, and average.
+            // The result is the corner-0 vector of the best-fitting square.
+            let mut mean = Vec2::ZERO;
+            for i in 0..4 { mean += rot90(p[i] - c, 4 - i); }
+            mean *= 0.25;
+
+            // Rotate it back out to get the four ideal corner positions.
+            for i in 0..4 {
+                target[f[i] as usize] += c + rot90(mean, i);
+                weight[f[i] as usize] += 1.0;
+            }
+        }
+
+        for i in 0..n {
+            if pinned[i] || weight[i] == 0.0 { continue; }
+            let goal = target[i] / weight[i];
+            mesh.verts[i] = mesh.verts[i].lerp(goal, step);
+        }
+    }
+}
+
+/// The whole pipeline.
+pub fn townscaper_grid(radius: i32, side: f32, seed: u32) -> PolyMesh {
+    let mut m = hex_of_triangles(radius, side);
+    merge_pairs(&mut m, seed);
+    let mut m = subdivide_to_quads(&m);
+    let pinned = boundary_vertices(&m);          // vertices on a face-boundary edge
+    relax(&mut m, 18, 0.5, &pinned);
+    m
+}
+</script>
+  </figure>
+
+  <h3>Making it infinite</h3>
+  <p>The single-hex version above is enough for most games — generate one big hex (or a rectangle of them) at startup and never think about it again. If you genuinely need an unbounded world, there are two workable routes.</p>
+
+  <table class="tbl wide">
+    <tr><th>Route</th><th>How it works</th></tr>
+    <tr><td>Chunked + global relax</td><td>Fill a hex grid of chunks. Each chunk generates its own triangles and pairing with a seed derived from its hex coordinate, so it is deterministic; the meshes are welded together by position; and the <em>relaxation runs across the whole assembled region</em>, not per chunk. Relaxing chunks independently is what produces visible chunk seams. This is exactly how the Sylves library builds its Townscaper grid, and its relax modifier operates on the infinite grid rather than the individual meshes.</td></tr>
+    <tr><td>Local determinism throughout</td><td>Hash-priority matching (step 2 above) removes the need to seed per chunk at all. Combine it with a <em>windowed</em> relaxation: to produce chunk <em>C</em>, build <em>C</em> plus two rings of neighbours, relax the whole window, keep only <em>C</em>. Relaxation is a local, contracting process — beyond two rings the influence is below float noise — so neighbouring windows agree to within a pixel and the seams vanish.</td></tr>
+  </table>
+
+  <div class="note"><b>Welding</b>
+  <p>Whatever you do, weld duplicate vertices before relaxing. Quantise the position to a fixed grid (<code>(p / eps).round() as i64</code>, with <code>eps</code> ≈ 1/1000 of the triangle side) and use that as a hash key. An unwelded mesh will look fine as triangles and then tear itself apart the moment you relax it.</p></div>
+
+  <h3>Refinements worth adding</h3>
+  <ul>
+    <li><strong>Vary the generator per chunk.</strong> The real Townscaper grid occasionally swaps in a different mesh generator for a hex, which breaks up the statistical sameness of pure random matching.</li>
+    <li><strong>Bias the matching.</strong> Prefer merges that produce quads closer to square (compare the two diagonals) by folding a shape score into the priority. You get fewer bad cells before relaxation even starts.</li>
+    <li><strong>Punish valence-6 vertices.</strong> Vertices where six quads meet are the ugliest artefact. Detect them and either re-roll the local matching or weight them harder during relaxation.</li>
+    <li><strong>Go spherical.</strong> The algorithm is topological — nothing in it assumes a plane. Start from a subdivided icosahedron instead of a hex of triangles, run the identical four steps, and project vertices back onto the sphere after each relaxation iteration. You get a Townscaper grid on a planet.</li>
+    <li><strong>Store the dual.</strong> Keep the corner graph (which quads touch each vertex) as well as the face graph. Tile selection needs corners; pathfinding and adjacency need faces.</li>
+  </ul>
+</section>
+
+<section id="gridlab">
+  <div class="eyebrow"><b>Grids</b> · live</div>
+  <h2>Grid lab</h2>
+  <p>The four steps, running the same algorithm as the Rust above. Step through them, then drag the relaxation slider. Click a cell to fill it — that is the entire Townscaper interaction model, on top of this grid.</p>
+  <div class="panel">
+    <div class="stage" id="gridStage">
+      <button data-stage="0" class="on">Triangles<i>step 01</i></button>
+      <button data-stage="1">Merged pairs<i>step 02</i></button>
+      <button data-stage="2">Subdivided<i>step 03</i></button>
+      <button data-stage="3">Relaxed<i>step 04</i></button>
+    </div>
+    <canvas class="demo" id="gridCanvas" width="900" height="560" aria-label="Interactive Townscaper-style grid construction"></canvas>
+    <div class="ctrls" style="margin-top:16px">
+      <div class="ctrl"><label for="gRadius">Hex radius <b id="vRadius"></b></label><input type="range" id="gRadius" min="2" max="9" step="1" value="5"></div>
+      <div class="ctrl"><label for="gRelax">Relax iterations <b id="vRelax"></b></label><input type="range" id="gRelax" min="0" max="40" step="1" value="18"></div>
+      <div class="ctrl"><label for="gStep">Relax step <b id="vStep"></b></label><input type="range" id="gStep" min="0.05" max="0.9" step="0.05" value="0.5"></div>
+      <div class="ctrl"><label for="gChunks">Chunks</label>
+        <select id="gChunks"><option value="1" selected>Single hex</option><option value="7">Seven hexes (3 rings)</option></select>
+      </div>
+    </div>
+    <div class="btnrow">
+      <button class="b pri" id="gSeed">Reseed</button>
+      <button class="b" id="gClear">Clear cells</button>
+      <button class="b" id="gLattice">Show lattice</button>
+    </div>
+    <div class="readout" id="gridRead">—</div>
+  </div>
+</section>
+<section id="tiles">
+  <div class="eyebrow"><b>Grids</b> · payoff</div>
+  <h2>Putting tiles on irregular quads</h2>
+  <p>An irregular quad grid is only interesting because you can still drop authored geometry onto it. The grid is topologically a square grid — every cell has four corners and four neighbours — so all the square-grid machinery still applies. Only the <em>positions</em> are irregular.</p>
+
+  <h3>Corner-driven tiles (the marching-squares family)</h3>
+  <p>Store your game state on the <strong>corners</strong>, not the faces. A cell's appearance is then determined by its four corner values. With booleans that is 2⁴ = 16 configurations, which collapse under the square's symmetry group (4 rotations × 2 reflections) to <strong>6 canonical cases</strong>: empty, one corner, two adjacent, two diagonal, three, four. Author six meshes, place them rotated or mirrored to match.</p>
+  <ul>
+    <li>The diagonal case is genuinely ambiguous — two corners set, two clear, and the surface can connect either way. Pick a convention and apply it everywhere, or you get flickering geometry when a neighbour changes.</li>
+    <li>Stack floors and it becomes a marching-cubes problem: 2⁸ = 256 corner configurations per cube. Townscaper's geometry is effectively 2.5D — a 2D corner grid extruded into columns — so per-floor 2D logic plus vertical connectors is usually enough, and far fewer meshes to author.</li>
+    <li>Want less authoring still? Use a dual grid: offset the tile grid by half a cell so each tile covers one corner of four neighbours. Fewer tiles cover more configurations.</li>
+  </ul>
+
+  <h3>Deforming a tile into a cell</h3>
+  <p>Cells are not squares, so the tile mesh must bend. Bilinear interpolation of the four corners does it, and because adjacent cells share corner positions, adjacent tiles line up exactly with no cracks.</p>
+
+  <figure class="code" data-lang="rust" data-caption="deform.rs — bend a unit-square tile mesh into an irregular quad">
+<script type="text/plain">
+/// Corners in counter-clockwise order, matching the tile's local unit square:
+/// q[0] = (0,0), q[1] = (1,0), q[2] = (1,1), q[3] = (0,1)
+#[inline]
+fn bilerp(q: [Vec2; 4], u: f32, v: f32) -> Vec2 {
+    let bottom = q[0].lerp(q[1], u);
+    let top    = q[3].lerp(q[2], u);
+    bottom.lerp(top, v)
+}
+
+/// Map every vertex of a tile authored inside the unit cube into the cell.
+/// X/Z bend with the quad; Y (height) passes straight through.
+pub fn deform_tile(tile: &Mesh, cell: [Vec2; 4], floor_height: f32) -> Mesh {
+    let mut out = tile.clone();
+    let Some(VertexAttributeValues::Float32x3(positions)) =
+        out.attribute_mut(Mesh::ATTRIBUTE_POSITION) else { return out };
+
+    for p in positions.iter_mut() {
+        let xz = bilerp(cell, p[0], p[2]);        // local x,z are the unit square u,v
+        *p = [xz.x, p[1] * floor_height, xz.y];
+    }
+    // Normals are no longer valid after a non-uniform bend.
+    out.compute_smooth_normals();
+    out
+}
+</script>
+  </figure>
+
+  <div class="note"><b>Two refinements</b>
+  <p>For stacked floors, interpolate <em>trilinearly</em> between the cell's footprint and its (possibly differently relaxed) top face. And bend the tile's normals with the inverse-transpose of the local Jacobian if you want lighting to be exactly right — in practice, recomputing smooth normals after deformation is close enough and much simpler.</p></div>
+
+  <h3>Wave function collapse on an irregular grid</h3>
+  <p>WFC does not care about geometry, only adjacency. Give it the face graph of your quad grid — each cell, its four neighbours, and which edge of the cell each neighbour sits across — and the standard algorithm runs unchanged:</p>
+  <ol>
+    <li>Every cell starts with the full set of tile options.</li>
+    <li>Collapse the lowest-entropy cell (fewest remaining options) to one tile, weighted by authored frequency.</li>
+    <li>Propagate: remove from each neighbour any option whose socket does not match, and keep propagating outward while anything changes.</li>
+    <li>On contradiction, backtrack, or restart the local region. Chunk the propagation so a failure never restarts the whole map.</li>
+  </ol>
+  <p>The practical work in WFC is not the solver — it is the socket taxonomy. Give each tile edge a symbol, mark which symbols are symmetric and which come in mirrored pairs, and generate the rotations programmatically instead of authoring 4 variants of everything by hand.</p>
+</section>
+
+<section id="toolbox">
+  <div class="eyebrow"><b>Wider net</b> · toolbox</div>
+  <h2>The rest of the toolbox</h2>
+  <p>Noise and grids cover a lot, but not everything. This is the shortlist of techniques worth knowing they exist, and what each one is actually for.</p>
+
+  <h4>Structure &amp; layout</h4>
+  <table class="tbl wide">
+    <tr><th>Technique</th><th>Use it for</th></tr>
+    <tr><td>Wave function collapse</td><td>Local-constraint tiling: buildings, dungeons, decorated grids. Excellent texture; no global structure — it cannot guarantee "the exit is reachable".</td></tr>
+    <tr><td>Graph grammars</td><td>Layouts that must satisfy gameplay rules (lock before key). Generate a graph of rooms and dependencies first, embed it in space second.</td></tr>
+    <tr><td>BSP / rooms-and-corridors</td><td>Fast, readable dungeon floors. Boring alone, great as a skeleton to decorate with WFC or CA.</td></tr>
+    <tr><td>Cellular automata</td><td>Cave systems. Random fill at ~45%, then 4–5 smoothing passes of "become the majority of your neighbours". Flood-fill afterwards to discard disconnected pockets.</td></tr>
+    <tr><td>Poisson-disc (Bridson)</td><td>Even scatter with a guaranteed minimum distance, in O(n). The correct answer for trees, rocks and props — far better than rejection sampling.</td></tr>
+    <tr><td>Lloyd relaxation</td><td>Turning random points into evenly spaced ones. Iterate: build Voronoi, move each point to its cell's centroid. Two or three passes is plenty.</td></tr>
+    <tr><td>Delaunay + Voronoi polygon maps</td><td>Continent/region maps with real coastlines, rivers and biomes computed per-polygon rather than per-pixel.</td></tr>
+    <tr><td>L-systems / space colonisation</td><td>Trees, roots, river networks, lightning. Space colonisation gives more natural branching than pure rewriting.</td></tr>
+    <tr><td>Wang / corner tiles</td><td>Non-repeating texture and terrain tiling from a small authored set. Corner-based ("blob") tilesets need 47 tiles for full 8-neighbour coverage; edge-based need 16.</td></tr>
+  </table>
+
+  <h4>Surfaces &amp; volumes</h4>
+  <table class="tbl wide">
+    <tr><th>Technique</th><th>Use it for</th></tr>
+    <tr><td>Marching squares / cubes</td><td>Extracting a surface from a scalar field. Simple, well-documented, produces poor topology at sharp features.</td></tr>
+    <tr><td>Surface nets / dual contouring</td><td>Better than marching cubes for editable voxel terrain: one vertex per cell, and dual contouring preserves sharp edges using the field's gradient (Hermite data).</td></tr>
+    <tr><td>Greedy meshing</td><td>Blocky voxel worlds. Merges coplanar faces into large quads; typically 5–10× fewer triangles.</td></tr>
+    <tr><td>Hydraulic erosion</td><td>The thing that makes terrain look real. Droplet simulation: spawn particles, carry sediment downhill, deposit in flats. Thousands of droplets over a heightmap, easily on the GPU. Thermal erosion (slope-limited material slide) is cheaper and fixes impossibly steep cliffs.</td></tr>
+    <tr><td>Triplanar mapping</td><td>Texturing procedural geometry that has no sensible UVs. Blend three world-space projections by the squared normal.</td></tr>
+    <tr><td>Jump flood</td><td>Distance fields, Voronoi regions, outlines, and "distance to nearest X" queries — all in a handful of compute passes.</td></tr>
+  </table>
+
+  <h4>Control</h4>
+  <ul>
+    <li><strong>Separate the generator from the arbiter.</strong> Generate cheaply, then score the result against constraints and re-roll. Rejection sampling with a good scoring function beats a clever generator you cannot reason about.</li>
+    <li><strong>Author the exceptions.</strong> Hand-place landmarks, then let the procedural layer fill and blend around them. Every good procedural game does this.</li>
+    <li><strong>Make it seeded and shareable.</strong> A world you can reproduce from a short string is a debugging tool, a bug report format, and a social feature at once.</li>
+    <li><strong>Build the visualiser first.</strong> A window that dumps the intermediate field as a texture pays for itself within an hour. Almost every procedural bug is invisible in a debugger and obvious in a picture.</li>
+  </ul>
+</section>
+
+<section id="gotchas">
+  <div class="eyebrow"><b>Wider net</b> · debugging</div>
+  <h2>Gotchas checklist</h2>
+  <table class="tbl wide">
+    <tr><th>Symptom</th><th>Cause</th></tr>
+    <tr><td>Terrain looks washed out / flat</td><td>Un-normalised octave sum, or you clamped before scaling. Divide by <code>Σ amp</code>.</td></tr>
+    <tr><td>Visible grid alignment in fBm</td><td>Perlin's lattice showing through. Rotate and offset each octave, or use simplex.</td></tr>
+    <tr><td>Same pattern repeats every N units</td><td>Hash collapsing — usually a weak hash or <code>seed</code> added to the coordinate instead of mixed into the hash.</td></tr>
+    <tr><td>Seams between chunks</td><td>Sampling in chunk-local coordinates. Sample in world space.</td></tr>
+    <tr><td>Noise degrades far from origin</td><td><code>f32</code> precision. Keep the integer lattice cell in <code>i32</code> and only the fractional part in <code>f32</code>.</td></tr>
+    <tr><td>GPU and CPU disagree</td><td>Different hash, or a <code>sin</code>-based hash. Port one integer mixer to both.</td></tr>
+    <tr><td>Everything is mirrored / inside out</td><td>Winding order. Bevy wants counter-clockwise front faces; check with <code>cross(b−a, c−a)</code> pointing where you expect.</td></tr>
+    <tr><td><code>floor</code> vs cast</td><td><code>i32(x)</code> truncates toward zero, so <code>-0.5</code> becomes <code>0</code>, not <code>-1</code>. Always <code>floor</code> first, then cast. Same for the fractional part: use <code>p - floor(p)</code>, never <code>p % 1.0</code>.</td></tr>
+    <tr><td>Modulo of negatives</td><td><code>(-3) % 8</code> is <code>-3</code> in both Rust and WGSL. For wrapping use <code>((a % n) + n) % n</code>.</td></tr>
+    <tr><td>Relaxation explodes or collapses</td><td>Unwelded duplicate vertices, or a step size above ~0.9. Weld first, keep the step at 0.5.</td></tr>
+    <tr><td>Mesh disappears at certain angles</td><td>No bounding box / AABB computed from stale vertex data after you mutated positions.</td></tr>
+    <tr><td>Generation stutters every few seconds</td><td>Allocating per chunk. Reuse buffers, and cap chunks accepted per frame.</td></tr>
+  </table>
+</section>
+
+<section id="reading">
+  <div class="eyebrow"><b>Wider net</b> · sources</div>
+  <h2>Where to learn more</h2>
+  <p>The Townscaper grid material below is the primary source for this guide's step-by-step; the rest is the standard canon for this corner of graphics.</p>
+
+  <div class="links">
+    <div><span>Townscaper grid, in full</span><a href="https://boristhebrave.com/docs/sylves/1/articles/tutorials/townscaper.html">Boris the Brave — Townscaper Grid tutorial (Sylves)</a></div>
+    <div><span>Oskar Stålberg, in his own words</span><a href="https://www.youtube.com/watch?v=1hqt8JkYRdI">Organic Towns from Square Tiles — IndieCade Europe 2019</a></div>
+    <div><span>Follow-up talk</span><a href="https://www.youtube.com/watch?v=Uxeo9c-PX-w">Beyond Townscaper — Sweden Game Conference 2021</a></div>
+    <div><span>Design history</span><a href="https://www.gamedeveloper.com/game-platforms/how-townscaper-works-a-story-four-games-in-the-making">How Townscaper Works: A Story Four Games in the Making</a></div>
+    <div><span>An independent take on the same grid</span><a href="https://andersource.dev/2020/11/06/organic-grid.html">andersource — Generating an organic grid</a></div>
+    <div><span>The grid on a sphere</span><a href="https://john-wigg.dev/SphereScaper/">John Wigg — Creating an organic grid on a sphere</a></div>
+    <div><span>Reference implementations</span><a href="https://sketchpunklabs.github.io/irregular_grid/">sketchpunklabs — Irregular Grid examples</a></div>
+    <div><span>Hex grids, definitively</span><a href="https://www.redblobgames.com/grids/hexagons/">Red Blob Games — Hexagonal Grids</a></div>
+    <div><span>Polygon map generation</span><a href="https://www.redblobgames.com/maps/terrain-from-noise/">Red Blob Games — Making maps with noise functions</a></div>
+    <div><span>Domain warping, fBm, voronoise</span><a href="https://iquilezles.org/articles/">Inigo Quilez — Articles</a></div>
+    <div><span>Shader fundamentals</span><a href="https://thebookofshaders.com/">The Book of Shaders</a></div>
+    <div><span>Rust noise libraries</span><a href="https://crates.io/crates/noise-functions">noise-functions</a></div>
+    <div><span>Rust noise libraries</span><a href="https://docs.rs/crate/noise/latest">noise (noise-rs)</a></div>
+    <div><span>Rust noise libraries</span><a href="https://crates.io/crates/fastnoise-lite">fastnoise-lite</a></div>
+    <div><span>Bevy custom meshes</span><a href="https://bevy.org/examples/3d-rendering/generate-custom-mesh/">Bevy example — Generate Custom Mesh</a></div>
+    <div><span>Bevy custom materials</span><a href="https://bevy.org/examples/shaders/shader-material-2d/">Bevy example — Shader Material 2D</a></div>
+    <div><span>Keeping up with the API</span><a href="https://bevy.org/learn/migration-guides/0-18-to-0-19/">Bevy 0.18 → 0.19 migration guide</a></div>
+  </div>
+</section>
+
+<footer>
+  <div>Field guide · procedural generation for Rust, Bevy 0.19 and WGSL</div>
+  <div>Every figure, swatch and demo on this page is generated in the browser by the same algorithms documented in the code blocks — same hash, same fade curve, same relaxation.</div>
+  <div style="margin-top:14px">Code snippets are written against Bevy 0.19. Bevy's rendering API moves every release; check the migration guides before assuming a path still exists.</div>
+</footer>
+</main>
+</div>
+<script>
+"use strict";
+/* ==========================================================================
+   Everything below is the browser twin of the code documented on this page.
+   Same integer hash, same quintic fade, same square-fitting relaxation.
+   ========================================================================== */
+
+/* ---------- hashing ------------------------------------------------------ */
+function hashU(a){ a=a>>>0; a^=a>>>16; a=Math.imul(a,0x7feb352d); a^=a>>>15; a=Math.imul(a,0x846ca68b); a^=a>>>16; return a>>>0; }
+function hashI2(x,y,seed){ return hashU((Math.imul(x|0,0x27d4eb2d) ^ hashU(((y|0)^seed)>>>0))>>>0); }
+function u2f(h){ return (h>>>8)*(1/16777216); }
+
+/* gradient table: the shader uses cos/sin directly, a table is just faster in JS */
+const GT = new Float32Array(512);
+for(let i=0;i<256;i++){ const a=i*Math.PI/128; GT[i*2]=Math.cos(a); GT[i*2+1]=Math.sin(a); }
+
+function fade(t){ return t*t*t*(t*(t*6-15)+10); }
+function fadeD(t){ return 30*t*t*(t*(t-2)+1); }
+
+function perlin2(x,y,seed){
+  const xf=Math.floor(x), yf=Math.floor(y);
+  const i=xf|0, j=yf|0;
+  const fx=x-xf, fy=y-yf;
+  const u=fade(fx), v=fade(fy);
+  let g,n00,n10,n01,n11;
+  g=(hashI2(i,j,seed)&255)*2;       n00=GT[g]*fx      + GT[g+1]*fy;
+  g=(hashI2(i+1,j,seed)&255)*2;     n10=GT[g]*(fx-1)  + GT[g+1]*fy;
+  g=(hashI2(i,j+1,seed)&255)*2;     n01=GT[g]*fx      + GT[g+1]*(fy-1);
+  g=(hashI2(i+1,j+1,seed)&255)*2;   n11=GT[g]*(fx-1)  + GT[g+1]*(fy-1);
+  const a=n00+u*(n10-n00), b=n01+u*(n11-n01);
+  return (a+v*(b-a))*1.4142136;
+}
+
+/* value + derivative, as in perlin2_d */
+const _d=[0,0,0];
+function perlin2D(x,y,seed){
+  const xf=Math.floor(x), yf=Math.floor(y);
+  const i=xf|0, j=yf|0;
+  const fx=x-xf, fy=y-yf;
+  const u=fade(fx), v=fade(fy), du=fadeD(fx), dv=fadeD(fy);
+  let g;
+  g=(hashI2(i,j,seed)&255)*2;     const g00x=GT[g], g00y=GT[g+1];
+  g=(hashI2(i+1,j,seed)&255)*2;   const g10x=GT[g], g10y=GT[g+1];
+  g=(hashI2(i,j+1,seed)&255)*2;   const g01x=GT[g], g01y=GT[g+1];
+  g=(hashI2(i+1,j+1,seed)&255)*2; const g11x=GT[g], g11y=GT[g+1];
+  const a=g00x*fx+g00y*fy, b=g10x*(fx-1)+g10y*fy, c=g01x*fx+g01y*(fy-1), d=g11x*(fx-1)+g11y*(fy-1);
+  const k=a-b-c+d;
+  _d[0]=(a+u*(b-a)+v*(c-a)+u*v*k)*1.4142136;
+  _d[1]=(g00x+u*(g10x-g00x)+v*(g01x-g00x)+u*v*(g00x-g10x-g01x+g11x)+du*((b-a)+v*k))*1.4142136;
+  _d[2]=(g00y+u*(g10y-g00y)+v*(g01y-g00y)+u*v*(g00y-g10y-g01y+g11y)+dv*((c-a)+u*k))*1.4142136;
+  return _d;
+}
+
+/* ---------- fractal accumulators ---------------------------------------- */
+function fbm(x,y,c){
+  let s=0,amp=1,f=c.freq,norm=0;
+  for(let i=0;i<c.oct;i++){ s+=amp*perlin2(x*f,y*f,(c.seed+i*1013)>>>0); norm+=amp; amp*=c.gain; f*=c.lac; }
+  return s/norm;
+}
+function turbulence(x,y,c){
+  let s=0,amp=1,f=c.freq,norm=0;
+  for(let i=0;i<c.oct;i++){ s+=amp*Math.abs(perlin2(x*f,y*f,(c.seed+i*1013)>>>0)); norm+=amp; amp*=c.gain; f*=c.lac; }
+  return s/norm;
+}
+function ridged(x,y,c){
+  let s=0,amp=1,f=c.freq,norm=0,w=1;
+  for(let i=0;i<c.oct;i++){
+    let n=1-Math.abs(perlin2(x*f,y*f,(c.seed+i*1013)>>>0));
+    n=n*n*w; w=Math.min(1,Math.max(0,n*2));
+    s+=amp*n; norm+=amp; amp*=c.gain; f*=c.lac;
+  }
+  return s/norm*2-1;
+}
+function fbmEroded(x,y,c){
+  let s=0,amp=1,f=c.freq,norm=0,dx=0,dy=0;
+  for(let i=0;i<c.oct;i++){
+    const n=perlin2D(x*f,y*f,(c.seed+i*1013)>>>0);
+    dx+=n[1]*f; dy+=n[2]*f;
+    s+=amp*n[0]/(1+dx*dx+dy*dy);
+    norm+=amp; amp*=c.gain; f*=c.lac;
+  }
+  return s/norm;
+}
+function warp1(x,y,c,a){
+  const qx=fbm(x,y,c), qy=fbm(x+5.2,y+1.3,c);
+  return fbm(x+a*qx,y+a*qy,c);
+}
+function warp2(x,y,c,a){
+  const qx=fbm(x,y,c), qy=fbm(x+5.2,y+1.3,c);
+  const rx=fbm(x+a*qx+1.7,y+a*qy+9.2,c), ry=fbm(x+a*qx+8.3,y+a*qy+2.8,c);
+  return fbm(x+a*rx,y+a*ry,c);
+}
+function terrace(n,k,s){
+  const t=n*k, i=Math.floor(t), f=t-i;
+  return (i+smoothstep(0.5-s*0.5,0.5+s*0.5,f))/k;
+}
+function clamp01(x){ return x<0?0:(x>1?1:x); }
+function disp(v,g){ return clamp01(v*g*0.5+0.5); }
+function smoothstep(a,b,x){ const t=Math.min(1,Math.max(0,(x-a)/(b-a))); return t*t*(3-2*t); }
+
+/* ---------- voronoi ------------------------------------------------------ */
+const _v={f1:0,f2:0,idx:0,idy:0,rx:0,ry:0};
+function voronoi(x,y,seed,jitter){
+  const ix=Math.floor(x), iy=Math.floor(y);
+  const fx=x-ix, fy=y-iy;
+  let f1=1e9,f2=1e9,idx=ix,idy=iy,rx=0,ry=0;
+  for(let j=-1;j<=1;j++) for(let i=-1;i<=1;i++){
+    const cx=ix+i, cy=iy+j;
+    const h=hashI2(cx,cy,seed);
+    const ox=u2f(h), oy=u2f(hashU(h^0x68bc21eb));
+    const dx=i+0.5+(ox-0.5)*jitter-fx, dy=j+0.5+(oy-0.5)*jitter-fy;
+    const d=dx*dx+dy*dy;
+    if(d<f1){ f2=f1; f1=d; idx=cx; idy=cy; rx=dx; ry=dy; }
+    else if(d<f2){ f2=d; }
+  }
+  _v.f1=Math.sqrt(f1); _v.f2=Math.sqrt(f2); _v.idx=idx; _v.idy=idy; _v.rx=rx; _v.ry=ry;
+  return _v;
+}
+function voronoiBorder(x,y,seed,jitter){
+  const c=voronoi(x,y,seed,jitter);
+  const crx=c.rx, cry=c.ry;
+  const ix=Math.floor(x), iy=Math.floor(y);
+  const fx=x-ix, fy=y-iy;
+  let best=1e9;
+  for(let j=-2;j<=2;j++) for(let i=-2;i<=2;i++){
+    const h=hashI2(ix+i,iy+j,seed);
+    const ox=u2f(h), oy=u2f(hashU(h^0x68bc21eb));
+    const dx=i+0.5+(ox-0.5)*jitter-fx, dy=j+0.5+(oy-0.5)*jitter-fy;
+    const ex=dx-crx, ey=dy-cry;
+    const len2=ex*ex+ey*ey;
+    if(len2>1e-5){
+      const inv=1/Math.sqrt(len2);
+      best=Math.min(best, 0.5*(crx+dx)*ex*inv + 0.5*(cry+dy)*ey*inv);
+    }
+  }
+  return best;
+}
+
+/* ---------- colour ramps ------------------------------------------------- */
+const HYPS=[[0.00,10,32,38],[0.42,27,110,122],[0.50,46,154,160],[0.52,201,179,120],
+            [0.60,134,162,92],[0.76,92,122,69],[0.86,176,137,104],[0.95,239,233,220],[1.00,255,255,255]];
+function ramp(stops,t){
+  t=Math.min(1,Math.max(0,t));
+  for(let i=1;i<stops.length;i++){
+    if(t<=stops[i][0]){
+      const a=stops[i-1], b=stops[i];
+      const k=(t-a[0])/Math.max(1e-6,(b[0]-a[0]));
+      return [a[1]+(b[1]-a[1])*k, a[2]+(b[2]-a[2])*k, a[3]+(b[3]-a[3])*k];
+    }
+  }
+  const l=stops[stops.length-1]; return [l[1],l[2],l[3]];
+}
+function shade(t,mode){
+  if(mode==='grey'){ const g=18+t*225; return [g,g,g*0.98]; }
+  if(mode==='contour'){
+    const b=(t*18)%1;
+    const line=1-smoothstep(0.0,0.14,Math.min(b,1-b));
+    const base=ramp(HYPS,t);
+    return [base[0]*(1-line)+232*line, base[1]*(1-line)+228*line, base[2]*(1-line)+214*line];
+  }
+  return ramp(HYPS,t);
+}
+
+/* ==========================================================================
+   Code blocks: syntax highlight + copy
+   ========================================================================== */
+const KEYWORDS=new Set(("fn let var const mut pub use struct impl for in if else return match while loop "+
+  "type enum trait where as move async await self Self break continue ref static crate dyn true false "+
+  "unsafe extern default override discard workgroup_size storage uniform read write private function").split(" "));
+const TYPES=new Set(("f32 f64 i32 u32 i64 u64 usize isize bool str String Vec Option Some None Result Ok Err "+
+  "vec2 vec3 vec4 mat2x2 mat3x3 mat4x4 array atomic ptr sampler texture_2d").split(" "));
+function esc(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function sp(c,s){ return '<span class="'+c+'">'+esc(s)+'</span>'; }
+function highlight(src,lang){
+  let out="",i=0; const n=src.length;
+  while(i<n){
+    const ch=src[i];
+    if(ch==='/'&&src[i+1]==='/'){ let j=src.indexOf("\n",i); if(j<0)j=n; out+=sp('c',src.slice(i,j)); i=j; continue; }
+    if(ch==='#'&&lang==='toml'){ let j=src.indexOf("\n",i); if(j<0)j=n; out+=sp('c',src.slice(i,j)); i=j; continue; }
+    if(ch==='#'&&src[i+1]==='['){ let j=src.indexOf("\n",i); if(j<0)j=n; const e=src.indexOf("]",i); const k=(e>=0&&e<j)?e+1:j; out+=sp('at',src.slice(i,k)); i=k; continue; }
+    if(ch==='"'){ let j=i+1; while(j<n&&src[j]!=='"'){ if(src[j]==='\\')j++; j++; } j=Math.min(j+1,n); out+=sp('s',src.slice(i,j)); i=j; continue; }
+    if(ch>='0'&&ch<='9'&&!/[A-Za-z0-9_]/.test(src[i-1]||' ')){ let j=i; while(j<n&&/[0-9a-fA-FxX_.eu]/.test(src[j]))j++; out+=sp('n',src.slice(i,j)); i=j; continue; }
+    if(ch==='@'||ch==='#'){ let j=i+1; while(j<n&&/[A-Za-z0-9_]/.test(src[j]))j++; out+=sp('at',src.slice(i,j)); i=j; continue; }
+    if(/[A-Za-z_]/.test(ch)){
+      let j=i; while(j<n&&/[A-Za-z0-9_]/.test(src[j]))j++;
+      const w=src.slice(i,j);
+      let cls="";
+      if(KEYWORDS.has(w)) cls="kw";
+      else if(TYPES.has(w)||/^[A-Z]/.test(w)) cls="ty";
+      else if(src[j]==='(') cls="fn";
+      out+= cls?sp(cls,w):esc(w);
+      i=j; continue;
+    }
+    out+=esc(ch); i++;
+  }
+  return out;
+}
+document.querySelectorAll("figure.code").forEach(fig=>{
+  const holder=fig.querySelector('script[type="text/plain"]');
+  if(!holder) return;
+  const src=holder.textContent.replace(/^\n+/,"").replace(/\s+$/,"");
+  const lang=fig.dataset.lang||"";
+  const bar=document.createElement("div");
+  bar.className="bar";
+  bar.innerHTML='<span class="lang">'+esc(lang)+'</span><span class="cap">'+esc(fig.dataset.caption||"")+'</span>';
+  const btn=document.createElement("button");
+  btn.type="button"; btn.textContent="Copy";
+  btn.addEventListener("click",async()=>{
+    try{ await navigator.clipboard.writeText(src); }
+    catch(e){ const ta=document.createElement("textarea"); ta.value=src; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); }
+    btn.textContent="Copied"; setTimeout(()=>btn.textContent="Copy",1400);
+  });
+  bar.appendChild(btn);
+  const pre=document.createElement("pre");
+  const code=document.createElement("code");
+  code.innerHTML=highlight(src,lang);
+  pre.appendChild(code);
+  holder.remove();
+  fig.appendChild(bar); fig.appendChild(pre);
+});
+
+/* ==========================================================================
+   Hero: progressively drawn domain-warped field
+   ========================================================================== */
+(function(){
+  const cv=document.getElementById("heroCanvas"); if(!cv) return;
+  const W=640,H=272;
+  cv.width=W; cv.height=H;
+  const ctx=cv.getContext("2d");
+  const img=ctx.createImageData(W,H);
+  const seed=(Math.random()*0xffffffff)>>>0;
+  const seedEl=document.getElementById("heroSeed");
+  if(seedEl) seedEl.textContent="0x"+seed.toString(16).padStart(8,"0");
+  const c={oct:5,freq:3.2,lac:2.0,gain:0.5,seed:seed};
+  const reduce=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let row=0;
+  function drawRows(count){
+    for(let k=0;k<count&&row<H;k++,row++){
+      for(let x=0;x<W;x++){
+        const u=x/W*2.2, v=row/H*0.94;
+        const h=disp(warp2(u,v,c,0.55),1.75);
+        const col=shade(h,"hyps");
+        const o=(row*W+x)*4;
+        img.data[o]=col[0]; img.data[o+1]=col[1]; img.data[o+2]=col[2]; img.data[o+3]=255;
+      }
+    }
+    ctx.putImageData(img,0,0);
+  }
+  if(reduce){ drawRows(H); }
+  else{
+    (function step(){ drawRows(8); if(row<H) requestAnimationFrame(step); })();
+  }
+})();
+
+/* ==========================================================================
+   Section swatch strips
+   ========================================================================== */
+document.querySelectorAll("canvas.swatch").forEach(cv=>{
+  const W=360,H=16; cv.width=W; cv.height=H;
+  const ctx=cv.getContext("2d"); const img=ctx.createImageData(W,H);
+  const mode=cv.dataset.swatch;
+  const c={oct:5,freq:5,lac:2,gain:0.5,seed:0x51ed};
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++){
+    const u=x/W*6, v=y/H*0.28;
+    let t=0.5;
+    if(mode==="fbm") t=disp(fbm(u,v,c),1.6);
+    else if(mode==="perlin") t=disp(perlin2(u*1.5,v*1.5,c.seed),1.1);
+    else if(mode==="ridged") t=disp(ridged(u,v,c),1.05);
+    else if(mode==="warp") t=disp(warp2(u*0.6,v,c,0.7),1.75);
+    else if(mode==="hash") t=u2f(hashI2(Math.floor(x/3),Math.floor(y/3),7));
+    else if(mode==="voronoi"){ const q=voronoi(u,v*3+1,c.seed,1); t=(q.f2-q.f1); }
+    else if(mode==="grid"){ const q=voronoi(u,v*3+1,c.seed,0.7); t=u2f(hashI2(q.idx,q.idy,3)); }
+    const col=shade(t,mode==="hash"||mode==="grid"?"grey":"hyps");
+    const o=(y*W+x)*4;
+    img.data[o]=col[0]; img.data[o+1]=col[1]; img.data[o+2]=col[2]; img.data[o+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+});
+
+/* ==========================================================================
+   Noise lab
+   ========================================================================== */
+(function(){
+  const cv=document.getElementById("labCanvas"); if(!cv) return;
+  const ctx=cv.getContext("2d");
+  const N=256;
+  const img=ctx.createImageData(N,N);
+  const el=id=>document.getElementById(id);
+  const out=el("labRead");
+  let seed=1337;
+  let queued=false;
+
+  function params(){
+    return {
+      mode: el("labMode").value,
+      freq: parseFloat(el("labFreq").value),
+      oct: parseInt(el("labOct").value,10),
+      lac: parseFloat(el("labLac").value),
+      gain: parseFloat(el("labGain").value),
+      warp: parseFloat(el("labWarp").value),
+      rampMode: el("labRamp").value
+    };
+  }
+  function sample(mode,x,y,c,warp){
+    switch(mode){
+      case "fbm":     return disp(fbm(x,y,c),1.6);
+      case "ridged":  return disp(ridged(x,y,c),1.05);
+      case "billow":  return turbulence(x,y,c);
+      case "turb":    return turbulence(x,y,c);
+      case "uber":    return disp(fbmEroded(x,y,c),2.6);
+      case "terrace": return disp(terrace(fbm(x,y,c)*1.5,7,0.35),1.0);
+      case "marble":  return Math.sin((x*3+turbulence(x,y,c)*6)*3.14159)*0.5+0.5;
+      case "warp1":   return disp(warp1(x,y,c,warp),1.75);
+      case "warp2":   return disp(warp2(x,y,c,warp),1.75);
+      case "v_f1":    return Math.min(1,voronoi(x*c.freq*0.25,y*c.freq*0.25,c.seed,1).f1);
+      case "v_f21":   { const q=voronoi(x*c.freq*0.25,y*c.freq*0.25,c.seed,1); return Math.min(1,(q.f2-q.f1)*1.4); }
+      case "v_id":    { const q=voronoi(x*c.freq*0.25,y*c.freq*0.25,c.seed,1); return u2f(hashI2(q.idx,q.idy,c.seed^0x77)); }
+      case "v_border":return Math.min(1,voronoiBorder(x*c.freq*0.25,y*c.freq*0.25,c.seed,1)*2.2);
+      case "v_warp":  {
+        const wx=x+warp*fbm(x,y,c), wy=y+warp*fbm(x+3.1,y+7.7,c);
+        return Math.min(1,voronoiBorder(wx*c.freq*0.25,wy*c.freq*0.25,c.seed,1)*2.2);
+      }
+    }
+    return 0.5;
+  }
+  function render(){
+    queued=false;
+    const p=params();
+    const c={oct:p.oct,freq:p.freq,lac:p.lac,gain:p.gain,seed:seed};
+    const t0=performance.now();
+    for(let y=0;y<N;y++){
+      const v=y/N;
+      for(let x=0;x<N;x++){
+        const u=x/N;
+        let t=sample(p.mode,u,v,c,p.warp);
+        const col=shade(t,p.rampMode);
+        const o=(y*N+x)*4;
+        img.data[o]=col[0]; img.data[o+1]=col[1]; img.data[o+2]=col[2]; img.data[o+3]=255;
+      }
+    }
+    ctx.putImageData(img,0,0);
+    const ms=(performance.now()-t0).toFixed(0);
+    el("vFreq").textContent=p.freq.toFixed(1);
+    el("vOct").textContent=p.oct;
+    el("vLac").textContent=p.lac.toFixed(2);
+    el("vGain").textContent=p.gain.toFixed(2);
+    el("vWarp").textContent=p.warp.toFixed(2);
+    out.innerHTML="<b>seed</b> 0x"+seed.toString(16)+" &nbsp; <b>samples</b> "+(N*N).toLocaleString()+
+      " &nbsp; <b>cpu</b> "+ms+" ms &nbsp; <b>feature size</b> ≈ "+(1/p.freq*100).toFixed(1)+"% of frame";
+  }
+  function schedule(){ if(!queued){ queued=true; requestAnimationFrame(render); } }
+  ["labMode","labFreq","labOct","labLac","labGain","labWarp","labRamp"].forEach(id=>{
+    el(id).addEventListener("input",schedule);
+  });
+  el("labSeed").addEventListener("click",()=>{ seed=(Math.random()*0xffffffff)>>>0; schedule(); });
+  render();
+})();
+
+/* ==========================================================================
+   Grid lab — the four Townscaper steps
+   ========================================================================== */
+(function(){
+  const cv=document.getElementById("gridCanvas"); if(!cv) return;
+  const ctx=cv.getContext("2d");
+  const el=id=>document.getElementById(id);
+  const AXx=1, AXy=0, AYx=0.5, AYy=0.8660254;
+  let seed=0x5eed, stage=3, showLattice=false, filled=new Set();
+  let view={s:1,ox:0,oy:0}, cache=null;
+
+  const key=(a,b)=> a<b ? a+"|"+b : b+"|"+a;
+  const latticePos=(q,r)=>[ (AXx*q+AYx*r), (AXy*q+AYy*r) ];
+  const inHex=(q,r,R)=> Math.abs(q)<=R && Math.abs(r)<=R && Math.abs(q+r)<=R;
+
+  /* chunk offsets in lattice space: u=(2R+1,-R), v=(R,R+1) tile the plane */
+  function chunkOffsets(R,count){
+    if(count===1) return [[0,0]];
+    const u=[2*R+1,-R], v=[R,R+1];
+    const basis=[[0,0],[1,0],[0,1],[-1,1],[-1,0],[0,-1],[1,-1]];
+    return basis.map(([m,n])=>[m*u[0]+n*v[0], m*u[1]+n*v[1]]);
+  }
+
+  /* STEP 1 ---------------------------------------------------------------- */
+  function hexOfTriangles(R,count){
+    const offs=chunkOffsets(R,count);
+    const inside=(q,r)=>offs.some(o=>inHex(q-o[0],r-o[1],R));
+    const index=new Map(), verts=[], coords=[], faces=[];
+    const vert=(q,r)=>{
+      const k=q+","+r;
+      let i=index.get(k);
+      if(i===undefined){ i=verts.length; const p=latticePos(q,r); verts.push([p[0],p[1]]); coords.push([q,r]); index.set(k,i); }
+      return i;
+    };
+    let lo=-R*3, hi=R*3;
+    for(let r=lo;r<=hi;r++) for(let q=lo;q<=hi;q++){
+      if(inside(q,r)&&inside(q+1,r)&&inside(q,r+1)) faces.push([vert(q,r),vert(q+1,r),vert(q,r+1)]);
+      if(inside(q+1,r)&&inside(q+1,r+1)&&inside(q,r+1)) faces.push([vert(q+1,r),vert(q+1,r+1),vert(q,r+1)]);
+    }
+    return {verts,coords,faces};
+  }
+
+  /* STEP 2 ---------------------------------------------------------------- */
+  function mergeFaces(a,b,e){
+    const ka=a.findIndex((_,i)=>key(a[i],a[(i+1)%a.length])===e);
+    const kb=b.findIndex((_,i)=>key(b[i],b[(i+1)%b.length])===e);
+    const out=[];
+    for(let i=0;i<a.length;i++) out.push(a[(ka+1+i)%a.length]);
+    for(let i=0;i<b.length-2;i++) out.push(b[(kb+2+i)%b.length]);
+    return out;
+  }
+  function mergePairs(m,seed){
+    const edgeFaces=new Map();
+    m.faces.forEach((f,fi)=>{
+      for(let k=0;k<f.length;k++){
+        const e=key(f[k],f[(k+1)%f.length]);
+        if(!edgeFaces.has(e)) edgeFaces.set(e,[]);
+        edgeFaces.get(e).push(fi);
+      }
+    });
+    const cands=[];
+    edgeFaces.forEach((fs,e)=>{
+      if(fs.length!==2) return;
+      const [a,b]=e.split("|").map(Number);
+      const c0=m.coords[a], c1=m.coords[b];
+      /* priority from LATTICE coordinates -> order-independent, chunk-independent */
+      const h=hashU((hashI2(c0[0],c0[1],seed) ^ ((hashI2(c1[0],c1[1],seed)<<16)|(hashI2(c1[0],c1[1],seed)>>>16)))>>>0);
+      cands.push([e,fs[0],fs[1],h]);
+    });
+    cands.sort((x,y)=> y[3]-x[3] || (x[0]<y[0]?-1:1));
+    const used=new Array(m.faces.length).fill(false);
+    const out=[];
+    for(const [e,fa,fb] of cands){
+      if(used[fa]||used[fb]) continue;
+      used[fa]=used[fb]=true;
+      out.push(mergeFaces(m.faces[fa],m.faces[fb],e));
+    }
+    m.faces.forEach((f,i)=>{ if(!used[i]) out.push(f.slice()); });
+    return {verts:m.verts,coords:m.coords,faces:out};
+  }
+
+  /* STEP 3 ---------------------------------------------------------------- */
+  function subdivide(m){
+    const verts=m.verts.map(v=>[v[0],v[1]]);
+    const mid=new Map(), faces=[];
+    for(const f of m.faces){
+      const n=f.length;
+      let cx=0,cy=0;
+      for(const i of f){ cx+=verts[i][0]; cy+=verts[i][1]; }
+      verts.push([cx/n,cy/n]);
+      const ci=verts.length-1;
+      const mids=[];
+      for(let k=0;k<n;k++){
+        const a=f[k], b=f[(k+1)%n], e=key(a,b);
+        let id=mid.get(e);
+        if(id===undefined){
+          verts.push([(verts[a][0]+verts[b][0])*0.5,(verts[a][1]+verts[b][1])*0.5]);
+          id=verts.length-1; mid.set(e,id);
+        }
+        mids.push(id);
+      }
+      for(let k=0;k<n;k++) faces.push([f[k],mids[k],ci,mids[(k+n-1)%n]]);
+    }
+    return {verts,faces};
+  }
+
+  /* STEP 4 ---------------------------------------------------------------- */
+  function rot90(x,y,k){
+    switch(k&3){ case 0: return [x,y]; case 1: return [-y,x]; case 2: return [-x,-y]; default: return [y,-x]; }
+  }
+  function boundaryVerts(m){
+    const count=new Map();
+    for(const f of m.faces) for(let k=0;k<f.length;k++){
+      const e=key(f[k],f[(k+1)%f.length]);
+      count.set(e,(count.get(e)||0)+1);
+    }
+    const pinned=new Array(m.verts.length).fill(false);
+    count.forEach((c,e)=>{ if(c===1){ const [a,b]=e.split("|").map(Number); pinned[a]=pinned[b]=true; } });
+    return pinned;
+  }
+  function relax(m,iterations,step){
+    const n=m.verts.length;
+    const pinned=boundaryVerts(m);
+    const tx=new Float64Array(n), ty=new Float64Array(n), w=new Float64Array(n);
+    for(let it=0;it<iterations;it++){
+      tx.fill(0); ty.fill(0); w.fill(0);
+      for(const f of m.faces){
+        if(f.length!==4) continue;
+        const p=f.map(i=>m.verts[i]);
+        const cx=(p[0][0]+p[1][0]+p[2][0]+p[3][0])*0.25;
+        const cy=(p[0][1]+p[1][1]+p[2][1]+p[3][1])*0.25;
+        let mx=0,my=0;
+        for(let i=0;i<4;i++){ const r=rot90(p[i][0]-cx,p[i][1]-cy,4-i); mx+=r[0]; my+=r[1]; }
+        mx*=0.25; my*=0.25;
+        for(let i=0;i<4;i++){
+          const r=rot90(mx,my,i);
+          tx[f[i]]+=cx+r[0]; ty[f[i]]+=cy+r[1]; w[f[i]]+=1;
+        }
+      }
+      for(let i=0;i<n;i++){
+        if(pinned[i]||w[i]===0) continue;
+        m.verts[i][0]+=(tx[i]/w[i]-m.verts[i][0])*step;
+        m.verts[i][1]+=(ty[i]/w[i]-m.verts[i][1])*step;
+      }
+    }
+    return m;
+  }
+
+  /* build + draw ---------------------------------------------------------- */
+  function build(){
+    const R=parseInt(el("gRadius").value,10);
+    const count=parseInt(el("gChunks").value,10);
+    const iters=parseInt(el("gRelax").value,10);
+    const step=parseFloat(el("gStep").value);
+    const tris=hexOfTriangles(R,count);
+    const merged=mergePairs({verts:tris.verts,coords:tris.coords,faces:tris.faces.map(f=>f.slice())},seed);
+    const sub=subdivide(merged);
+    const relaxed={verts:sub.verts.map(v=>[v[0],v[1]]),faces:sub.faces};
+    relax(relaxed,iters,step);
+    cache={R,count,iters,step,tris,merged,sub,relaxed};
+    fit();
+    el("vRadius").textContent=R;
+    el("vRelax").textContent=iters;
+    el("vStep").textContent=step.toFixed(2);
+    const quads=sub.faces.length;
+    const leftover=merged.faces.filter(f=>f.length===3).length;
+    el("gridRead").innerHTML="<b>seed</b> 0x"+seed.toString(16)+
+      " &nbsp; <b>triangles</b> "+tris.faces.length+
+      " &nbsp; <b>after merge</b> "+merged.faces.length+" faces ("+leftover+" left as triangles)"+
+      " &nbsp; <b>quads</b> "+quads+" &nbsp; <b>vertices</b> "+sub.verts.length;
+  }
+  function fit(){
+    const pts=cache.relaxed.verts.concat(cache.tris.verts);
+    let minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9;
+    for(const p of pts){ minx=Math.min(minx,p[0]); maxx=Math.max(maxx,p[0]); miny=Math.min(miny,p[1]); maxy=Math.max(maxy,p[1]); }
+    const pad=22;
+    const s=Math.min((cv.width-pad*2)/(maxx-minx),(cv.height-pad*2)/(maxy-miny));
+    view.s=s;
+    view.ox=(cv.width-(maxx-minx)*s)/2-minx*s;
+    view.oy=(cv.height-(maxy-miny)*s)/2-miny*s;
+  }
+  const X=p=>p[0]*view.s+view.ox, Y=p=>cv.height-(p[1]*view.s+view.oy);
+
+  function currentMesh(){
+    if(stage===0) return {verts:cache.tris.verts,faces:cache.tris.faces};
+    if(stage===1) return {verts:cache.merged.verts,faces:cache.merged.faces};
+    if(stage===2) return cache.sub;
+    return cache.relaxed;
+  }
+  function path(f,verts){
+    ctx.beginPath();
+    ctx.moveTo(X(verts[f[0]]),Y(verts[f[0]]));
+    for(let i=1;i<f.length;i++) ctx.lineTo(X(verts[f[i]]),Y(verts[f[i]]));
+    ctx.closePath();
+  }
+  function draw(){
+    if(!cache) return;
+    ctx.clearRect(0,0,cv.width,cv.height);
+    const m=currentMesh();
+
+    if(showLattice&&stage>0){
+      ctx.strokeStyle="rgba(148,161,159,0.16)"; ctx.lineWidth=1;
+      for(const f of cache.tris.faces) { path(f,cache.tris.verts); ctx.stroke(); }
+    }
+
+    for(let i=0;i<m.faces.length;i++){
+      const f=m.faces[i];
+      path(f,m.verts);
+      if(stage>=2 && filled.has(i)){
+        const h=u2f(hashU(i*2654435761^seed));
+        const col=ramp(HYPS,0.55+h*0.42);
+        ctx.fillStyle="rgb("+col.map(Math.round).join(",")+")";
+      } else if(stage===0){
+        ctx.fillStyle="rgba(27,110,122,0.16)";
+      } else if(f.length===3){
+        ctx.fillStyle="rgba(192,120,79,0.30)";       /* leftover triangles */
+      } else if(stage===1){
+        ctx.fillStyle="rgba(27,110,122,0.30)";
+      } else {
+        ctx.fillStyle="rgba(30,45,50,0.85)";
+      }
+      ctx.fill();
+      ctx.strokeStyle= stage>=2 ? "rgba(217,194,126,0.55)" : "rgba(206,203,193,0.55)";
+      ctx.lineWidth= stage>=2 ? 1 : 1.1;
+      ctx.stroke();
+    }
+
+    if(stage>=3){
+      ctx.fillStyle="rgba(217,194,126,0.85)";
+      for(const v of m.verts) ctx.fillRect(X(v)-1,Y(v)-1,2,2);
+    }
+  }
+
+  /* hit test for click-to-fill */
+  function pointInPoly(px,py,f,verts){
+    let inside=false;
+    for(let i=0,j=f.length-1;i<f.length;j=i++){
+      const xi=X(verts[f[i]]),yi=Y(verts[f[i]]),xj=X(verts[f[j]]),yj=Y(verts[f[j]]);
+      if(((yi>py)!==(yj>py)) && (px < (xj-xi)*(py-yi)/(yj-yi)+xi)) inside=!inside;
+    }
+    return inside;
+  }
+  cv.addEventListener("click",ev=>{
+    if(stage<2||!cache) return;
+    const r=cv.getBoundingClientRect();
+    const px=(ev.clientX-r.left)*(cv.width/r.width);
+    const py=(ev.clientY-r.top)*(cv.height/r.height);
+    const m=currentMesh();
+    for(let i=0;i<m.faces.length;i++){
+      if(pointInPoly(px,py,m.faces[i],m.verts)){
+        if(filled.has(i)) filled.delete(i); else filled.add(i);
+        draw(); return;
+      }
+    }
+  });
+
+  document.querySelectorAll("#gridStage button").forEach(b=>{
+    b.addEventListener("click",()=>{
+      document.querySelectorAll("#gridStage button").forEach(x=>x.classList.remove("on"));
+      b.classList.add("on");
+      stage=parseInt(b.dataset.stage,10);
+      draw();
+    });
+  });
+  ["gRadius","gRelax","gStep","gChunks"].forEach(id=>{
+    el(id).addEventListener("input",()=>{ if(id==="gRadius"||id==="gChunks") filled.clear(); build(); draw(); });
+  });
+  el("gSeed").addEventListener("click",()=>{ seed=(Math.random()*0xffffffff)>>>0; filled.clear(); build(); draw(); });
+  el("gClear").addEventListener("click",()=>{ filled.clear(); draw(); });
+  el("gLattice").addEventListener("click",e=>{ showLattice=!showLattice; e.target.classList.toggle("on",showLattice); draw(); });
+
+  document.querySelectorAll("#gridStage button").forEach(x=>x.classList.remove("on"));
+  document.querySelector('#gridStage button[data-stage="3"]').classList.add("on");
+  build(); draw();
+  window.addEventListener("resize",()=>{ if(cache){ fit(); draw(); } });
+})();
+
+/* ==========================================================================
+   Nav highlighting
+   ========================================================================== */
+(function(){
+  const links=[...document.querySelectorAll("#nav a")];
+  const map=new Map();
+  links.forEach(a=>{ const t=document.querySelector(a.getAttribute("href")); if(t) map.set(t,a); });
+  const io=new IntersectionObserver(entries=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting){
+        links.forEach(l=>l.classList.remove("on"));
+        const a=map.get(e.target); if(a) a.classList.add("on");
+      }
+    });
+  },{rootMargin:"-10% 0px -80% 0px",threshold:0});
+  map.forEach((a,t)=>io.observe(t));
+})();
+</script>
+</body>
+</html>
