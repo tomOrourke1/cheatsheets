@@ -1,0 +1,1485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bevy Data Storage Cheatsheet — 0.19</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0c111d;
+  --panel:#141b2b;
+  --panel-2:#1a2335;
+  --panel-3:#212c42;
+  --line:#2b3852;
+  --line-soft:#222d43;
+  --text:#e2e8f6;
+  --muted:#8b9bbd;
+  --dim:#66769a;
+
+  /* semantic storage hues — colour encodes WHERE data lives */
+  --c-component:#4fd6c9;
+  --c-resource:#f5b13d;
+  --c-asset:#ab8cff;
+  --c-event:#ff7e97;
+  --c-state:#82db6b;
+  --c-local:#7cb0ff;
+  --c-warn:#ff9d5c;
+
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --display:"Space Grotesk","IBM Plex Sans",system-ui,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+
+  --r:10px;
+  --maxw:1180px;
+}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:84px}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+
+body{
+  margin:0;
+  background:var(--ink);
+  color:var(--text);
+  font-family:var(--body);
+  font-size:15px;
+  line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ---------- background texture: a faint memory-table grid ---------- */
+body::before{
+  content:"";
+  position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:linear-gradient(var(--line-soft) 1px,transparent 1px);
+  background-size:100% 28px;
+  opacity:.35;
+  mask-image:linear-gradient(180deg,rgba(0,0,0,.5),transparent 55%);
+}
+
+.wrap{position:relative;z-index:1;max-width:var(--maxw);margin:0 auto;padding:0 24px}
+
+/* ---------- top bar ---------- */
+.topbar{
+  position:sticky;top:0;z-index:50;
+  background:rgba(12,17,29,.86);
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line);
+}
+.topbar-inner{
+  max-width:var(--maxw);margin:0 auto;padding:10px 24px;
+  display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+}
+.brand{
+  font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);white-space:nowrap;
+}
+.brand b{color:var(--text);font-weight:700}
+.navlinks{display:flex;gap:2px;flex-wrap:wrap;margin-left:auto}
+.navlinks a{
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.04em;
+  color:var(--dim);text-decoration:none;padding:5px 9px;border-radius:6px;
+  transition:color .15s,background .15s;
+}
+.navlinks a:hover,.navlinks a:focus-visible{color:var(--text);background:var(--panel-2)}
+.navlinks a.on{color:var(--c-component);background:rgba(79,214,201,.08)}
+
+/* ---------- header ---------- */
+header.hero{padding:64px 0 40px;border-bottom:1px solid var(--line)}
+.eyebrow{
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--c-component);margin:0 0 18px;
+}
+h1{
+  font-family:var(--display);font-weight:700;
+  font-size:clamp(34px,6vw,62px);line-height:1.02;letter-spacing:-.025em;
+  margin:0 0 20px;
+}
+h1 .thin{font-weight:400;color:var(--muted);display:block}
+.lede{font-size:17px;line-height:1.6;color:var(--muted);max-width:62ch;margin:0 0 26px}
+.lede strong{color:var(--text);font-weight:600}
+
+.badges{display:flex;gap:8px;flex-wrap:wrap}
+.badge{
+  font-family:var(--mono);font-size:11px;letter-spacing:.06em;
+  border:1px solid var(--line);border-radius:999px;padding:4px 11px;color:var(--muted);
+  background:var(--panel);
+}
+.badge b{color:var(--text);font-weight:500}
+
+/* ---------- legend ---------- */
+.legend{
+  display:flex;gap:8px;flex-wrap:wrap;margin:30px 0 0;padding:14px;
+  border:1px solid var(--line);border-radius:var(--r);background:var(--panel);
+}
+.legend-label{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--dim);width:100%;margin-bottom:2px;
+}
+.key{
+  display:inline-flex;align-items:center;gap:7px;
+  font-family:var(--mono);font-size:11.5px;color:var(--muted);
+  padding:3px 10px 3px 7px;border-radius:6px;background:var(--panel-2);
+}
+.swatch{width:9px;height:9px;border-radius:2px;flex:none}
+
+/* ---------- sections ---------- */
+section{padding:56px 0;border-bottom:1px solid var(--line)}
+section:last-of-type{border-bottom:0}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:8px;flex-wrap:wrap}
+.sec-num{
+  font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--dim);
+  border:1px solid var(--line);border-radius:5px;padding:3px 8px;flex:none;
+}
+h2{
+  font-family:var(--display);font-weight:600;letter-spacing:-.02em;
+  font-size:clamp(24px,3.4vw,34px);margin:0;line-height:1.15;
+}
+h3{
+  font-family:var(--display);font-weight:600;font-size:19px;letter-spacing:-.01em;
+  margin:34px 0 10px;
+}
+h4{
+  font-family:var(--mono);font-weight:500;font-size:12px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--muted);margin:24px 0 10px;
+}
+.sec-sub{color:var(--muted);max-width:70ch;margin:0 0 26px;font-size:15.5px}
+p{max-width:74ch}
+a{color:var(--c-local)}
+
+/* ---------- the router: signature element ---------- */
+.router{
+  border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--panel);
+}
+.router-head{
+  padding:16px 20px;border-bottom:1px solid var(--line);background:var(--panel-2);
+  display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+}
+.router-head h3{margin:0;font-size:17px}
+.router-head span{font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.08em}
+.q{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center;
+  padding:15px 20px;border-bottom:1px solid var(--line-soft);
+}
+.q:last-child{border-bottom:0}
+.q:hover{background:var(--panel-2)}
+.q-text{font-size:14.5px}
+.q-text b{font-weight:600;color:#fff}
+.q-text em{font-style:normal;color:var(--muted);display:block;font-size:13px;margin-top:3px}
+.verdict{
+  font-family:var(--mono);font-size:11.5px;font-weight:500;letter-spacing:.02em;
+  padding:5px 11px;border-radius:6px;white-space:nowrap;
+  border:1px solid currentColor;
+}
+.v-component{color:var(--c-component);background:rgba(79,214,201,.09)}
+.v-resource{color:var(--c-resource);background:rgba(245,177,61,.09)}
+.v-asset{color:var(--c-asset);background:rgba(171,140,255,.09)}
+.v-event{color:var(--c-event);background:rgba(255,126,151,.09)}
+.v-state{color:var(--c-state);background:rgba(130,219,107,.09)}
+.v-local{color:var(--c-local);background:rgba(124,176,255,.09)}
+@media(max-width:640px){.q{grid-template-columns:1fr;gap:9px}.verdict{justify-self:start}}
+
+/* ---------- code ---------- */
+.code{
+  position:relative;margin:14px 0 22px;
+  border:1px solid var(--line);border-radius:var(--r);
+  background:#0a0f19;overflow:hidden;
+}
+.code::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--c-component);
+}
+.code.r-resource::before{background:var(--c-resource)}
+.code.r-asset::before{background:var(--c-asset)}
+.code.r-event::before{background:var(--c-event)}
+.code.r-state::before{background:var(--c-state)}
+.code.r-local::before{background:var(--c-local)}
+.code.r-mixed::before{background:linear-gradient(180deg,var(--c-component),var(--c-resource),var(--c-asset))}
+.code-top{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:8px 12px 8px 16px;border-bottom:1px solid var(--line-soft);background:var(--panel);
+}
+.code-label{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+.copy{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+  background:transparent;color:var(--dim);border:1px solid var(--line);
+  border-radius:5px;padding:3px 9px;cursor:pointer;transition:color .15s,border-color .15s;
+}
+.copy:hover{color:var(--text);border-color:var(--muted)}
+.copy.done{color:var(--c-state);border-color:var(--c-state)}
+pre{
+  margin:0;padding:16px 18px;overflow-x:auto;
+  font-family:var(--mono);font-size:12.8px;line-height:1.66;color:#c9d4ea;
+  tab-size:4;
+}
+code{font-family:var(--mono);font-size:.92em}
+p code,li code,td code,.q-text code{
+  background:var(--panel-2);border:1px solid var(--line-soft);
+  border-radius:4px;padding:1px 5px;color:#d8e2f5;white-space:nowrap;
+}
+.cm{color:#5d6f92}          /* comment */
+.kw{color:#ff8fa8}          /* keyword */
+.ty{color:#4fd6c9}          /* type */
+.at{color:#f5b13d}          /* attribute / macro */
+.st{color:#a5d6a7}          /* string */
+.fn{color:#ab8cff}          /* fn name */
+.nu{color:#ffb27d}          /* number */
+
+/* ---------- tables ---------- */
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);margin:18px 0 24px}
+table{width:100%;border-collapse:collapse;font-size:13.6px;min-width:560px}
+th{
+  text-align:left;font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--dim);font-weight:500;padding:11px 14px;background:var(--panel-2);
+  border-bottom:1px solid var(--line);white-space:nowrap;
+}
+td{padding:11px 14px;border-bottom:1px solid var(--line-soft);vertical-align:top;color:var(--muted)}
+td:first-child{color:var(--text)}
+tr:last-child td{border-bottom:0}
+tbody tr:hover td{background:var(--panel)}
+
+/* ---------- cards ---------- */
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(330px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
+.card{
+  border:1px solid var(--line);border-radius:var(--r);padding:18px 20px;background:var(--panel);
+}
+.card h4{margin-top:0}
+.card p:last-child,.card ul:last-child{margin-bottom:0}
+.card-tag{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
+  display:inline-block;margin-bottom:9px;
+}
+
+ul,ol{padding-left:20px;max-width:74ch}
+li{margin:5px 0}
+li::marker{color:var(--dim)}
+
+/* ---------- callouts ---------- */
+.note{
+  border-left:3px solid var(--c-local);background:var(--panel);
+  padding:14px 18px;border-radius:0 var(--r) var(--r) 0;margin:20px 0;font-size:14.4px;
+}
+.note.warn{border-left-color:var(--c-warn)}
+.note.bad{border-left-color:var(--c-event)}
+.note.good{border-left-color:var(--c-state)}
+.note b{color:#fff}
+.note p{margin:0}
+.note p+p{margin-top:9px}
+.note-k{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-bottom:5px;
+}
+
+/* ---------- app profile blocks ---------- */
+.app{border:1px solid var(--line);border-radius:14px;margin:22px 0 34px;overflow:hidden;background:var(--panel)}
+.app-head{padding:18px 22px;border-bottom:1px solid var(--line);background:var(--panel-2)}
+.app-head h3{margin:0 0 5px;font-size:20px}
+.app-head p{margin:0;color:var(--muted);font-size:14px;max-width:70ch}
+.app-body{padding:20px 22px}
+.shape{
+  display:grid;grid-template-columns:150px minmax(0,1fr);gap:12px;
+  padding:11px 0;border-bottom:1px solid var(--line-soft);font-size:14px;
+}
+.shape:last-of-type{border-bottom:0}
+.shape-k{font-family:var(--mono);font-size:11.5px;letter-spacing:.05em;padding-top:2px}
+.shape-v{color:var(--muted)}
+.shape-v b{color:var(--text);font-weight:500}
+@media(max-width:620px){.shape{grid-template-columns:1fr;gap:3px}}
+
+/* ---------- footer ---------- */
+footer{padding:44px 0 70px;color:var(--dim);font-size:13.5px}
+footer a{color:var(--muted)}
+.foot-grid{display:grid;gap:20px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+
+:focus-visible{outline:2px solid var(--c-component);outline-offset:2px;border-radius:3px}
+::selection{background:rgba(79,214,201,.28)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand"><b>BEVY DATA</b> / 0.19</div>
+    <nav class="navlinks">
+      <a href="#router">Router</a>
+      <a href="#kinds">Storage kinds</a>
+      <a href="#rules">Rules</a>
+      <a href="#shapes">App shapes</a>
+      <a href="#perf">Performance</a>
+      <a href="#persist">Save &amp; load</a>
+      <a href="#traps">Traps</a>
+      <a href="#index">Index</a>
+    </nav>
+  </div>
+</div>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="eyebrow">Where does this data live?</p>
+  <h1>Storing app and game state in Bevy<span class="thin">a decision reference, not a tutorial</span></h1>
+  <p class="lede">Every piece of data in a Bevy app has to land somewhere: on an entity, in a resource, in the asset system, in a message queue, or inside a single system. Picking wrong is the single most common cause of <strong>refactors at month three</strong>. This sheet gives you the decision rule first, then the API, then worked layouts for six real kinds of app.</p>
+  <div class="badges">
+    <span class="badge">Bevy <b>0.19</b></span>
+    <span class="badge">Rust edition <b>2024</b></span>
+    <span class="badge">Verified <b>Aug 2026</b></span>
+    <span class="badge">Covers <b>0.15 → 0.19 renames</b></span>
+  </div>
+
+  <div class="legend">
+    <span class="legend-label">Colour = storage location. It is used consistently everywhere below.</span>
+    <span class="key"><span class="swatch" style="background:var(--c-component)"></span>Component</span>
+    <span class="key"><span class="swatch" style="background:var(--c-resource)"></span>Resource</span>
+    <span class="key"><span class="swatch" style="background:var(--c-asset)"></span>Asset</span>
+    <span class="key"><span class="swatch" style="background:var(--c-event)"></span>Message / Event</span>
+    <span class="key"><span class="swatch" style="background:var(--c-state)"></span>State</span>
+    <span class="key"><span class="swatch" style="background:var(--c-local)"></span>Local / plain field</span>
+  </div>
+</header>
+
+<section id="router">
+  <div class="sec-head"><span class="sec-num">01</span><h2>The router</h2></div>
+  <p class="sec-sub">Read top to bottom and stop at the first row that matches your data. The rows are ordered by how strongly they decide the answer — the first three settle roughly 80% of real cases.</p>
+
+  <div class="router">
+    <div class="router-head">
+      <h3>Start with cardinality, not with the data</h3>
+      <span>first match wins</span>
+    </div>
+
+    <div class="q">
+      <div class="q-text"><b>Is there more than one of this thing in the world at once?</b>
+        <em>Enemies, chunks, bullets, UI nodes, selected vertices, inventory slots.</em></div>
+      <span class="verdict v-component">Component on an entity</span>
+    </div>
+
+    <div class="q">
+      <div class="q-text"><b>Is there exactly one, forever, and it isn't attached to anything in the world?</b>
+        <em>Score, gravity constant, key bindings, the tick counter, the active tool.</em></div>
+      <span class="verdict v-resource">Resource</span>
+    </div>
+
+    <div class="q">
+      <div class="q-text"><b>Is it big, shared by many entities, and loaded or generated rather than simulated?</b>
+        <em>Meshes, textures, audio, block definition tables, weapon stat sheets.</em></div>
+      <span class="verdict v-asset">Asset + <code>Handle&lt;T&gt;</code></span>
+    </div>
+
+    <div class="q">
+      <div class="q-text"><b>Is it a thing that <i>happened</i>, that several systems want to know about later this frame?</b>
+        <em>Damage dealt, block broken, file opened, collision started.</em></div>
+      <span class="verdict v-event">Message</span>
+    </div>
+
+    <div class="q">
+      <div class="q-text"><b>Is it a thing that happened that needs handling <i>right now</i>, before the next system runs?</b>
+        <em>Death cleanup, "entity spawned, wire up its children", UI button pressed.</em></div>
+      <span class="verdict v-event">Event + observer</span>
+    </div>
+
+    <div class="q">
+      <div class="q-text"><b>Does the whole app behave differently depending on it, with enter/exit work at the boundary?</b>
+        <em>Main menu vs playing vs paused; edit mode vs render preview; loading.</em></div>
+      <span class="verdict v-state">State</span>
+    </div>
+
+    <div class="q">
+      <div class="q-text"><b>Does exactly one system need it, and nobody else ever reads it?</b>
+        <em>Debounce timer, cached scratch buffer, "did I already log this".</em></div>
+      <span class="verdict v-local"><code>Local&lt;T&gt;</code></span>
+    </div>
+
+    <div class="q">
+      <div class="q-text"><b>Is it only ever meaningful together with data you already have?</b>
+        <em>The <code>y</code> in a position, the cooldown inside a weapon, an id inside a struct.</em></div>
+      <span class="verdict v-local">Just a field</span>
+    </div>
+  </div>
+
+  <div class="note">
+    <span class="note-k">The one-line version</span>
+    <p><b>Many → component. One → resource. Heavy and shared → asset. Transient → message or event.</b> Everything else on this page is refinement of those four.</p>
+  </div>
+
+  <h3>The tie-breaker questions</h3>
+  <p>When two answers both look defensible, these break the tie in the direction that ages well:</p>
+
+  <div class="grid g2" style="margin-top:16px">
+    <div class="card">
+      <span class="card-tag" style="color:var(--c-component)">Prefer the component</span>
+      <p style="margin:0">Could there <em>ever</em> be two? Split-screen means two players. A second viewport means two cameras. Undo means two document versions. A resource that has to become plural later is a painful refactor; a component that stays singular costs you nothing but a <code>Single&lt;T&gt;</code> query.</p>
+    </div>
+    <div class="card">
+      <span class="card-tag" style="color:var(--c-resource)">Prefer the resource</span>
+      <p style="margin:0">Does every system need it, on an entity that has no other reason to exist? Don't invent a placeholder entity just to hold global config. A resource is the honest representation of "one global thing".</p>
+    </div>
+    <div class="card">
+      <span class="card-tag" style="color:var(--c-asset)">Prefer the asset</span>
+      <p style="margin:0">Would cloning it per entity hurt? Assets are refcounted and shared: 10,000 entities holding the same <code>Handle&lt;Mesh&gt;</code> store 10,000 cheap handles and one mesh. Also the only sane home for anything hot-reloadable.</p>
+    </div>
+    <div class="card">
+      <span class="card-tag" style="color:var(--c-event)">Prefer the message</span>
+      <p style="margin:0">Are you writing a <code>Vec</code> into a resource and draining it next frame? That's a message queue you're rebuilding by hand. Use <code>Message</code> and get the double-buffering, per-reader cursors and cleanup for free.</p>
+    </div>
+  </div>
+</section>
+
+<section id="kinds">
+  <div class="sec-head"><span class="sec-num">02</span><h2>The storage kinds</h2></div>
+  <p class="sec-sub">Nine places data can live, each with what it is, when to reach for it, and the current 0.19 API. The left edge of every code block is colour-coded to the storage kind it demonstrates.</p>
+
+  <h3 style="color:var(--c-component)">Component — data attached to an entity</h3>
+  <p>The default answer. A component is a plain struct stored in a column next to every other entity that has the same set of components. Cheap to iterate in bulk, cheap to add and remove one at a time, and queryable by combination.</p>
+
+  <div class="code">
+    <div class="code-top"><span class="code-label">component basics</span><button class="copy">Copy</button></div>
+<pre><span class="at">#[derive(Component)]</span>
+<span class="kw">struct</span> <span class="ty">Health</span> { current: <span class="ty">f32</span>, max: <span class="ty">f32</span> }
+
+<span class="cm">// Marker: zero bytes, exists purely to be queried on.</span>
+<span class="at">#[derive(Component)]</span>
+<span class="kw">struct</span> <span class="ty">Enemy</span>;
+
+<span class="cm">// Newtype over a primitive is idiomatic and free.</span>
+<span class="at">#[derive(Component)]</span>
+<span class="kw">struct</span> <span class="ty">Damage</span>(<span class="kw">pub</span> <span class="ty">f32</span>);
+
+<span class="kw">fn</span> <span class="fn">decay</span>(<span class="kw">mut</span> q: <span class="ty">Query</span>&lt;&amp;<span class="kw">mut</span> <span class="ty">Health</span>, <span class="ty">With</span>&lt;<span class="ty">Enemy</span>&gt;&gt;, time: <span class="ty">Res</span>&lt;<span class="ty">Time</span>&gt;) {
+    <span class="kw">for</span> <span class="kw">mut</span> hp <span class="kw">in</span> &amp;<span class="kw">mut</span> q {
+        hp.current -= <span class="nu">1.0</span> * time.delta_secs();
+    }
+}</pre>
+  </div>
+
+  <h4>Required components — the replacement for bundles</h4>
+  <p>Since 0.15, a component can declare what else must exist alongside it. Spawning the one component pulls in the rest, recursively. Bundles still work, but required components are the idiomatic way to express "a Player is never without Health".</p>
+
+  <div class="code">
+    <div class="code-top"><span class="code-label">required components (0.15+)</span><button class="copy">Copy</button></div>
+<pre><span class="at">#[derive(Component)]</span>
+<span class="at">#[require(</span>
+    <span class="ty">Health</span> = <span class="ty">Health</span> { current: <span class="nu">100.0</span>, max: <span class="nu">100.0</span> },  <span class="cm">// explicit value</span>
+    <span class="ty">Inventory</span>,                                        <span class="cm">// Default::default()</span>
+    <span class="ty">Transform</span>,
+    <span class="ty">Visibility</span>,
+<span class="at">)]</span>
+<span class="kw">struct</span> <span class="ty">Player</span>;
+
+<span class="cm">// One line spawns Player + Health + Inventory + Transform + Visibility,</span>
+<span class="cm">// plus anything those require in turn (GlobalTransform, etc).</span>
+commands.<span class="fn">spawn</span>(<span class="ty">Player</span>);
+
+<span class="cm">// Supported forms inside #[require(..)]:</span>
+<span class="cm">//   A                      -> Default::default()</span>
+<span class="cm">//   B(1)                   -> tuple struct</span>
+<span class="cm">//   C { x: 1, ..default() } -> named fields</span>
+<span class="cm">//   D::One / E::ONE        -> variant or associated const</span>
+<span class="cm">//   F::new(1) / G = expr   -> constructor or arbitrary expression</span></pre>
+  </div>
+
+  <h4>Storage strategy: table vs sparse set</h4>
+  <p>Default is <b>table</b> storage: dense columns, fastest iteration, but adding or removing the component moves the entity to a different archetype (a memcpy of all its other components). <b>Sparse set</b> storage makes add/remove cheap and iteration slower. Choose sparse set only for components that are toggled constantly on many entities.</p>
+
+  <div class="code">
+    <div class="code-top"><span class="code-label">storage + mutability + hooks</span><button class="copy">Copy</button></div>
+<pre><span class="cm">// Toggled every frame on thousands of entities -> sparse set.</span>
+<span class="at">#[derive(Component)]</span>
+<span class="at">#[component(storage = <span class="st">"SparseSet"</span>)]</span>
+<span class="kw">struct</span> <span class="ty">Burning</span>;
+
+<span class="cm">// Immutable: can only be replaced wholesale, never mutated in place.</span>
+<span class="cm">// Guarantees hooks/observers see every change. Good for ids and keys.</span>
+<span class="at">#[derive(Component)]</span>
+<span class="at">#[component(immutable)]</span>
+<span class="kw">struct</span> <span class="ty">ChunkCoord</span>(<span class="ty">IVec3</span>);
+
+<span class="cm">// Lifecycle hooks run inline, before any observer.</span>
+<span class="cm">// 0.19: on_replace was renamed to on_discard.</span>
+<span class="at">#[derive(Component)]</span>
+<span class="at">#[component(on_add = index_chunk, on_remove = unindex_chunk)]</span>
+<span class="kw">struct</span> <span class="ty">LoadedChunk</span>;</pre>
+  </div>
+
+  <div class="note warn">
+    <span class="note-k">Cost model worth memorising</span>
+    <p>Adding or removing a table component is an <b>archetype move</b>. Mutating a component's fields is nearly free. So model "state that flips often" as a field or an enum inside a component you already have, not as a marker you add and remove 60 times a second — unless you make that marker sparse set.</p>
+  </div>
+
+  <h3 style="color:var(--c-resource)">Resource — the singleton</h3>
+  <p>A resource is data of which at most one exists. In 0.19 resources are literally components stored on a hidden singleton entity, which is why they now support hooks, observers, relationships and immutability. The everyday API is unchanged.</p>
+
+  <div class="code r-resource">
+    <div class="code-top"><span class="code-label">resource basics</span><button class="copy">Copy</button></div>
+<pre><span class="at">#[derive(Resource)]</span>
+<span class="kw">struct</span> <span class="ty">Score</span>(<span class="ty">u32</span>);
+
+<span class="at">#[derive(Resource, Default)]</span>
+<span class="kw">struct</span> <span class="ty">WorldSettings</span> { gravity: <span class="ty">f32</span>, render_distance: <span class="ty">u32</span> }
+
+app.<span class="fn">insert_resource</span>(<span class="ty">Score</span>(<span class="nu">0</span>))            <span class="cm">// explicit value</span>
+   .<span class="fn">init_resource</span>::&lt;<span class="ty">WorldSettings</span>&gt;();      <span class="cm">// Default or FromWorld</span>
+
+<span class="kw">fn</span> <span class="fn">award</span>(<span class="kw">mut</span> score: <span class="ty">ResMut</span>&lt;<span class="ty">Score</span>&gt;, settings: <span class="ty">Res</span>&lt;<span class="ty">WorldSettings</span>&gt;) {
+    score.<span class="nu">0</span> += <span class="nu">10</span>;
+}
+
+<span class="cm">// May not exist yet? Take it as an Option and handle None.</span>
+<span class="kw">fn</span> <span class="fn">maybe</span>(save: <span class="ty">Option</span>&lt;<span class="ty">Res</span>&lt;<span class="ty">SaveFile</span>&gt;&gt;) { <span class="kw">if</span> <span class="kw">let</span> <span class="ty">Some</span>(s) = save { <span class="cm">/* .. */</span> } }
+
+<span class="cm">// FromWorld when construction needs other data (e.g. an asset handle).</span>
+<span class="kw">impl</span> <span class="ty">FromWorld</span> <span class="kw">for</span> <span class="ty">BlockAtlas</span> {
+    <span class="kw">fn</span> <span class="fn">from_world</span>(world: &amp;<span class="kw">mut</span> <span class="ty">World</span>) -&gt; <span class="ty">Self</span> {
+        <span class="kw">let</span> assets = world.<span class="fn">resource</span>::&lt;<span class="ty">AssetServer</span>&gt;();
+        <span class="ty">BlockAtlas</span> { image: assets.<span class="fn">load</span>(<span class="st">"blocks.png"</span>) }
+    }
+}</pre>
+  </div>
+
+  <div class="note bad">
+    <span class="note-k">0.19 breaking change — read this before copying old code</span>
+    <p><code>#[derive(Resource)]</code> now also implements <code>Component</code>, so <b>a type can no longer be both a component and a resource</b>. If you had <code>#[derive(Component, Resource)]</code> for a "global fallback that can be overridden per entity" pattern, split it into two types — <code>GlobalFoo</code> (resource) and <code>Foo</code> (component). Bevy did exactly this internally for its UI debug options.</p>
+  </div>
+
+  <h4>Non-send data</h4>
+  <p>For anything that isn't <code>Send</code> — raw OS handles, some GPU or audio interop, single-threaded C libraries. It's pinned to the main thread and is now called "non-send data" rather than "non-send resource".</p>
+
+  <div class="code r-resource">
+    <div class="code-top"><span class="code-label">non-send (0.19 naming)</span><button class="copy">Copy</button></div>
+<pre>app.<span class="fn">insert_non_send</span>(<span class="ty">PlatformAudioHandle</span>::<span class="fn">new</span>());
+<span class="cm">// was: insert_non_send_resource</span>
+
+<span class="kw">fn</span> <span class="fn">poke</span>(handle: <span class="ty">NonSend</span>&lt;<span class="ty">PlatformAudioHandle</span>&gt;) { <span class="cm">/* main thread only */</span> }</pre>
+  </div>
+
+  <h3 style="color:var(--c-asset)">Asset — heavy, shared, refcounted</h3>
+  <p>Assets live in a central <code>Assets&lt;T&gt;</code> store; entities hold a cheap <code>Handle&lt;T&gt;</code>. Anything loaded from disk belongs here, and so does anything you generate procedurally that many entities share. Handles refcount: when the last one drops, the asset is unloaded.</p>
+
+  <div class="code r-asset">
+    <div class="code-top"><span class="code-label">custom assets + handles</span><button class="copy">Copy</button></div>
+<pre><span class="cm">// Derive Reflect (not just TypePath) if you want handles to survive</span>
+<span class="cm">// serialization round-trips — required as of 0.19.</span>
+<span class="at">#[derive(Asset, Reflect)]</span>
+<span class="at">#[reflect(Asset)]</span>
+<span class="kw">struct</span> <span class="ty">WeaponStats</span> { damage: <span class="ty">f32</span>, rpm: <span class="ty">f32</span>, spread: <span class="ty">f32</span> }
+
+<span class="cm">// Register it, then load or insert.</span>
+app.<span class="fn">init_asset</span>::&lt;<span class="ty">WeaponStats</span>&gt;();
+
+<span class="kw">fn</span> <span class="fn">setup</span>(<span class="kw">mut</span> commands: <span class="ty">Commands</span>, <span class="kw">mut</span> stats: <span class="ty">ResMut</span>&lt;<span class="ty">Assets</span>&lt;<span class="ty">WeaponStats</span>&gt;&gt;) {
+    <span class="kw">let</span> rifle = stats.<span class="fn">add</span>(<span class="ty">WeaponStats</span> { damage: <span class="nu">24.0</span>, rpm: <span class="nu">600.0</span>, spread: <span class="nu">0.02</span> });
+    commands.<span class="fn">spawn</span>((<span class="ty">Weapon</span>, <span class="ty">WeaponKind</span>(rifle.<span class="fn">clone</span>())));  <span class="cm">// cloning a handle is cheap</span>
+}
+
+<span class="cm">// Reading through a handle</span>
+<span class="kw">fn</span> <span class="fn">fire</span>(q: <span class="ty">Query</span>&lt;&amp;<span class="ty">WeaponKind</span>&gt;, stats: <span class="ty">Res</span>&lt;<span class="ty">Assets</span>&lt;<span class="ty">WeaponStats</span>&gt;&gt;) {
+    <span class="kw">for</span> kind <span class="kw">in</span> &amp;q {
+        <span class="kw">let</span> <span class="ty">Some</span>(s) = stats.<span class="fn">get</span>(&amp;kind.<span class="nu">0</span>) <span class="kw">else</span> { <span class="kw">continue</span> };
+        <span class="cm">// s.damage ..</span>
+    }
+}</pre>
+  </div>
+
+  <div class="note warn">
+    <span class="note-k">0.19 change</span>
+    <p><code>Assets::get_mut</code> returns an <code>AssetMut&lt;A&gt;</code> guard rather than <code>&amp;mut A</code>, and only fires <code>AssetEvent::Modified</code> if you actually write. On materials that event is expensive — guard your writes with an equality check before assigning.</p>
+  </div>
+
+  <h3 style="color:var(--c-event)">Message — buffered, read next</h3>
+  <p><b>This is the big naming change.</b> What used to be called an event (with <code>EventWriter</code> / <code>EventReader</code>) is now a <b>Message</b>. Messages are double-buffered: written this frame, readable this frame and next, then dropped. Each reader keeps its own cursor, so every interested system sees every message exactly once.</p>
+
+  <div class="code r-event">
+    <div class="code-top"><span class="code-label">messages (was: buffered events)</span><button class="copy">Copy</button></div>
+<pre><span class="at">#[derive(Message)]</span>
+<span class="kw">struct</span> <span class="ty">BlockBroken</span> { pos: <span class="ty">IVec3</span>, by: <span class="ty">Entity</span> }
+
+app.<span class="fn">add_message</span>::&lt;<span class="ty">BlockBroken</span>&gt;();
+
+<span class="kw">fn</span> <span class="fn">mine</span>(<span class="kw">mut</span> writer: <span class="ty">MessageWriter</span>&lt;<span class="ty">BlockBroken</span>&gt;) {
+    writer.<span class="fn">write</span>(<span class="ty">BlockBroken</span> { pos: <span class="ty">IVec3</span>::<span class="ty">ZERO</span>, by: entity });
+}
+
+<span class="kw">fn</span> <span class="fn">drop_item</span>(<span class="kw">mut</span> reader: <span class="ty">MessageReader</span>&lt;<span class="ty">BlockBroken</span>&gt;) {
+    <span class="kw">for</span> msg <span class="kw">in</span> reader.<span class="fn">read</span>() { <span class="cm">/* spawn pickup */</span> }
+}
+
+<span class="cm">// Old names, still seen in every pre-0.17 tutorial:</span>
+<span class="cm">//   Event  -> Message          EventWriter -> MessageWriter</span>
+<span class="cm">//   Events -> Messages         EventReader -> MessageReader</span>
+<span class="cm">//   send() -> write()          add_event   -> add_message</span></pre>
+  </div>
+
+  <h3 style="color:var(--c-event)">Event + observer — immediate, targeted</h3>
+  <p><code>Event</code> now means only one thing: something triggered and observed. Observers run <em>immediately</em> when commands are applied, not on a schedule. Use them for reactions that must not be a frame late, and for anything scoped to a specific entity.</p>
+
+  <div class="code r-event">
+    <div class="code-top"><span class="code-label">events + observers (0.17+ syntax)</span><button class="copy">Copy</button></div>
+<pre><span class="cm">// Global event: no target.</span>
+<span class="at">#[derive(Event)]</span>
+<span class="kw">struct</span> <span class="ty">LevelLoaded</span>;
+
+<span class="cm">// Entity event: the target lives in a field named `entity` by default.</span>
+<span class="at">#[derive(EntityEvent)]</span>
+<span class="kw">struct</span> <span class="ty">Damaged</span> { entity: <span class="ty">Entity</span>, amount: <span class="ty">f32</span> }
+
+commands.<span class="fn">trigger</span>(<span class="ty">Damaged</span> { entity: target, amount: <span class="nu">12.0</span> });
+
+<span class="cm">// Global observer: runs for every Damaged, whoever it targets.</span>
+app.<span class="fn">add_observer</span>(|damage: <span class="ty">On</span>&lt;<span class="ty">Damaged</span>&gt;, <span class="kw">mut</span> q: <span class="ty">Query</span>&lt;&amp;<span class="kw">mut</span> <span class="ty">Health</span>&gt;| {
+    <span class="kw">if</span> <span class="kw">let</span> <span class="ty">Ok</span>(<span class="kw">mut</span> hp) = q.<span class="fn">get_mut</span>(damage.entity) { hp.current -= damage.amount; }
+});
+
+<span class="cm">// Entity-scoped observer: only for this one entity.</span>
+commands.<span class="fn">spawn</span>(<span class="ty">Boss</span>).<span class="fn">observe</span>(|damage: <span class="ty">On</span>&lt;<span class="ty">Damaged</span>&gt;| { <span class="cm">/* boss-only reaction */</span> });
+
+<span class="cm">// Lifecycle events are just events you can observe:</span>
+<span class="cm">// Add, Insert, Discard (was Replace), Remove, Despawn</span>
+app.<span class="fn">add_observer</span>(|added: <span class="ty">On</span>&lt;<span class="ty">Add</span>, <span class="ty">LoadedChunk</span>&gt;, <span class="kw">mut</span> index: <span class="ty">ResMut</span>&lt;<span class="ty">ChunkIndex</span>&gt;| {
+    index.<span class="fn">insert</span>(added.entity);
+});
+
+<span class="cm">// 0.19: observers accept run conditions too.</span>
+app.<span class="fn">add_observer</span>(on_damage.<span class="fn">run_if</span>(<span class="fn">in_state</span>(<span class="ty">GameState</span>::<span class="ty">Playing</span>)));</pre>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Question</th><th>Message</th><th>Event + observer</th></tr></thead>
+      <tbody>
+        <tr><td>When does the handler run</td><td>When its system is scheduled</td><td>Immediately, at command application</td></tr>
+        <tr><td>How many readers</td><td>Any number, each with its own cursor</td><td>Any number of matching observers</td></tr>
+        <tr><td>Can it target one entity</td><td>No — you put an <code>Entity</code> in the payload</td><td>Yes, natively, via <code>EntityEvent</code></td></tr>
+        <tr><td>Bulk throughput</td><td>Good — batched, cache-friendly</td><td>Worse — one dispatch each</td></tr>
+        <tr><td>Ordering control</td><td>Full, via system ordering</td><td>Little; runs where triggered</td></tr>
+        <tr><td>Reach for it when</td><td>Thousands per frame, order matters</td><td>Reaction must be immediate or entity-scoped</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 style="color:var(--c-state)">State — app-level modes</h3>
+  <p>States drive which systems run at all, and give you enter/exit hooks. Anything with a real "mode" — menu, loading, playing, paused, edit vs preview — belongs here rather than in a bool resource, because you get scheduling and automatic cleanup for free.</p>
+
+  <div class="code r-state">
+    <div class="code-top"><span class="code-label">states, substates, scoped entities</span><button class="copy">Copy</button></div>
+<pre><span class="at">#[derive(States, Default, Debug, Clone, PartialEq, Eq, Hash)]</span>
+<span class="kw">enum</span> <span class="ty">AppState</span> { <span class="at">#[default]</span> <span class="ty">Loading</span>, <span class="ty">Menu</span>, <span class="ty">Playing</span> }
+
+<span class="cm">// A substate only exists while its parent state matches.</span>
+<span class="at">#[derive(SubStates, Default, Debug, Clone, PartialEq, Eq, Hash)]</span>
+<span class="at">#[source(AppState = AppState::Playing)]</span>
+<span class="kw">enum</span> <span class="ty">Paused</span> { <span class="at">#[default]</span> <span class="ty">Running</span>, <span class="ty">Paused</span> }
+
+app.<span class="fn">init_state</span>::&lt;<span class="ty">AppState</span>&gt;()
+   .<span class="fn">add_sub_state</span>::&lt;<span class="ty">Paused</span>&gt;()
+   .<span class="fn">add_systems</span>(<span class="ty">OnEnter</span>(<span class="ty">AppState</span>::<span class="ty">Playing</span>), spawn_world)
+   .<span class="fn">add_systems</span>(<span class="ty">OnExit</span>(<span class="ty">AppState</span>::<span class="ty">Playing</span>), save_world)
+   .<span class="fn">add_systems</span>(<span class="ty">Update</span>, tick.<span class="fn">run_if</span>(<span class="fn">in_state</span>(<span class="ty">Paused</span>::<span class="ty">Running</span>)));
+
+<span class="cm">// Read and write</span>
+<span class="kw">fn</span> <span class="fn">pause</span>(state: <span class="ty">Res</span>&lt;<span class="ty">State</span>&lt;<span class="ty">AppState</span>&gt;&gt;, <span class="kw">mut</span> next: <span class="ty">ResMut</span>&lt;<span class="ty">NextState</span>&lt;<span class="ty">AppState</span>&gt;&gt;) {
+    <span class="kw">if</span> *state.<span class="fn">get</span>() == <span class="ty">AppState</span>::<span class="ty">Playing</span> { next.<span class="fn">set</span>(<span class="ty">AppState</span>::<span class="ty">Menu</span>); }
+}
+
+<span class="cm">// Entities that should die when the state ends — no manual cleanup system.</span>
+commands.<span class="fn">spawn</span>((<span class="ty">Enemy</span>, <span class="ty">DespawnOnExit</span>(<span class="ty">AppState</span>::<span class="ty">Playing</span>)));</pre>
+  </div>
+
+  <div class="note">
+    <span class="note-k">0.19 detail</span>
+    <p><code>NextState::set()</code> now fires transition schedules even when the target equals the current state, so <code>DespawnOnEnter</code>/<code>DespawnOnExit</code> run on a same-state transition. If you want the old behaviour, use <code>set_if_neq()</code>.</p>
+  </div>
+
+  <h3 style="color:var(--c-component)">Relationship — data that <i>is</i> a link</h3>
+  <p>When one entity points at others, don't store a <code>Vec&lt;Entity&gt;</code> by hand. A relationship keeps both directions in sync automatically, cleans up on despawn, and can cascade despawns. <code>ChildOf</code>/<code>Children</code> is just the built-in instance of this system.</p>
+
+  <div class="code">
+    <div class="code-top"><span class="code-label">custom relationships</span><button class="copy">Copy</button></div>
+<pre><span class="cm">// The "one" side: lives on the item, points at the owner.</span>
+<span class="at">#[derive(Component)]</span>
+<span class="at">#[relationship(relationship_target = Inventory)]</span>
+<span class="kw">struct</span> <span class="ty">StoredIn</span>(<span class="ty">Entity</span>);
+
+<span class="cm">// The "many" side: lives on the owner, Bevy maintains the Vec.</span>
+<span class="at">#[derive(Component)]</span>
+<span class="at">#[relationship_target(relationship = StoredIn, linked_spawn)]</span>
+<span class="kw">struct</span> <span class="ty">Inventory</span>(<span class="ty">Vec</span>&lt;<span class="ty">Entity</span>&gt;);
+
+<span class="cm">// linked_spawn: despawning the owner despawns the contents too.</span>
+
+commands.<span class="fn">spawn</span>((<span class="ty">Player</span>, <span class="fn">related!</span>(<span class="ty">Inventory</span>[ <span class="ty">Sword</span>, <span class="ty">Torch</span>, <span class="ty">Bread</span> ])));
+commands.<span class="fn">spawn</span>((<span class="ty">Chest</span>, <span class="fn">children!</span>[ <span class="ty">Lid</span>, <span class="ty">Lock</span> ]));   <span class="cm">// hierarchy shorthand</span>
+
+<span class="kw">fn</span> <span class="fn">count</span>(q: <span class="ty">Query</span>&lt;&amp;<span class="ty">Inventory</span>, <span class="ty">With</span>&lt;<span class="ty">Player</span>&gt;&gt;) { <span class="cm">/* .0.len() */</span> }
+
+<span class="cm">// 0.19: relationships may point at themselves if you opt in.</span>
+<span class="at">#[relationship(relationship_target = PeopleILike, allow_self_referential)]</span></pre>
+  </div>
+
+  <h3 style="color:var(--c-local)">Local — one system's private memory</h3>
+  <p>State that belongs to a single system and would only pollute the global namespace as a resource. Persists across runs of that system, initialised with <code>Default</code>.</p>
+
+  <div class="code r-local">
+    <div class="code-top"><span class="code-label">Local and system-private state</span><button class="copy">Copy</button></div>
+<pre><span class="kw">fn</span> <span class="fn">autosave</span>(time: <span class="ty">Res</span>&lt;<span class="ty">Time</span>&gt;, <span class="kw">mut</span> timer: <span class="ty">Local</span>&lt;<span class="ty">Timer</span>&gt;, <span class="kw">mut</span> commands: <span class="ty">Commands</span>) {
+    <span class="kw">if</span> timer.<span class="fn">tick</span>(time.<span class="fn">delta</span>()).<span class="fn">just_finished</span>() { <span class="cm">/* write save */</span> }
+}
+
+<span class="cm">// Also useful: a scratch buffer you don't want to reallocate every frame.</span>
+<span class="kw">fn</span> <span class="fn">rebuild_mesh</span>(<span class="kw">mut</span> scratch: <span class="ty">Local</span>&lt;<span class="ty">Vec</span>&lt;<span class="ty">Vec3</span>&gt;&gt;) {
+    scratch.<span class="fn">clear</span>();
+    <span class="cm">// .. fill and use, allocation is reused across frames</span>
+}</pre>
+  </div>
+
+  <h3 style="color:var(--c-local)">Plain fields, and when a struct is enough</h3>
+  <p>Not everything needs to be an ECS citizen. If two values are only meaningful together and are always read together, they're fields of one component, not two components. A component per field is a real and common mistake — it multiplies archetypes and makes every query longer without buying anything.</p>
+
+  <div class="code r-local">
+    <div class="code-top"><span class="code-label">granularity</span><button class="copy">Copy</button></div>
+<pre><span class="cm">// Too fine: always read together, never queried separately.</span>
+<span class="at">#[derive(Component)]</span> <span class="kw">struct</span> <span class="ty">AmmoInMag</span>(<span class="ty">u32</span>);
+<span class="at">#[derive(Component)]</span> <span class="kw">struct</span> <span class="ty">AmmoReserve</span>(<span class="ty">u32</span>);
+<span class="at">#[derive(Component)]</span> <span class="kw">struct</span> <span class="ty">MagSize</span>(<span class="ty">u32</span>);
+
+<span class="cm">// Right-sized.</span>
+<span class="at">#[derive(Component)]</span>
+<span class="kw">struct</span> <span class="ty">Ammo</span> { in_mag: <span class="ty">u32</span>, reserve: <span class="ty">u32</span>, mag_size: <span class="ty">u32</span> }
+
+<span class="cm">// Split only when systems genuinely differ in what they touch.</span>
+<span class="cm">// Transform and Health are separate because movement never reads health.</span></pre>
+  </div>
+
+  <h3 style="color:var(--c-resource)">Scene &amp; template data (BSN, new in 0.19)</h3>
+  <p>0.19 shipped BSN, a scene notation that describes entity trees as composable, patchable data. It doesn't replace the storage decisions above — it's how you <em>author</em> the initial arrangement of them. Its most relevant feature here is <code>SceneComponent</code>, which finally guarantees "if this component exists, its whole scene exists".</p>
+
+  <div class="code r-mixed">
+    <div class="code-top"><span class="code-label">bsn! and SceneComponent</span><button class="copy">Copy</button></div>
+<pre><span class="cm">// A scene is a patch: unspecified fields keep their defaults.</span>
+<span class="kw">fn</span> <span class="fn">player</span>() -&gt; <span class="kw">impl</span> <span class="ty">Scene</span> {
+    <span class="fn">bsn!</span> {
+        <span class="ty">Player</span> { score: <span class="nu">0</span> }
+        <span class="ty">Children</span> [
+            <span class="ty">Sprite</span> { image: <span class="st">"player.png"</span> },   <span class="cm">// asset path, no AssetServer plumbing</span>
+        ]
+    }
+}
+
+<span class="kw">fn</span> <span class="fn">setup</span>(<span class="kw">mut</span> commands: <span class="ty">Commands</span>) { commands.<span class="fn">spawn_scene</span>(<span class="fn">player</span>()); }
+
+<span class="cm">// SceneComponent ties a component to the entity tree it needs.</span>
+<span class="cm">// Query for Player and you may assume LeftHand and RightHand children exist.</span>
+<span class="at">#[derive(SceneComponent, Default, Clone)]</span>
+<span class="kw">struct</span> <span class="ty">Player</span> { score: <span class="ty">usize</span> }
+
+<span class="kw">impl</span> <span class="ty">Player</span> {
+    <span class="kw">fn</span> <span class="fn">scene</span>() -&gt; <span class="kw">impl</span> <span class="ty">Scene</span> {
+        <span class="fn">bsn!</span> { <span class="ty">Transform</span> <span class="ty">Children</span> [ <span class="ty">LeftHand</span>, <span class="ty">RightHand</span> ] }
+    }
+}
+
+world.<span class="fn">spawn_scene</span>(<span class="fn">bsn!</span> { @<span class="ty">Player</span> { score: <span class="nu">10</span> } });</pre>
+  </div>
+</section>
+
+<section id="rules">
+  <div class="sec-head"><span class="sec-num">03</span><h2>Resource or component?</h2></div>
+  <p class="sec-sub">The question people actually ask. Here is the full rule, the grey areas, and the escape hatches for when the singleton turns out not to be one.</p>
+
+  <h3>The rule</h3>
+  <p><b>A resource is a component with a cardinality guarantee of one.</b> That's now literally true in the engine. So the question is never "is this important enough to be global" — it's only ever <em>how many of these exist, and does anything in the world own it</em>.</p>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Data</th><th>Goes where</th><th>Because</th></tr></thead>
+      <tbody>
+        <tr><td>Gravity, tick rate, render distance</td><td>Resource</td><td>One per world, owned by nothing</td></tr>
+        <tr><td>Player health</td><td>Component</td><td>Owned by the player entity; there might be two players</td></tr>
+        <tr><td>Score in a single-player game</td><td>Resource</td><td>One, global, no owner</td></tr>
+        <tr><td>Score in a 4-player party game</td><td>Component</td><td>Per-player — this is the classic refactor</td></tr>
+        <tr><td>Key bindings</td><td>Resource</td><td>One config, read by everything</td></tr>
+        <tr><td>Which entity is selected</td><td>Both, usually</td><td><code>Selected</code> marker component + a <code>Selection</code> resource for order/anchor</td></tr>
+        <tr><td>The camera's transform</td><td>Component</td><td>Cameras are entities; you may add a second</td></tr>
+        <tr><td>The loaded voxel world</td><td>Resource holding chunk lookup, chunks as entities</td><td>Index is one; chunks are many</td></tr>
+        <tr><td>Undo stack</td><td>Resource</td><td>One document-wide history, not owned by any entity</td></tr>
+        <tr><td>Elapsed play time</td><td>Resource</td><td>One clock</td></tr>
+        <tr><td>Cooldown on an ability</td><td>Component</td><td>One per ability instance</td></tr>
+        <tr><td>Mouse world-ray this frame</td><td>Resource (recomputed each frame)</td><td>One derived value, many consumers</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>The three grey areas</h3>
+
+  <div class="grid g3" style="margin-top:18px">
+    <div class="card">
+      <span class="card-tag" style="color:var(--c-warn)">Grey area 1</span>
+      <h4 style="margin-top:0">"There's only one player"</h4>
+      <p>Until there's split-screen, a replay ghost, a spectator, or a networked second client. Player data is nearly always component data on a player entity. Use <code>Single&lt;&amp;Player&gt;</code> to read it as conveniently as a resource, with none of the lock-in.</p>
+    </div>
+    <div class="card">
+      <span class="card-tag" style="color:var(--c-warn)">Grey area 2</span>
+      <h4 style="margin-top:0">"It's one thing, but the world owns it"</h4>
+      <p>A single terrain, a single document, a single level. If systems need to attach transforms, children, or visibility to it, it wants to be an entity — those things only exist on entities. Keep a resource holding its <code>Entity</code> id if lookups are frequent.</p>
+    </div>
+    <div class="card">
+      <span class="card-tag" style="color:var(--c-warn)">Grey area 3</span>
+      <h4 style="margin-top:0">"It's a lookup table"</h4>
+      <p>Block definitions, item stats, spell data. Resource if it's small and code-defined; asset if it's loaded from a file, hot-reloadable, or big. Assets win as soon as designers need to edit it without a recompile.</p>
+    </div>
+  </div>
+
+  <h3>Reading a singleton entity like a resource</h3>
+
+  <div class="code">
+    <div class="code-top"><span class="code-label">Single, and the resource-holding-an-Entity pattern</span><button class="copy">Copy</button></div>
+<pre><span class="cm">// Errors (skips the system) if there isn't exactly one match.</span>
+<span class="kw">fn</span> <span class="fn">move_player</span>(player: <span class="ty">Single</span>&lt;&amp;<span class="kw">mut</span> <span class="ty">Transform</span>, <span class="ty">With</span>&lt;<span class="ty">Player</span>&gt;&gt;) {
+    <span class="cm">// deref straight to the Transform</span>
+}
+
+<span class="cm">// Tolerant version: runs even when there is no player.</span>
+<span class="kw">fn</span> <span class="fn">hud</span>(player: <span class="ty">Option</span>&lt;<span class="ty">Single</span>&lt;&amp;<span class="ty">Health</span>, <span class="ty">With</span>&lt;<span class="ty">Player</span>&gt;&gt;&gt;) { <span class="cm">/* .. */</span> }
+
+<span class="cm">// When you look it up constantly, cache the id in a resource.</span>
+<span class="cm">// The entity holds the data; the resource is just a pointer.</span>
+<span class="at">#[derive(Resource)]</span>
+<span class="kw">struct</span> <span class="ty">ActiveDocument</span>(<span class="ty">Entity</span>);
+
+<span class="kw">fn</span> <span class="fn">edit</span>(doc: <span class="ty">Res</span>&lt;<span class="ty">ActiveDocument</span>&gt;, <span class="kw">mut</span> q: <span class="ty">Query</span>&lt;&amp;<span class="kw">mut</span> <span class="ty">MeshData</span>&gt;) {
+    <span class="kw">let</span> <span class="ty">Ok</span>(<span class="kw">mut</span> mesh) = q.<span class="fn">get_mut</span>(doc.<span class="nu">0</span>) <span class="kw">else</span> { <span class="kw">return</span> };
+}</pre>
+  </div>
+
+  <div class="note good">
+    <span class="note-k">Migration escape hatch</span>
+    <p>Turning a resource into a component later is mostly mechanical: <code>Res&lt;T&gt;</code> becomes <code>Single&lt;&amp;T&gt;</code>, <code>ResMut&lt;T&gt;</code> becomes <code>Single&lt;&amp;mut T&gt;</code>, and you spawn it instead of inserting it. Going the other way is easy too. What is <em>not</em> easy is untangling a resource that grew into a god-object holding twelve unrelated things — so split resources by who writes them, not by what they're about.</p>
+  </div>
+</section>
+
+<section id="shapes">
+  <div class="sec-head"><span class="sec-num">04</span><h2>Six app shapes</h2></div>
+  <p class="sec-sub">Concrete data layouts for concrete projects. Each one lists the decisions that matter, the one mistake that specific genre invites, and code for the part that isn't obvious.</p>
+
+  <!-- ============ VOXEL ============ -->
+  <div class="app">
+    <div class="app-head">
+      <h3>Voxel sandbox — a Minecraft clone</h3>
+      <p>Defining problem: millions of blocks, and you cannot afford an entity for any of them. Everything follows from batching blocks into chunks.</p>
+    </div>
+    <div class="app-body">
+      <div class="shape"><div class="shape-k" style="color:var(--c-component)">Component</div><div class="shape-v"><b>Chunk</b> — one entity per chunk, holding <code>ChunkCoord(IVec3)</code> and <code>ChunkVoxels(Box&lt;[BlockId; 4096]&gt;)</code>. The voxels are a flat array inside one component, not 4096 components.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-component)">Component</div><div class="shape-v"><b>Dirty</b> — sparse-set marker meaning "remesh me". Added and removed constantly, so table storage would thrash archetypes.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-component)">Component</div><div class="shape-v"><b>Entities that are actually entities</b>: players, mobs, dropped items, minecarts, block entities like chests. Anything with behaviour or per-instance state.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-resource)">Resource</div><div class="shape-v"><b>ChunkIndex</b> — <code>HashMap&lt;IVec3, Entity&gt;</code>. The one lookup everything needs. Maintain it from <code>on_add</code>/<code>on_remove</code> hooks so it can never drift.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-resource)">Resource</div><div class="shape-v"><b>WorldGenConfig</b> (seed, noise params), <b>WorldSettings</b> (render distance, simulation distance), <b>TimeOfDay</b>.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-asset)">Asset</div><div class="shape-v"><b>BlockRegistry</b> — hardness, tool, drops, texture indices, per block type. Loaded from RON or JSON so modders and designers can edit it. Blocks in chunks store a <code>BlockId</code> index into it.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-asset)">Asset</div><div class="shape-v"><b>Generated chunk meshes</b> — one <code>Handle&lt;Mesh&gt;</code> per chunk, replaced on remesh. Also the block atlas image.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-event)">Message</div><div class="shape-v"><b>BlockChanged { pos, old, new }</b> — read by the remesher, the lighting system, the save system, and the network layer. A textbook many-readers case.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-state)">State</div><div class="shape-v"><b>AppState</b>: <code>MainMenu → GeneratingWorld → InGame</code>, with <code>Paused</code> as a substate.</div></div>
+
+      <div class="note bad" style="margin-top:22px">
+        <span class="note-k">The mistake this genre invites</span>
+        <p>One entity per block. A modest 512×128×512 world is 33 million blocks; at even 50 bytes of ECS overhead each that's gigabytes before you store anything useful, and every query walks all of it. <b>Blocks are array elements, chunks are entities.</b> The moment a block needs real per-instance state (a chest with contents, a furnace mid-smelt), spawn a separate "block entity" that references the coordinate — that's what Minecraft itself does.</p>
+      </div>
+
+      <div class="code">
+        <div class="code-top"><span class="code-label">chunk storage + a self-maintaining index</span><button class="copy">Copy</button></div>
+<pre><span class="kw">const</span> <span class="ty">CHUNK</span>: <span class="ty">usize</span> = <span class="nu">16</span>;
+
+<span class="at">#[derive(Component, Clone, Copy, PartialEq, Eq, Hash)]</span>
+<span class="at">#[component(immutable)]</span>              <span class="cm">// coord never changes -&gt; hooks can't miss an update</span>
+<span class="kw">struct</span> <span class="ty">ChunkCoord</span>(<span class="ty">IVec3</span>);
+
+<span class="at">#[derive(Component)]</span>
+<span class="kw">struct</span> <span class="ty">ChunkVoxels</span>(<span class="ty">Box</span>&lt;[<span class="ty">BlockId</span>; <span class="ty">CHUNK</span> * <span class="ty">CHUNK</span> * <span class="ty">CHUNK</span>]&gt;);
+
+<span class="at">#[derive(Component)]</span>
+<span class="at">#[component(storage = <span class="st">"SparseSet"</span>)]</span>   <span class="cm">// toggled every frame -&gt; avoid archetype moves</span>
+<span class="kw">struct</span> <span class="ty">NeedsRemesh</span>;
+
+<span class="at">#[derive(Resource, Default)]</span>
+<span class="kw">struct</span> <span class="ty">ChunkIndex</span>(<span class="ty">HashMap</span>&lt;<span class="ty">IVec3</span>, <span class="ty">Entity</span>&gt;);
+
+<span class="cm">// Hooks keep the index correct without anyone remembering to update it.</span>
+<span class="kw">fn</span> <span class="fn">build</span>(app: &amp;<span class="kw">mut</span> <span class="ty">App</span>) {
+    app.<span class="fn">init_resource</span>::&lt;<span class="ty">ChunkIndex</span>&gt;()
+       .<span class="fn">add_observer</span>(|add: <span class="ty">On</span>&lt;<span class="ty">Add</span>, <span class="ty">ChunkCoord</span>&gt;,
+                      q: <span class="ty">Query</span>&lt;&amp;<span class="ty">ChunkCoord</span>&gt;,
+                      <span class="kw">mut</span> idx: <span class="ty">ResMut</span>&lt;<span class="ty">ChunkIndex</span>&gt;| {
+            <span class="kw">if</span> <span class="kw">let</span> <span class="ty">Ok</span>(c) = q.<span class="fn">get</span>(add.entity) { idx.<span class="nu">0</span>.<span class="fn">insert</span>(c.<span class="nu">0</span>, add.entity); }
+       })
+       .<span class="fn">add_observer</span>(|rm: <span class="ty">On</span>&lt;<span class="ty">Remove</span>, <span class="ty">ChunkCoord</span>&gt;,
+                      q: <span class="ty">Query</span>&lt;&amp;<span class="ty">ChunkCoord</span>&gt;,
+                      <span class="kw">mut</span> idx: <span class="ty">ResMut</span>&lt;<span class="ty">ChunkIndex</span>&gt;| {
+            <span class="kw">if</span> <span class="kw">let</span> <span class="ty">Ok</span>(c) = q.<span class="fn">get</span>(rm.entity) { idx.<span class="nu">0</span>.<span class="fn">remove</span>(&amp;c.<span class="nu">0</span>); }
+       });
+}
+
+<span class="cm">// Writing a block: mutate the array, flag the chunk, announce the change.</span>
+<span class="kw">fn</span> <span class="fn">set_block</span>(
+    pos: <span class="ty">IVec3</span>, block: <span class="ty">BlockId</span>,
+    idx: <span class="ty">Res</span>&lt;<span class="ty">ChunkIndex</span>&gt;,
+    <span class="kw">mut</span> q: <span class="ty">Query</span>&lt;&amp;<span class="kw">mut</span> <span class="ty">ChunkVoxels</span>&gt;,
+    <span class="kw">mut</span> commands: <span class="ty">Commands</span>,
+    <span class="kw">mut</span> changed: <span class="ty">MessageWriter</span>&lt;<span class="ty">BlockChanged</span>&gt;,
+) {
+    <span class="kw">let</span> chunk_pos = pos.<span class="fn">div_euclid</span>(<span class="ty">IVec3</span>::<span class="fn">splat</span>(<span class="ty">CHUNK</span> <span class="kw">as</span> <span class="ty">i32</span>));
+    <span class="kw">let</span> <span class="ty">Some</span>(&amp;e) = idx.<span class="nu">0</span>.<span class="fn">get</span>(&amp;chunk_pos) <span class="kw">else</span> { <span class="kw">return</span> };
+    <span class="kw">let</span> <span class="ty">Ok</span>(<span class="kw">mut</span> voxels) = q.<span class="fn">get_mut</span>(e) <span class="kw">else</span> { <span class="kw">return</span> };
+
+    <span class="kw">let</span> i = <span class="fn">local_index</span>(pos);
+    <span class="kw">let</span> old = voxels.<span class="nu">0</span>[i];
+    voxels.<span class="nu">0</span>[i] = block;
+
+    commands.<span class="fn">entity</span>(e).<span class="fn">insert</span>(<span class="ty">NeedsRemesh</span>);
+    changed.<span class="fn">write</span>(<span class="ty">BlockChanged</span> { pos, old, new: block });
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ FPS ============ -->
+  <div class="app">
+    <div class="app-head">
+      <h3>First-person shooter</h3>
+      <p>Defining problem: fast-changing per-entity state, weapon definitions that designers tune, and a hard split between "what a weapon <em>is</em>" and "what this weapon instance is doing right now".</p>
+    </div>
+    <div class="app-body">
+      <div class="shape"><div class="shape-k" style="color:var(--c-component)">Component</div><div class="shape-v"><b>Player entity</b>: <code>Transform</code>, <code>Velocity</code>, <code>Health</code>, <code>Grounded</code> (sparse marker), <code>LookAngles</code>, <code>Team</code>. Camera is a <em>child</em> entity, not the same entity — you'll want to shake and recoil it independently.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-component)">Component</div><div class="shape-v"><b>Weapon instance</b>: an entity holding <code>Ammo { in_mag, reserve }</code>, <code>FireTimer</code>, <code>Heat</code>, plus a <code>Handle&lt;WeaponStats&gt;</code>. Related to its owner via a custom relationship (<code>Equipped</code>/<code>Loadout</code>) so despawning the player cleans up the guns.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-asset)">Asset</div><div class="shape-v"><b>WeaponStats</b> — damage curve, RPM, spread, recoil pattern, reload time. Loaded from files; hot-reloadable so balance changes don't need a rebuild. Never duplicated per instance.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-resource)">Resource</div><div class="shape-v"><b>InputConfig</b> (bindings, sensitivity, invert-Y), <b>GameRules</b> (friendly fire, round length), <b>MatchState</b> (score by team, round number, time left).</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-event)">Message</div><div class="shape-v"><b>DamageDealt { target, amount, from, hit_kind }</b> — consumed by health, hitmarker UI, killfeed, scoring, and stats. Keeping it a message means adding the killfeed later touches nothing else.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-event)">Event</div><div class="shape-v"><b>Died { entity }</b> as an <code>EntityEvent</code>, so per-entity observers can do bespoke death behaviour (boss explodes, player enters spectate) without a central match statement.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-state)">State</div><div class="shape-v"><b>MatchPhase</b>: <code>Warmup → Live → RoundEnd → Scoreboard</code>. Enter/exit handles respawn-all and freeze-input cleanly.</div></div>
+
+      <div class="note bad" style="margin-top:22px">
+        <span class="note-k">The mistake this genre invites</span>
+        <p>Copying weapon stats into every weapon instance as component fields. It works right up until you want to rebalance the rifle: now the change has to touch 200 live entities and the save file. <b>Definition data is an asset; instance data is components.</b> Same rule for enemy archetypes, ability definitions, and vehicle handling.</p>
+      </div>
+
+      <div class="code r-mixed">
+        <div class="code-top"><span class="code-label">definition vs instance, and damage as a message</span><button class="copy">Copy</button></div>
+<pre><span class="cm">// ---- Definition: shared, tunable, loaded from disk ----</span>
+<span class="at">#[derive(Asset, Reflect)]</span>
+<span class="at">#[reflect(Asset)]</span>
+<span class="kw">struct</span> <span class="ty">WeaponStats</span> {
+    damage: <span class="ty">f32</span>, rpm: <span class="ty">f32</span>, mag_size: <span class="ty">u32</span>,
+    reload_secs: <span class="ty">f32</span>, spread_deg: <span class="ty">f32</span>,
+}
+
+<span class="cm">// ---- Instance: per weapon entity, changes every frame ----</span>
+<span class="at">#[derive(Component)]</span>
+<span class="kw">struct</span> <span class="ty">WeaponInstance</span> { stats: <span class="ty">Handle</span>&lt;<span class="ty">WeaponStats</span>&gt;, since_shot: <span class="ty">f32</span> }
+
+<span class="at">#[derive(Component)]</span>
+<span class="kw">struct</span> <span class="ty">Ammo</span> { in_mag: <span class="ty">u32</span>, reserve: <span class="ty">u32</span> }
+
+<span class="cm">// ---- Ownership as a relationship, not a Vec&lt;Entity&gt; ----</span>
+<span class="at">#[derive(Component)]</span>
+<span class="at">#[relationship(relationship_target = Loadout)]</span>
+<span class="kw">struct</span> <span class="ty">EquippedBy</span>(<span class="ty">Entity</span>);
+
+<span class="at">#[derive(Component)]</span>
+<span class="at">#[relationship_target(relationship = EquippedBy, linked_spawn)]</span>
+<span class="kw">struct</span> <span class="ty">Loadout</span>(<span class="ty">Vec</span>&lt;<span class="ty">Entity</span>&gt;);
+
+<span class="cm">// ---- One message, many independent consumers ----</span>
+<span class="at">#[derive(Message)]</span>
+<span class="kw">struct</span> <span class="ty">DamageDealt</span> { target: <span class="ty">Entity</span>, from: <span class="ty">Entity</span>, amount: <span class="ty">f32</span>, headshot: <span class="ty">bool</span> }
+
+<span class="kw">fn</span> <span class="fn">apply_damage</span>(<span class="kw">mut</span> hits: <span class="ty">MessageReader</span>&lt;<span class="ty">DamageDealt</span>&gt;,
+                <span class="kw">mut</span> q: <span class="ty">Query</span>&lt;&amp;<span class="kw">mut</span> <span class="ty">Health</span>&gt;,
+                <span class="kw">mut</span> commands: <span class="ty">Commands</span>) {
+    <span class="kw">for</span> hit <span class="kw">in</span> hits.<span class="fn">read</span>() {
+        <span class="kw">let</span> <span class="ty">Ok</span>(<span class="kw">mut</span> hp) = q.<span class="fn">get_mut</span>(hit.target) <span class="kw">else</span> { <span class="kw">continue</span> };
+        hp.current -= hit.amount;
+        <span class="kw">if</span> hp.current &lt;= <span class="nu">0.0</span> {
+            <span class="cm">// Immediate, entity-targeted -&gt; event, not message.</span>
+            commands.<span class="fn">trigger</span>(<span class="ty">Died</span> { entity: hit.target, by: hit.from });
+        }
+    }
+}
+<span class="cm">// killfeed, hitmarkers, scoring and stats each read DamageDealt</span>
+<span class="cm">// independently — none of them know the others exist.</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 3D MODELING ============ -->
+  <div class="app">
+    <div class="app-head">
+      <h3>3D modelling app / level editor</h3>
+      <p>Defining problem: this isn't a game loop, it's a document. Undo, selection, tools and multiple open files are the data model, and none of them are things game tutorials cover.</p>
+    </div>
+    <div class="app-body">
+      <div class="shape"><div class="shape-k" style="color:var(--c-component)">Component</div><div class="shape-v"><b>Object entity</b> per scene object: <code>Transform</code>, <code>Mesh3d(Handle&lt;Mesh&gt;)</code>, <code>ObjectName</code>, and a stable <code>ObjectId(Uuid)</code> that survives save/load (an <code>Entity</code> id does not).</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-component)">Component</div><div class="shape-v"><b>Selected</b> — a marker, not a list in a resource. Then "highlight selected" is a query, "delete selected" is a query, and selection can never point at a despawned entity.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-component)">Component</div><div class="shape-v"><b>Document root</b> — one entity per open file, with objects as its children. Multiple documents are then free, and closing one is a single despawn.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-resource)">Resource</div><div class="shape-v"><b>ActiveDocument(Entity)</b>, <b>ToolSettings</b> (snap increment, grid size, units), <b>ViewportPrefs</b> (shading mode, gizmo scale), <b>SelectionAnchor</b> (last-clicked, for shift-range selection — ordering info a marker can't hold).</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-resource)">Resource</div><div class="shape-v"><b>UndoStack</b> — <code>Vec&lt;Box&lt;dyn EditCommand&gt;&gt;</code> plus a cursor. Store <em>edits</em>, not world snapshots: an edit is kilobytes, a snapshot is the whole scene.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-asset)">Asset</div><div class="shape-v"><b>Mesh</b>, <b>Image</b>, <b>StandardMaterial</b> — the actual geometry and materials. Editing geometry means mutating the mesh asset, which every instance sees at once.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-state)">State</div><div class="shape-v"><b>ToolMode</b>: <code>Select → Move → Rotate → Scale → Sculpt</code>. Each tool's systems are gated by <code>in_state</code>, so tools can't fight over the mouse.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-event)">Event</div><div class="shape-v"><b>DocumentEdited</b> — sets the dirty flag, invalidates the preview, queues an autosave. Immediate reaction, so an observer rather than a message.</div></div>
+
+      <div class="note bad" style="margin-top:22px">
+        <span class="note-k">The mistake this genre invites</span>
+        <p>Keeping selection as <code>Vec&lt;Entity&gt;</code> in a resource. It goes stale the moment something is deleted, it forces every system that cares about selection to iterate the vec and do lookups, and it can't be queried alongside other components. <b>Selection is a property of the thing selected.</b> Keep the resource only for what genuinely isn't per-entity: the anchor, the order, the active tool.</p>
+      </div>
+
+      <div class="code r-mixed">
+        <div class="code-top"><span class="code-label">selection, stable ids, and an undo stack</span><button class="copy">Copy</button></div>
+<pre><span class="at">#[derive(Component)]</span>
+<span class="kw">struct</span> <span class="ty">Selected</span>;
+
+<span class="cm">// Entity ids are runtime-only. Persist a stable id of your own.</span>
+<span class="at">#[derive(Component, Clone, Copy, PartialEq, Eq, Hash)]</span>
+<span class="at">#[component(immutable)]</span>
+<span class="kw">struct</span> <span class="ty">ObjectId</span>(<span class="ty">Uuid</span>);
+
+<span class="cm">// Selection-aware systems are ordinary queries.</span>
+<span class="kw">fn</span> <span class="fn">move_selection</span>(<span class="kw">mut</span> q: <span class="ty">Query</span>&lt;&amp;<span class="kw">mut</span> <span class="ty">Transform</span>, <span class="ty">With</span>&lt;<span class="ty">Selected</span>&gt;&gt;, delta: <span class="ty">Res</span>&lt;<span class="ty">DragDelta</span>&gt;) {
+    <span class="kw">for</span> <span class="kw">mut</span> t <span class="kw">in</span> &amp;<span class="kw">mut</span> q { t.translation += delta.<span class="nu">0</span>; }
+}
+
+<span class="kw">fn</span> <span class="fn">clear_selection</span>(<span class="kw">mut</span> commands: <span class="ty">Commands</span>, q: <span class="ty">Query</span>&lt;<span class="ty">Entity</span>, <span class="ty">With</span>&lt;<span class="ty">Selected</span>&gt;&gt;) {
+    <span class="kw">for</span> e <span class="kw">in</span> &amp;q { commands.<span class="fn">entity</span>(e).<span class="fn">remove</span>::&lt;<span class="ty">Selected</span>&gt;(); }
+}
+
+<span class="cm">// Undo: store the inverse edit, never a copy of the world.</span>
+<span class="kw">trait</span> <span class="ty">EditCommand</span>: <span class="ty">Send</span> + <span class="ty">Sync</span> + <span class="nu">'static</span> {
+    <span class="kw">fn</span> <span class="fn">undo</span>(&amp;<span class="kw">self</span>, world: &amp;<span class="kw">mut</span> <span class="ty">World</span>);
+    <span class="kw">fn</span> <span class="fn">redo</span>(&amp;<span class="kw">self</span>, world: &amp;<span class="kw">mut</span> <span class="ty">World</span>);
+}
+
+<span class="at">#[derive(Resource, Default)]</span>
+<span class="kw">struct</span> <span class="ty">UndoStack</span> { done: <span class="ty">Vec</span>&lt;<span class="ty">Box</span>&lt;<span class="kw">dyn</span> <span class="ty">EditCommand</span>&gt;&gt;, undone: <span class="ty">Vec</span>&lt;<span class="ty">Box</span>&lt;<span class="kw">dyn</span> <span class="ty">EditCommand</span>&gt;&gt; }
+
+<span class="cm">// Undo needs &amp;mut World, so run it as an exclusive system.</span>
+<span class="kw">fn</span> <span class="fn">undo</span>(world: &amp;<span class="kw">mut</span> <span class="ty">World</span>) {
+    <span class="kw">let</span> <span class="ty">Some</span>(cmd) = world.<span class="fn">resource_mut</span>::&lt;<span class="ty">UndoStack</span>&gt;().done.<span class="fn">pop</span>() <span class="kw">else</span> { <span class="kw">return</span> };
+    cmd.<span class="fn">undo</span>(world);
+    world.<span class="fn">resource_mut</span>::&lt;<span class="ty">UndoStack</span>&gt;().undone.<span class="fn">push</span>(cmd);
+}</pre>
+      </div>
+
+      <div class="note">
+        <span class="note-k">Editor-specific tooling in 0.19</span>
+        <p>0.19 shipped a first-party <b>settings framework</b> for exactly this kind of app: derive <code>SettingsGroup</code> on a resource and it loads and saves to disk automatically. It also added a built-in <code>TransformGizmoPlugin</code> and <code>InfiniteGrid</code>, both of which you'd otherwise be building by hand. See <a href="#persist">Save &amp; load</a>.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ RTS ============ -->
+  <div class="app">
+    <div class="app-head">
+      <h3>RTS / colony sim</h3>
+      <p>Defining problem: thousands of agents that all need to answer "what's near me?" and "what should I do next?" — spatial lookup and task assignment are the data structures that decide whether the game runs.</p>
+    </div>
+    <div class="app-body">
+      <div class="shape"><div class="shape-k" style="color:var(--c-component)">Component</div><div class="shape-v"><b>Unit entity</b>: <code>Transform</code>, <code>UnitKind(Handle&lt;UnitStats&gt;)</code>, <code>Health</code>, <code>Faction</code>, and a small <code>Order</code> enum component holding the current command.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-component)">Component</div><div class="shape-v"><b>Behaviour markers as sparse-set components</b>: <code>Idle</code>, <code>Moving</code>, <code>Attacking</code>, <code>Harvesting</code>. Queries become "all idle workers" instead of a match arm inside a monolithic AI system.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-component)">Component</div><div class="shape-v"><b>Jobs are entities too</b>, in a colony sim: a <code>Job</code> entity with a location, priority and requirements, linked to its worker by a relationship. Unassigning is removing a component, not mutating two structs in sync.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-resource)">Resource</div><div class="shape-v"><b>SpatialGrid</b> — a uniform grid or quadtree of <code>Entity</code> by cell, rebuilt or incrementally updated each frame. Without it, "enemies within 10m" is O(n²) and dominates your frame.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-resource)">Resource</div><div class="shape-v"><b>FactionRelations</b> (who's hostile to whom), <b>Economy</b> (per-faction stockpiles), <b>Pathfinding grid / navmesh</b>, <b>GameSpeed</b>.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-asset)">Asset</div><div class="shape-v"><b>UnitStats</b>, <b>BuildingDefs</b>, <b>TechTree</b>, <b>RecipeBook</b> — all designer-facing tables. In a colony sim this is most of the game's content, and it should never be Rust constants.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-event)">Message</div><div class="shape-v"><b>OrderIssued</b>, <b>UnitDied</b>, <b>ResourceDelivered</b> — high volume, many consumers (economy, UI, AI, fog of war), order matters. Classic message territory.</div></div>
+
+      <div class="note bad" style="margin-top:22px">
+        <span class="note-k">The mistake this genre invites</span>
+        <p>Nested queries for proximity: for each unit, iterate all units. At 2,000 units that's 4 million distance checks per system per frame. <b>The spatial index is not an optimisation you add later</b> — it changes what your systems look like, so build it in from the first proximity query. Keep it in a resource, rebuild it in a dedicated system before anything reads it, and order everything else after that system.</p>
+      </div>
+
+      <div class="code r-mixed">
+        <div class="code-top"><span class="code-label">spatial index + jobs as entities</span><button class="copy">Copy</button></div>
+<pre><span class="at">#[derive(Resource, Default)]</span>
+<span class="kw">struct</span> <span class="ty">SpatialGrid</span> { cell: <span class="ty">f32</span>, cells: <span class="ty">HashMap</span>&lt;<span class="ty">IVec2</span>, <span class="ty">Vec</span>&lt;<span class="ty">Entity</span>&gt;&gt; }
+
+<span class="kw">impl</span> <span class="ty">SpatialGrid</span> {
+    <span class="kw">fn</span> <span class="fn">nearby</span>(&amp;<span class="kw">self</span>, p: <span class="ty">Vec2</span>, r: <span class="ty">f32</span>) -&gt; <span class="kw">impl</span> <span class="ty">Iterator</span>&lt;<span class="ty">Item</span> = <span class="ty">Entity</span>&gt; + <span class="nu">'_</span> { <span class="cm">/* .. */</span> }
+}
+
+<span class="cm">// Rebuild once, then everything reads it. Order is the whole trick.</span>
+app.<span class="fn">add_systems</span>(<span class="ty">Update</span>, (
+    rebuild_grid,
+    (acquire_targets, avoid_crowding, spread_fire).<span class="fn">after</span>(rebuild_grid),
+));
+
+<span class="cm">// ---- Jobs as entities, assigned by relationship ----</span>
+<span class="at">#[derive(Component)]</span>
+<span class="kw">struct</span> <span class="ty">Job</span> { site: <span class="ty">Vec2</span>, kind: <span class="ty">JobKind</span>, priority: <span class="ty">u8</span> }
+
+<span class="at">#[derive(Component)]</span>
+<span class="at">#[relationship(relationship_target = AssignedWorkers)]</span>
+<span class="kw">struct</span> <span class="ty">WorkingOn</span>(<span class="ty">Entity</span>);
+
+<span class="at">#[derive(Component)]</span>
+<span class="at">#[relationship_target(relationship = WorkingOn)]</span>
+<span class="kw">struct</span> <span class="ty">AssignedWorkers</span>(<span class="ty">Vec</span>&lt;<span class="ty">Entity</span>&gt;);
+
+<span class="cm">// "Every idle worker" is now a query, and assigning is one insert.</span>
+<span class="kw">fn</span> <span class="fn">assign</span>(
+    idle: <span class="ty">Query</span>&lt;<span class="ty">Entity</span>, (<span class="ty">With</span>&lt;<span class="ty">Worker</span>&gt;, <span class="ty">Without</span>&lt;<span class="ty">WorkingOn</span>&gt;)&gt;,
+    jobs: <span class="ty">Query</span>&lt;(<span class="ty">Entity</span>, &amp;<span class="ty">Job</span>), <span class="ty">Without</span>&lt;<span class="ty">AssignedWorkers</span>&gt;&gt;,
+    <span class="kw">mut</span> commands: <span class="ty">Commands</span>,
+) {
+    <span class="kw">for</span> (worker, (job, _)) <span class="kw">in</span> idle.<span class="fn">iter</span>().<span class="fn">zip</span>(jobs.<span class="fn">iter</span>()) {
+        commands.<span class="fn">entity</span>(worker).<span class="fn">insert</span>(<span class="ty">WorkingOn</span>(job));
+    }
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ ROGUELIKE ============ -->
+  <div class="app">
+    <div class="app-head">
+      <h3>2D action roguelike</h3>
+      <p>Defining problem: two lifetimes of data living in one app. Run data dies when you die; profile data must outlive everything. Getting this boundary wrong shows up as either lost unlocks or a "new run" that isn't new.</p>
+    </div>
+    <div class="app-body">
+      <div class="shape"><div class="shape-k" style="color:var(--c-resource)">Resource</div><div class="shape-v"><b>RunState</b> — floor number, gold, chosen relics, run seed. Wiped and reinserted on every new run. One resource, one clear reset point.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-resource)">Resource</div><div class="shape-v"><b>PlayerProfile</b> — unlocks, achievements, best times, settings. Never touched by run logic, written to disk on change. Keeping these two in one struct is the bug.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-resource)">Resource</div><div class="shape-v"><b>RunRng</b> — a seeded RNG in its own resource. Never use thread RNG for anything that affects gameplay, or you can't reproduce a run from its seed. Consider one RNG per subsystem (layout, loot, enemies) so adding a loot roll doesn't shift level generation.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-component)">Component</div><div class="shape-v"><b>Everything in the room</b>: enemies, projectiles, pickups, doors, hazards. Tagged with <code>DespawnOnExit(AppState::InRun)</code> so ending a run cleans the world with no bespoke teardown.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-component)">Component</div><div class="shape-v"><b>Status effects as sparse-set components</b>: <code>Burning</code>, <code>Slowed</code>, <code>Shielded</code>, each with its own timer field. Adding and removing constantly is exactly what sparse storage is for.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-asset)">Asset</div><div class="shape-v"><b>Room templates</b>, <b>enemy defs</b>, <b>item/relic tables</b>, <b>sprite atlases</b>. Room layouts as data files makes the level designer's loop a file save instead of a compile.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-state)">State</div><div class="shape-v"><b>AppState</b>: <code>Menu → InRun → GameOver</code>, with a <code>RoomPhase</code> substate for <code>Fighting → Cleared → Choosing reward</code>.</div></div>
+
+      <div class="note bad" style="margin-top:22px">
+        <span class="note-k">The mistake this genre invites</span>
+        <p>One giant <code>GameData</code> resource holding run state, profile, settings and cached lookups together. Every system that touches any of it takes <code>ResMut&lt;GameData&gt;</code>, so <b>nothing can run in parallel</b> and resetting a run means carefully clearing half the fields. <b>Split resources by write access</b> — if two systems each need mutable access to different halves, that's two resources.</p>
+      </div>
+
+      <div class="code r-resource">
+        <div class="code-top"><span class="code-label">run vs profile, and a reproducible seed</span><button class="copy">Copy</button></div>
+<pre><span class="cm">// Lives for one run. Reset by replacing it wholesale.</span>
+<span class="at">#[derive(Resource)]</span>
+<span class="kw">struct</span> <span class="ty">RunState</span> { seed: <span class="ty">u64</span>, floor: <span class="ty">u32</span>, gold: <span class="ty">u32</span>, relics: <span class="ty">Vec</span>&lt;<span class="ty">RelicId</span>&gt; }
+
+<span class="cm">// Lives forever. Only the meta layer writes it.</span>
+<span class="at">#[derive(Resource, Default)]</span>
+<span class="kw">struct</span> <span class="ty">PlayerProfile</span> { unlocked: <span class="ty">HashSet</span>&lt;<span class="ty">RelicId</span>&gt;, best_floor: <span class="ty">u32</span> }
+
+<span class="cm">// Separate streams so a new loot roll can't shift level layout.</span>
+<span class="at">#[derive(Resource)]</span>
+<span class="kw">struct</span> <span class="ty">LayoutRng</span>(<span class="ty">ChaCha8Rng</span>);
+<span class="at">#[derive(Resource)]</span>
+<span class="kw">struct</span> <span class="ty">LootRng</span>(<span class="ty">ChaCha8Rng</span>);
+
+<span class="kw">fn</span> <span class="fn">start_run</span>(<span class="kw">mut</span> commands: <span class="ty">Commands</span>, seed: <span class="ty">u64</span>) {
+    commands.<span class="fn">insert_resource</span>(<span class="ty">RunState</span> { seed, floor: <span class="nu">1</span>, gold: <span class="nu">0</span>, relics: <span class="fn">vec!</span>[] });
+    commands.<span class="fn">insert_resource</span>(<span class="ty">LayoutRng</span>(<span class="ty">ChaCha8Rng</span>::<span class="fn">seed_from_u64</span>(seed)));
+    commands.<span class="fn">insert_resource</span>(<span class="ty">LootRng</span>(<span class="ty">ChaCha8Rng</span>::<span class="fn">seed_from_u64</span>(seed ^ <span class="nu">0x9E37_79B9</span>)));
+}
+
+<span class="cm">// Everything spawned during the run is tagged, so cleanup is automatic.</span>
+commands.<span class="fn">spawn</span>((<span class="ty">Enemy</span>, <span class="ty">Transform</span>::<span class="fn">from_xyz</span>(x, y, <span class="nu">0.0</span>), <span class="ty">DespawnOnExit</span>(<span class="ty">AppState</span>::<span class="ty">InRun</span>)));</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ NETWORKED ============ -->
+  <div class="app">
+    <div class="app-head">
+      <h3>Networked multiplayer</h3>
+      <p>Defining problem: the same entity exists on two machines and its data has to be split into what's replicated, what's predicted, and what's purely local. Getting the split into the type system early saves a rewrite.</p>
+    </div>
+    <div class="app-body">
+      <div class="shape"><div class="shape-k" style="color:var(--c-component)">Component</div><div class="shape-v"><b>Replicated components</b> — the authoritative simulation state, kept deliberately small: position, velocity, health, team. Mark them with a trait or a marker so serialization is derived, not hand-written per type.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-component)">Component</div><div class="shape-v"><b>Local-only components</b> — particles, audio emitters, interpolation buffers, camera shake, animation state. These must never be replicated, and separating them by component (not by field) is what makes that enforceable.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-component)">Component</div><div class="shape-v"><b>NetworkId(u64)</b> — a stable id independent of <code>Entity</code>. Two machines will never agree on <code>Entity</code> values, so every cross-machine reference goes through this.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-resource)">Resource</div><div class="shape-v"><b>NetworkMap</b> — <code>HashMap&lt;NetworkId, Entity&gt;</code> both ways, <b>Tick</b> (the simulation tick, not frame count), <b>ServerConfig</b>, <b>InputBuffer</b> of recent local inputs for reconciliation.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-event)">Message</div><div class="shape-v"><b>Inbound and outbound packets</b> as messages. This is the natural fit: they arrive in batches, several systems care, and the buffering is already built.</div></div>
+      <div class="shape"><div class="shape-k" style="color:var(--c-local)">Schedule</div><div class="shape-v"><b>FixedUpdate</b> holds the simulation; <code>Update</code> holds rendering and interpolation. Replicated data is written only in <code>FixedUpdate</code>, which is what makes rollback tractable.</div></div>
+
+      <div class="note bad" style="margin-top:22px">
+        <span class="note-k">The mistake this genre invites</span>
+        <p>Mixing presentation into the components you replicate. Once <code>Player</code> holds both <code>health</code> and <code>muzzle_flash_timer</code>, every state snapshot carries cosmetic data and every rollback stomps your VFX. <b>Draw the line as a component boundary on day one</b>, even if it feels like over-engineering for a two-player prototype.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="perf">
+  <div class="sec-head"><span class="sec-num">05</span><h2>What each choice costs</h2></div>
+  <p class="sec-sub">Storage decisions are performance decisions. These are the cost models worth carrying in your head while designing, not after profiling.</p>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Operation</th><th>Cost</th><th>Design consequence</th></tr></thead>
+      <tbody>
+        <tr><td>Mutating a component field</td><td>Free</td><td>Prefer flipping a field or enum over adding/removing markers</td></tr>
+        <tr><td>Iterating a table-stored query</td><td>Fastest thing in the engine</td><td>The normal path; design for it</td></tr>
+        <tr><td>Adding / removing a table component</td><td>Archetype move — copies all the entity's other components</td><td>Batch structural changes; use sparse set for frequently toggled markers</td></tr>
+        <tr><td>Adding / removing a sparse-set component</td><td>Cheap</td><td>Iteration is slower, so only for genuinely churny markers</td></tr>
+        <tr><td>Spawning / despawning</td><td>Moderate, deferred through <code>Commands</code></td><td>Pool bullets and particles rather than spawn-per-frame at high volume</td></tr>
+        <tr><td>Cloning a <code>Handle&lt;T&gt;</code></td><td>Refcount bump</td><td>Share freely; never clone the asset itself</td></tr>
+        <tr><td><code>ResMut&lt;T&gt;</code> in a system</td><td>Serialises that system against every other writer of <code>T</code></td><td>Split fat resources; use <code>Res</code> where you only read</td></tr>
+        <tr><td>Reading a message</td><td>Cheap linear scan</td><td>Fine at thousands per frame</td></tr>
+        <tr><td>Triggering an observer</td><td>Per-trigger dispatch</td><td>Don't trigger one per bullet per frame; batch into a message instead</td></tr>
+        <tr><td>Nested loops over a query</td><td>O(n²)</td><td>Build a spatial index the moment proximity matters</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Change detection, and how to avoid re-doing work</h3>
+  <p>Every component and resource tracks when it was last written. Filter on that instead of recomputing, and you often delete an entire dirty-flag system you wrote by hand.</p>
+
+  <div class="code r-mixed">
+    <div class="code-top"><span class="code-label">change detection</span><button class="copy">Copy</button></div>
+<pre><span class="cm">// Only entities whose Transform changed since this system last ran.</span>
+<span class="kw">fn</span> <span class="fn">reindex</span>(q: <span class="ty">Query</span>&lt;(<span class="ty">Entity</span>, &amp;<span class="ty">Transform</span>), <span class="ty">Changed</span>&lt;<span class="ty">Transform</span>&gt;&gt;) { <span class="cm">/* .. */</span> }
+
+<span class="cm">// Added&lt;T&gt; = only the frame it appeared.</span>
+<span class="kw">fn</span> <span class="fn">greet</span>(q: <span class="ty">Query</span>&lt;&amp;<span class="ty">Name</span>, <span class="ty">Added</span>&lt;<span class="ty">Player</span>&gt;&gt;) { <span class="cm">/* .. */</span> }
+
+<span class="cm">// Resources too — skip the whole system if nothing changed.</span>
+<span class="kw">fn</span> <span class="fn">apply_settings</span>(settings: <span class="ty">Res</span>&lt;<span class="ty">WorldSettings</span>&gt;) {
+    <span class="kw">if</span> !settings.<span class="fn">is_changed</span>() { <span class="kw">return</span>; }
+}
+app.<span class="fn">add_systems</span>(<span class="ty">Update</span>, apply_settings.<span class="fn">run_if</span>(<span class="fn">resource_changed</span>::&lt;<span class="ty">WorldSettings</span>&gt;));
+
+<span class="cm">// Careful: taking ResMut/&amp;mut marks it changed even if you write nothing.</span>
+<span class="cm">// Guard writes when downstream work is expensive.</span>
+<span class="kw">if</span> material.base_color != new_color { material.base_color = new_color; }</pre>
+  </div>
+
+  <h3>When you actually need the last 20%</h3>
+  <p>0.19 added contiguous query access, which hands you the raw table slice so LLVM can vectorise. It's the right tool for bulk numeric work over many entities — physics integration, particle updates, mass health decay.</p>
+
+  <div class="code">
+    <div class="code-top"><span class="code-label">contiguous iteration (0.19)</span><button class="copy">Copy</button></div>
+<pre><span class="kw">fn</span> <span class="fn">integrate</span>(<span class="kw">mut</span> q: <span class="ty">Query</span>&lt;(&amp;<span class="kw">mut</span> <span class="ty">Position</span>, &amp;<span class="ty">Velocity</span>)&gt;) {
+    <span class="kw">for</span> (pos, vel) <span class="kw">in</span> q.<span class="fn">contiguous_iter_mut</span>().<span class="fn">unwrap</span>() {
+        <span class="kw">for</span> (p, v) <span class="kw">in</span> pos.<span class="fn">iter_mut</span>().<span class="fn">zip</span>(vel) { p.<span class="nu">0</span> += v.<span class="nu">0</span>; }
+    }
+}
+<span class="cm">// Only works for dense queries: table storage only, and no Changed/Added</span>
+<span class="cm">// filters (With/Without are fine). Reported ~3x with AVX2 on 10k entities.</span>
+<span class="cm">// bypass_change_detection() gives raw &amp;mut [T] if you don't need ticks.</span></pre>
+  </div>
+
+  <div class="note">
+    <span class="note-k">Order of operations</span>
+    <p>Correct storage choices buy you far more than micro-optimisation. In order: pick the right storage kind → don't do O(n²) → batch structural changes → use change detection → then reach for SIMD.</p>
+  </div>
+</section>
+
+<section id="persist">
+  <div class="sec-head"><span class="sec-num">06</span><h2>Saving and loading</h2></div>
+  <p class="sec-sub">Three different problems that people often try to solve with one mechanism: user settings, world state, and authored content.</p>
+
+  <div class="grid g3">
+    <div class="card">
+      <span class="card-tag" style="color:var(--c-resource)">Settings</span>
+      <h4 style="margin-top:0">App settings framework</h4>
+      <p>New in 0.19. Derive <code>SettingsGroup</code> on a resource and Bevy loads it at startup and saves on command — volume, keybinds, graphics, window size, "don't show again".</p>
+    </div>
+    <div class="card">
+      <span class="card-tag" style="color:var(--c-component)">World state</span>
+      <h4 style="margin-top:0">World serialization</h4>
+      <p>The old <code>bevy_scene</code>, renamed to <code>bevy_world_serialization</code> in 0.19. Round-trips entities and components through reflection. Fine for save games; requires <code>Reflect</code> on everything you keep.</p>
+    </div>
+    <div class="card">
+      <span class="card-tag" style="color:var(--c-asset)">Content</span>
+      <h4 style="margin-top:0">Assets &amp; BSN</h4>
+      <p>Authored content — levels, prefabs, tuning tables — belongs in asset files, loaded not saved. BSN is where this is heading; glTF and RON are where it is today.</p>
+    </div>
+  </div>
+
+  <div class="code r-resource">
+    <div class="code-top"><span class="code-label">settings that persist themselves (0.19)</span><button class="copy">Copy</button></div>
+<pre><span class="at">#[derive(Resource, SettingsGroup, Reflect, Default)]</span>
+<span class="at">#[reflect(Resource, SettingsGroup, Default)]</span>
+<span class="kw">struct</span> <span class="ty">AudioSettings</span> { music_volume: <span class="ty">f32</span>, sfx_volume: <span class="ty">f32</span> }
+
+<span class="cm">// Reverse-domain app id decides where the file lands per platform.</span>
+app.<span class="fn">add_plugins</span>(<span class="ty">SettingsPlugin</span>::<span class="fn">new</span>(<span class="st">"com.example.mygame"</span>));
+
+<span class="cm">// Read it like any other resource; save with SaveSettingsDeferred.</span>
+<span class="kw">fn</span> <span class="fn">apply</span>(audio: <span class="ty">Res</span>&lt;<span class="ty">AudioSettings</span>&gt;) { <span class="cm">/* .. */</span> }</pre>
+  </div>
+
+  <div class="note warn">
+    <span class="note-k">The rule that saves you</span>
+    <p><b><code>Entity</code> ids are runtime-only.</b> They are indices with generations, they get reused, and they mean nothing across a save/load or across a network. Anything that must survive needs a stable id of your own — <code>ObjectId(Uuid)</code>, <code>NetworkId(u64)</code>, <code>ChunkCoord(IVec3)</code>. Store the stable id in the file and rebuild the <code>Entity</code> mapping on load.</p>
+  </div>
+
+  <h4>What to serialize</h4>
+  <ul>
+    <li><b>Save:</b> authored and simulated state that can't be recomputed — positions, inventories, health, world seed, chunk diffs, quest flags.</li>
+    <li><b>Don't save:</b> anything derivable — generated meshes, spatial indices, cached lookups, interpolation buffers, visibility, <code>GlobalTransform</code>. Rebuild them on load; it's faster and it can't go stale.</li>
+    <li><b>For a voxel world specifically:</b> save the seed plus the diff from generated terrain, not the terrain. Orders of magnitude smaller.</li>
+  </ul>
+</section>
+
+<section id="traps">
+  <div class="sec-head"><span class="sec-num">07</span><h2>Traps</h2></div>
+  <p class="sec-sub">Patterns that compile, run, and then cost you a weekend three months later.</p>
+
+  <div class="grid g2">
+    <div class="card">
+      <span class="card-tag" style="color:var(--c-event)">Trap</span>
+      <h4 style="margin-top:0">The god resource</h4>
+      <p>One <code>GameState</code> resource holding everything. Every system takes <code>ResMut</code> of it, so the scheduler serialises your whole app and you lose parallelism entirely. <b>Split by writer.</b></p>
+    </div>
+    <div class="card">
+      <span class="card-tag" style="color:var(--c-event)">Trap</span>
+      <h4 style="margin-top:0">A component per field</h4>
+      <p><code>PosX</code>, <code>PosY</code>, <code>PosZ</code>. Every distinct combination is a new archetype, queries get longer, and nothing is faster. Group data that is always read together.</p>
+    </div>
+    <div class="card">
+      <span class="card-tag" style="color:var(--c-event)">Trap</span>
+      <h4 style="margin-top:0">Hand-rolled <code>Vec&lt;Entity&gt;</code></h4>
+      <p>Children, inventory contents, squad members. It desynchronises on despawn and leaves dangling ids. Use relationships — they maintain both sides and clean up for you.</p>
+    </div>
+    <div class="card">
+      <span class="card-tag" style="color:var(--c-event)">Trap</span>
+      <h4 style="margin-top:0">Storing <code>Entity</code> in a save file</h4>
+      <p>Ids are reused after despawn, so a stale one may silently point at a completely different, live entity. Always map through a stable id at the boundary.</p>
+    </div>
+    <div class="card">
+      <span class="card-tag" style="color:var(--c-event)">Trap</span>
+      <h4 style="margin-top:0">A resource that should be a component</h4>
+      <p><code>PlayerHealth</code>, <code>CameraPosition</code>, <code>SelectedEntity</code>. Each is a bet that there will only ever be one. Split-screen, minimaps and multi-select all break that bet.</p>
+    </div>
+    <div class="card">
+      <span class="card-tag" style="color:var(--c-event)">Trap</span>
+      <h4 style="margin-top:0">A component that should be an asset</h4>
+      <p>Full stat blocks copied onto every instance. Duplicated memory, and rebalancing means touching live entities and save files instead of one file.</p>
+    </div>
+    <div class="card">
+      <span class="card-tag" style="color:var(--c-event)">Trap</span>
+      <h4 style="margin-top:0">Markers churned every frame</h4>
+      <p>Adding and removing a default-storage marker at 60Hz on thousands of entities means an archetype move each time. Either make it sparse set or make it a field.</p>
+    </div>
+    <div class="card">
+      <span class="card-tag" style="color:var(--c-event)">Trap</span>
+      <h4 style="margin-top:0">Hand-built message queues</h4>
+      <p>A <code>Vec</code> in a resource that you push to and drain next frame. That's <code>Message</code> — with double buffering, independent reader cursors and automatic cleanup already solved.</p>
+    </div>
+  </div>
+</section>
+
+<section id="index">
+  <div class="sec-head"><span class="sec-num">08</span><h2>Quick index</h2></div>
+  <p class="sec-sub">The API surface for data access, plus the renames that make older tutorials misleading.</p>
+
+  <h4>System parameters</h4>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Parameter</th><th>Gives you</th></tr></thead>
+      <tbody>
+        <tr><td><code>Query&lt;&amp;T&gt;</code> / <code>Query&lt;&amp;mut T&gt;</code></td><td>Every entity with those components</td></tr>
+        <tr><td><code>Query&lt;&amp;T, With&lt;U&gt;&gt;</code></td><td>Filtered without fetching <code>U</code></td></tr>
+        <tr><td><code>Query&lt;&amp;T, Changed&lt;T&gt;&gt;</code></td><td>Only entities changed since this system last ran</td></tr>
+        <tr><td><code>Single&lt;&amp;T&gt;</code></td><td>Exactly one match, or the system is skipped</td></tr>
+        <tr><td><code>Option&lt;Single&lt;&amp;T&gt;&gt;</code></td><td>Zero or one match, system still runs</td></tr>
+        <tr><td><code>Res&lt;T&gt;</code> / <code>ResMut&lt;T&gt;</code></td><td>The singleton, read or write</td></tr>
+        <tr><td><code>Option&lt;Res&lt;T&gt;&gt;</code></td><td>A resource that may not exist yet</td></tr>
+        <tr><td><code>NonSend&lt;T&gt;</code></td><td>Main-thread-only data</td></tr>
+        <tr><td><code>Local&lt;T&gt;</code></td><td>Per-system private state</td></tr>
+        <tr><td><code>MessageWriter&lt;M&gt;</code> / <code>MessageReader&lt;M&gt;</code></td><td>Buffered messages out and in</td></tr>
+        <tr><td><code>On&lt;E&gt;</code> / <code>On&lt;Add, T&gt;</code></td><td>Observer's event, first parameter only</td></tr>
+        <tr><td><code>Commands</code></td><td>Deferred spawn / insert / remove / trigger</td></tr>
+        <tr><td><code>&amp;mut World</code></td><td>Everything, exclusively, no parallelism</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4>Renames that break old tutorials</h4>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>You'll see</th><th>Current (0.19)</th><th>Since</th></tr></thead>
+      <tbody>
+        <tr><td><code>Event</code>, <code>EventWriter</code>, <code>EventReader</code>, <code>send()</code></td><td><code>Message</code>, <code>MessageWriter</code>, <code>MessageReader</code>, <code>write()</code></td><td>0.17</td></tr>
+        <tr><td><code>add_event::&lt;T&gt;()</code></td><td><code>add_message::&lt;T&gt;()</code></td><td>0.17</td></tr>
+        <tr><td><code>Trigger&lt;OnAdd, T&gt;</code></td><td><code>On&lt;Add, T&gt;</code></td><td>0.17</td></tr>
+        <tr><td><code>trigger_targets(..)</code></td><td><code>trigger(..)</code> with <code>EntityEvent</code></td><td>0.17</td></tr>
+        <tr><td><code>Replace</code> lifecycle event, <code>on_replace</code></td><td><code>Discard</code>, <code>on_discard</code></td><td>0.19</td></tr>
+        <tr><td><code>Parent</code>, <code>with_children()</code></td><td><code>ChildOf</code>, <code>children![]</code></td><td>0.16</td></tr>
+        <tr><td><code>SpatialBundle</code>, <code>PbrBundle</code>, all bundles</td><td>Required components</td><td>0.15</td></tr>
+        <tr><td><code>StateScoped</code></td><td><code>DespawnOnExit</code> / <code>DespawnOnEnter</code></td><td>0.17</td></tr>
+        <tr><td><code>insert_non_send_resource</code></td><td><code>insert_non_send</code></td><td>0.19</td></tr>
+        <tr><td><code>#[derive(Component, Resource)]</code></td><td>Not allowed — split the type</td><td>0.19</td></tr>
+        <tr><td><code>SceneRoot</code>, <code>DynamicScene</code></td><td><code>WorldAssetRoot</code>, <code>DynamicWorld</code></td><td>0.19</td></tr>
+        <tr><td><code>query.single()</code> panicking</td><td>Returns <code>Result</code>; or use <code>Single&lt;T&gt;</code></td><td>0.16</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note warn">
+    <span class="note-k">Why this table exists</span>
+    <p>Most Bevy material online predates 0.17. If a tutorial uses <code>EventReader</code> and <code>Trigger&lt;OnAdd&gt;</code>, it's at least three releases old and its architectural advice may be stale too — particularly anything recommending bundles or hand-managed parent/child vectors.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="foot-grid">
+    <div>
+      <h4 style="margin-top:0">Verify against</h4>
+      <p style="margin:0"><a href="https://bevy.org/learn/migration-guides/0-18-to-0-19/">0.18 → 0.19 migration guide</a><br>
+      <a href="https://bevy.org/news/bevy-0-19/">0.19 release notes</a><br>
+      <a href="https://docs.rs/bevy/latest/bevy/">docs.rs/bevy</a><br>
+      <a href="https://bevy.org/examples/">Official examples</a></p>
+    </div>
+    <div>
+      <h4 style="margin-top:0">Scope</h4>
+      <p style="margin:0">Written against Bevy 0.19 (released June 2026), verified August 2026. Bevy moves fast and is pre-1.0 — check the migration guide when you upgrade, especially anything touching resources or scenes.</p>
+    </div>
+    <div>
+      <h4 style="margin-top:0">If you remember one thing</h4>
+      <p style="margin:0">Cardinality decides storage. Many → component. One → resource. Heavy and shared → asset. Transient → message or event.</p>
+    </div>
+  </div>
+</footer>
+
+</div>
+
+<script>
+(function(){
+  // Copy buttons
+  document.querySelectorAll('.copy').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var pre = btn.closest('.code').querySelector('pre');
+      var text = pre.innerText;
+      var done = function(){
+        btn.textContent = 'Copied';
+        btn.classList.add('done');
+        setTimeout(function(){ btn.textContent = 'Copy'; btn.classList.remove('done'); }, 1400);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, fallback);
+      } else { fallback(); }
+      function fallback(){
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+        document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); done(); } catch(e){}
+        document.body.removeChild(ta);
+      }
+    });
+  });
+
+  // Scroll spy
+  var links = Array.prototype.slice.call(document.querySelectorAll('.navlinks a'));
+  var sections = links.map(function(a){ return document.querySelector(a.getAttribute('href')); }).filter(Boolean);
+  if ('IntersectionObserver' in window && sections.length) {
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if (!e.isIntersecting) return;
+        links.forEach(function(a){
+          a.classList.toggle('on', a.getAttribute('href') === '#' + e.target.id);
+        });
+      });
+    }, { rootMargin: '-80px 0px -70% 0px', threshold: 0 });
+    sections.forEach(function(s){ io.observe(s); });
+  }
+})();
+</script>
+</body>
+</html>
