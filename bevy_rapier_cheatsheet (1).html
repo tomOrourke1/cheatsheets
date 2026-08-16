@@ -1,0 +1,2049 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bevy_rapier — field notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#121722;
+  --bg-deep:#0D111A;
+  --panel:#19202F;
+  --panel-2:#1E2637;
+  --line:#2A344B;
+  --line-soft:#222B3E;
+  --ink:#D9E0EC;
+  --ink-dim:#8A97B0;
+  --ink-faint:#5F6C86;
+
+  --dyn:#F2B544;   /* dynamics  */
+  --geo:#4FD1C5;   /* geometry  */
+  --evt:#F2708C;   /* events    */
+  --pipe:#A78BFA;  /* pipeline  */
+  --prac:#B6E36B;  /* practice  */
+
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,Segoe UI,sans-serif;
+  --disp:"Space Grotesk","IBM Plex Sans",system-ui,sans-serif;
+
+  --rail:196px;
+}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:128px}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:var(--sans);font-size:14px;line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  background-image:
+    linear-gradient(var(--line-soft) 1px,transparent 1px),
+    linear-gradient(90deg,var(--line-soft) 1px,transparent 1px);
+  background-size:64px 64px;
+  background-position:-1px -1px;
+}
+
+/* ---------- header ---------- */
+header{
+  position:sticky;top:0;z-index:40;
+  background:rgba(13,17,26,.94);
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line);
+}
+.hbar{
+  max-width:1400px;margin:0 auto;padding:14px 22px;
+  display:flex;gap:20px;align-items:center;flex-wrap:wrap;
+}
+.wordmark{font-family:var(--mono);font-weight:600;font-size:17px;letter-spacing:-.02em;color:var(--ink);white-space:nowrap}
+.wordmark b{color:var(--pipe);font-weight:600}
+.stamp{
+  font-family:var(--mono);font-size:11px;letter-spacing:.04em;
+  color:var(--ink-dim);border:1px solid var(--line);border-radius:2px;
+  padding:3px 8px;white-space:nowrap;
+}
+.stamp em{font-style:normal;color:var(--prac)}
+.search{
+  flex:1 1 260px;min-width:200px;position:relative;display:flex;align-items:center;
+}
+.search input{
+  width:100%;font-family:var(--mono);font-size:13px;color:var(--ink);
+  background:var(--panel);border:1px solid var(--line);border-radius:3px;
+  padding:9px 12px 9px 34px;outline:none;
+}
+.search input:focus{border-color:var(--pipe);box-shadow:0 0 0 3px rgba(167,139,250,.15)}
+.search input::placeholder{color:var(--ink-faint)}
+.search .slash{
+  position:absolute;left:12px;font-family:var(--mono);font-size:12px;color:var(--ink-faint);pointer-events:none;
+}
+.hitcount{font-family:var(--mono);font-size:11px;color:var(--ink-faint);white-space:nowrap}
+
+/* ---------- shell ---------- */
+.shell{max-width:1400px;margin:0 auto;padding:0 22px 96px;display:grid;grid-template-columns:var(--rail) 1fr;gap:36px}
+@media (max-width:900px){.shell{grid-template-columns:1fr;gap:0}}
+
+nav{position:sticky;top:96px;align-self:start;padding:30px 0 0;font-family:var(--mono);font-size:12px}
+nav .legend{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin:0 0 10px}
+nav a{
+  display:flex;align-items:center;gap:9px;padding:5px 0;color:var(--ink-dim);text-decoration:none;
+  border-left:2px solid transparent;padding-left:10px;margin-left:-12px;
+}
+nav a:hover,nav a:focus-visible{color:var(--ink);border-left-color:var(--line)}
+nav a.on{color:var(--ink);border-left-color:currentColor}
+nav a .dot{width:6px;height:6px;border-radius:1px;flex:none;background:currentColor}
+nav a[data-fam=dyn] .dot{background:var(--dyn)} nav a[data-fam=geo] .dot{background:var(--geo)}
+nav a[data-fam=evt] .dot{background:var(--evt)} nav a[data-fam=pipe] .dot{background:var(--pipe)}
+nav a[data-fam=prac] .dot{background:var(--prac)}
+nav .key{margin-top:22px;padding-top:16px;border-top:1px solid var(--line-soft);color:var(--ink-faint);font-size:10.5px;line-height:1.9}
+nav .key i{font-style:normal;display:inline-block;width:6px;height:6px;border-radius:1px;margin-right:7px}
+
+@media (max-width:900px){
+  nav{position:sticky;top:0;padding:0;background:rgba(13,17,26,.94);backdrop-filter:blur(10px);
+      border-bottom:1px solid var(--line);margin:0 -22px;z-index:30}
+  nav .legend,nav .key{display:none}
+  nav .links{display:flex;gap:2px;overflow-x:auto;padding:8px 16px;scrollbar-width:none}
+  nav .links::-webkit-scrollbar{display:none}
+  nav a{border-left:none;border-bottom:2px solid transparent;margin:0;padding:6px 10px;white-space:nowrap}
+  nav a.on{border-left:none;border-bottom-color:currentColor}
+}
+
+main{padding-top:30px;min-width:0}
+
+/* ---------- hero ---------- */
+.hero{border-bottom:1px solid var(--line);padding-bottom:26px;margin-bottom:34px}
+.hero h1{
+  font-family:var(--disp);font-weight:700;font-size:clamp(30px,5.2vw,50px);
+  line-height:1.02;letter-spacing:-.035em;margin:0 0 14px;color:#F1F5FB;
+}
+.hero h1 span{color:var(--ink-faint)}
+.hero p{max-width:62ch;color:var(--ink-dim);margin:0 0 20px;font-size:14.5px}
+.hero p code{font-family:var(--mono);color:var(--geo);font-size:.92em}
+.warnstrip{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:3px;overflow:hidden}
+.warnstrip div{background:var(--panel);padding:11px 13px;font-family:var(--mono);font-size:11.5px;line-height:1.55;color:var(--ink-dim)}
+.warnstrip div b{display:block;color:var(--prac);font-weight:500;margin-bottom:3px;font-size:10px;letter-spacing:.07em;text-transform:uppercase}
+
+/* ---------- sections ---------- */
+section{margin:0 0 44px;scroll-margin-top:130px}
+.shead{display:flex;align-items:baseline;gap:12px;margin:0 0 16px;padding-left:14px;border-left:3px solid var(--pipe)}
+section[data-fam=dyn] .shead{border-color:var(--dyn)} section[data-fam=geo] .shead{border-color:var(--geo)}
+section[data-fam=evt] .shead{border-color:var(--evt)} section[data-fam=prac] .shead{border-color:var(--prac)}
+.shead h2{font-family:var(--disp);font-weight:700;font-size:22px;letter-spacing:-.02em;margin:0;color:#EDF2F9}
+.shead .sub{font-family:var(--mono);font-size:11px;color:var(--ink-faint);letter-spacing:.03em}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:14px;align-items:start}
+
+.card{background:var(--panel);border:1px solid var(--line-soft);border-radius:4px;overflow:hidden}
+.card.wide{grid-column:1/-1}
+.card > h3{
+  font-family:var(--mono);font-weight:600;font-size:12px;letter-spacing:.02em;
+  margin:0;padding:11px 15px;color:var(--ink);
+  background:var(--panel-2);border-bottom:1px solid var(--line-soft);
+  display:flex;justify-content:space-between;align-items:center;gap:10px;
+}
+.card > h3 em{font-style:normal;font-weight:400;color:var(--ink-faint);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase}
+.card .body{padding:13px 15px}
+.card .body > :first-child{margin-top:0}
+.card .body > :last-child{margin-bottom:0}
+.card p{margin:0 0 10px;color:var(--ink-dim);font-size:13px}
+.card p strong{color:var(--ink);font-weight:600}
+.card p code,.card li code,td code,.warnstrip code{font-family:var(--mono);font-size:12px;color:var(--geo);background:rgba(79,209,197,.07);padding:1px 4px;border-radius:2px}
+.card ul{margin:0 0 10px;padding-left:17px;color:var(--ink-dim);font-size:13px}
+.card li{margin-bottom:5px}
+.card li::marker{color:var(--ink-faint)}
+
+/* ---------- code ---------- */
+.codewrap{position:relative;border-top:1px solid var(--line-soft);background:var(--bg-deep)}
+.card .body + .codewrap{border-top:1px solid var(--line-soft)}
+pre{
+  margin:0;padding:13px 15px;overflow-x:auto;
+  font-family:var(--mono);font-size:12.2px;line-height:1.72;color:#C6D0E0;
+  tab-size:4;
+}
+pre::-webkit-scrollbar{height:8px}
+pre::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+.copy{
+  position:absolute;top:7px;right:8px;opacity:0;
+  font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--ink-faint);background:var(--panel-2);border:1px solid var(--line);
+  border-radius:2px;padding:3px 7px;cursor:pointer;transition:opacity .12s,color .12s;
+}
+.codewrap:hover .copy,.copy:focus-visible{opacity:1}
+.copy:hover{color:var(--ink)}
+.copy.done{color:var(--prac);border-color:var(--prac);opacity:1}
+
+.t-c{color:#5C6A85;font-style:italic}
+.t-s{color:#E0B06B}
+.t-a{color:#6E7C99}
+.t-m{color:#B6E36B}
+.t-t{color:#7FD8CE}
+.t-k{color:#C79BF5}
+.t-n{color:#F0A07A}
+
+/* ---------- tables ---------- */
+table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11.8px}
+th{
+  text-align:left;font-weight:500;color:var(--ink-faint);font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+  padding:8px 15px;border-bottom:1px solid var(--line);background:var(--panel-2);
+}
+td{padding:7px 15px;border-bottom:1px solid var(--line-soft);color:var(--ink-dim);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td:first-child{color:var(--ink);white-space:nowrap}
+td b{color:var(--dyn);font-weight:500}
+.tbl-scroll{overflow-x:auto}
+
+.note{
+  border-left:2px solid var(--evt);background:rgba(242,112,140,.06);
+  padding:9px 12px;margin:0 0 10px;font-size:12.5px;color:var(--ink-dim);
+}
+.note b{color:var(--evt);font-weight:600}
+.ok{border-left-color:var(--prac);background:rgba(182,227,107,.06)}
+.ok b{color:var(--prac)}
+
+.empty{display:none;font-family:var(--mono);font-size:13px;color:var(--ink-dim);padding:40px 0;text-align:center}
+.empty.on{display:block}
+body.filtering .hero,body.filtering footer{display:none}
+
+footer{
+  max-width:1400px;margin:0 auto;padding:26px 22px 60px;
+  border-top:1px solid var(--line);font-family:var(--mono);font-size:11.5px;color:var(--ink-faint);
+  display:flex;gap:18px;flex-wrap:wrap;justify-content:space-between;
+}
+footer a{color:var(--ink-dim);text-decoration:none;border-bottom:1px solid var(--line)}
+footer a:hover{color:var(--ink)}
+
+:focus-visible{outline:2px solid var(--pipe);outline-offset:2px;border-radius:2px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hbar">
+    <div class="wordmark">bevy_<b>rapier</b></div>
+    <div class="stamp">v<em>0.36</em> · bevy 0.19 · rapier 0.35</div>
+    <label class="search">
+      <span class="slash">/</span>
+      <input id="q" type="search" placeholder="filter cards — raycast, sensor, groups, ground…" autocomplete="off" aria-label="Filter cards">
+    </label>
+    <div class="hitcount" id="hits"></div>
+  </div>
+</header>
+
+<div class="shell">
+
+<nav aria-label="Sections">
+  <p class="legend">Sections</p>
+  <div class="links">
+    <a href="#install"   data-fam="pipe"><span class="dot"></span>Install</a>
+    <a href="#model"     data-fam="pipe"><span class="dot"></span>Mental model</a>
+    <a href="#bodies"    data-fam="dyn"><span class="dot"></span>Rigid bodies</a>
+    <a href="#colliders" data-fam="geo"><span class="dot"></span>Colliders</a>
+    <a href="#events"    data-fam="evt"><span class="dot"></span>Collision events</a>
+    <a href="#contacts"  data-fam="evt"><span class="dot"></span>Contact data</a>
+    <a href="#queries"   data-fam="pipe"><span class="dot"></span>Scene queries</a>
+    <a href="#filters"   data-fam="pipe"><span class="dot"></span>QueryFilter</a>
+    <a href="#parry"     data-fam="geo"><span class="dot"></span>Direct parry</a>
+    <a href="#groups"    data-fam="geo"><span class="dot"></span>Collision groups</a>
+    <a href="#character" data-fam="dyn"><span class="dot"></span>Character ctrl</a>
+    <a href="#joints"    data-fam="dyn"><span class="dot"></span>Joints</a>
+    <a href="#tuning"    data-fam="pipe"><span class="dot"></span>Config &amp; tuning</a>
+    <a href="#recipes"   data-fam="prac"><span class="dot"></span>Recipes</a>
+    <a href="#gotchas"   data-fam="prac"><span class="dot"></span>Gotchas</a>
+  </div>
+  <div class="key">
+    <div><i style="background:var(--dyn)"></i>dynamics</div>
+    <div><i style="background:var(--geo)"></i>geometry</div>
+    <div><i style="background:var(--evt)"></i>events</div>
+    <div><i style="background:var(--pipe)"></i>pipeline</div>
+    <div><i style="background:var(--prac)"></i>practice</div>
+  </div>
+</nav>
+
+<main>
+
+<div class="hero">
+  <h1>Physics you can<br>query. <span>A working reference.</span></h1>
+  <p>Everything below targets <strong>bevy_rapier 0.36</strong>. Swap <code>bevy_rapier2d</code> for <code>bevy_rapier3d</code> and <code>Vec2</code> for <code>Vec3</code> — the API is otherwise identical across dimensions. Press <code>/</code> to filter, <code>Esc</code> to clear.</p>
+  <div class="warnstrip">
+    <div><b>Renamed in 0.34</b><code>Velocity.linvel</code> → <code>.linear</code>, <code>.angvel</code> → <code>.angular</code>.</div>
+    <div><b>Changed in 0.34</b>Collider &amp; query APIs take glam vectors. Drop the <code>.into()</code> calls.</div>
+    <div><b>Changed in 0.32</b>Collision events are Bevy <code>Message</code>s. Use <code>MessageReader</code>, not <code>EventReader</code>.</div>
+    <div><b>Changed in 0.29</b><code>RapierContext</code> split into four components. Read it via <code>ReadRapierContext</code>.</div>
+    <div><b>Removed in 0.36</b><code>simd-stable</code> / <code>simd-nightly</code>. SIMD is always on now.</div>
+  </div>
+</div>
+
+<!-- ═══════════════ INSTALL ═══════════════ -->
+<section id="install" data-fam="pipe">
+  <div class="shead"><h2>Getting it in the project</h2><span class="sub">cargo · features · first app</span></div>
+  <div class="grid">
+
+    <div class="card">
+      <h3>Add the dependency <em>Cargo.toml</em></h3>
+      <div class="body">
+        <p>Pick <strong>one</strong> dimension per binary. The 2D and 3D crates export the same type names and will collide if you import both preludes.</p>
+      </div>
+      <div class="codewrap"><pre><code># cargo add bevy_rapier2d --features debug-render-2d
+
+[dependencies]
+bevy = "0.19"
+bevy_rapier2d = { version = "0.36", features = ["debug-render-2d"] }
+
+# 3D instead:
+# bevy_rapier3d = { version = "0.36", features = ["debug-render-3d"] }</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>Smallest app that simulates <em>main.rs</em></h3>
+      <div class="codewrap"><pre><code>use bevy::prelude::*;
+use bevy_rapier2d::prelude::*;
+
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins)
+        // 100 px == 1 metre. In 3D use ::default() instead.
+        .add_plugins(RapierPhysicsPlugin::&lt;NoUserData&gt;::pixels_per_meter(100.0))
+        .add_plugins(RapierDebugRenderPlugin::default())
+        .add_systems(Startup, setup)
+        .run();
+}
+
+fn setup(mut commands: Commands) {
+    commands.spawn(Camera2d);
+
+    // Ground: a collider with no RigidBody is implicitly static.
+    commands.spawn((
+        Collider::cuboid(500.0, 20.0),
+        Transform::from_xyz(0.0, -180.0, 0.0),
+    ));
+
+    // A ball that falls onto it.
+    commands.spawn((
+        RigidBody::Dynamic,
+        Collider::ball(24.0),
+        Restitution::coefficient(0.75),
+        Transform::from_xyz(0.0, 300.0, 0.0),
+    ));
+}</code></pre></div>
+    </div>
+
+    <div class="card wide">
+      <h3>Version pairing <em>bevy_rapier ↔ bevy ↔ rapier</em></h3>
+      <div class="body"><p>Mismatched Bevy versions produce a wall of trait errors, not a clear message. Check this first when the build explodes after an upgrade.</p></div>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>bevy_rapier</th><th>bevy</th><th>rapier</th><th>Notable break</th></tr></thead>
+        <tbody>
+          <tr><td><b>0.36</b></td><td>0.19</td><td>0.35</td><td>SIMD always on; <code>simd8</code> feature added</td></tr>
+          <tr><td>0.35</td><td>0.19</td><td>0.32</td><td>Bevy 0.19 only</td></tr>
+          <tr><td>0.34</td><td>0.18</td><td>0.32</td><td>glam args; <code>Velocity</code> fields renamed</td></tr>
+          <tr><td>0.33</td><td>0.18</td><td>0.31</td><td>Examples need <code>bevy_gizmos_render</code></td></tr>
+          <tr><td>0.32</td><td>0.17</td><td>0.31</td><td>Events → Messages</td></tr>
+          <tr><td>0.31</td><td>0.16</td><td>0.27</td><td><code>RapierQueryPipeline</code> no longer a component</td></tr>
+          <tr><td>0.30</td><td>0.16</td><td>0.25</td><td>Voxel shapes</td></tr>
+          <tr><td>0.29</td><td>0.15</td><td>0.23</td><td>Context split; picking backend</td></tr>
+          <tr><td>0.28</td><td>0.15</td><td>0.22</td><td>Context became a component; multi-world</td></tr>
+          <tr><td>0.27</td><td>0.14</td><td>0.21</td><td>Typed joints</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="card wide">
+      <h3>Feature flags <em>what each one buys you</em></h3>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>Feature</th><th>Effect</th></tr></thead>
+        <tbody>
+          <tr><td>debug-render-2d</td><td>Wireframe gizmo renderer drawn by a 2D camera. Works with the 3D crate too (top-down games).</td></tr>
+          <tr><td>debug-render-3d</td><td>Same, drawn by a 3D camera.</td></tr>
+          <tr><td>async-collider</td><td><i>On by default.</i> Enables <code>AsyncCollider</code> / <code>AsyncSceneCollider</code>, which need the asset + scene plugins.</td></tr>
+          <tr><td>headless</td><td>Strips render deps so the sim runs under <code>MinimalPlugins</code> — servers, tests, CI.</td></tr>
+          <tr><td>picking-backend</td><td>Registers colliders with <code>bevy_picking</code> so pointer hits resolve against physics shapes.</td></tr>
+          <tr><td>to-bevy-mesh</td><td>Converts parry shapes back into Bevy meshes. Handy for visualising generated geometry.</td></tr>
+          <tr><td>serde-serialize</td><td>Serde impls on components and the context. Needed for save states and rollback.</td></tr>
+          <tr><td>enhanced-determinism</td><td>Cross-platform bit-identical results. Costs speed; incompatible with <code>simd8</code>.</td></tr>
+          <tr><td>simd8</td><td><i>0.36+.</i> Widens the solver from 4 to 8 lanes. f32 only.</td></tr>
+          <tr><td>parallel</td><td>Multi-threaded solver via rayon.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════ MODEL ═══════════════ -->
+<section id="model" data-fam="pipe">
+  <div class="shead"><h2>The mental model</h2><span class="sub">four nouns, one loop</span></div>
+  <div class="grid">
+
+    <div class="card">
+      <h3>Four nouns</h3>
+      <div class="body">
+        <ul>
+          <li><strong>RigidBody</strong> — has mass, velocity, and a position the solver owns. Optional.</li>
+          <li><strong>Collider</strong> — a shape that occupies space. Attaches to a body, or stands alone as static level geometry.</li>
+          <li><strong>Sensor</strong> — a collider that reports overlaps but never pushes.</li>
+          <li><strong>Joint</strong> — a constraint between two bodies.</li>
+        </ul>
+        <p>A collider with no body is static world geometry. A body with no collider is a mass point that nothing can touch — usually a mistake.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Where things live <em>entity layout</em></h3>
+      <div class="body"><p>Put both on one entity for the common case. Use children when one body needs several shapes, or when a shape needs an offset from the centre of mass.</p></div>
+      <div class="codewrap"><pre><code>// Single shape — one entity.
+commands.spawn((RigidBody::Dynamic, Collider::capsule_y(20.0, 10.0)));
+
+// Compound body — child transforms position each shape.
+commands.spawn((RigidBody::Dynamic, Transform::default()))
+    .with_children(|b| {
+        b.spawn((Collider::cuboid(30.0, 8.0), Transform::from_xyz(0.0, 40.0, 0.0)));
+        b.spawn((Collider::ball(14.0),        Transform::from_xyz(0.0, 0.0,  0.0)));
+    });</code></pre></div>
+    </div>
+
+    <div class="card wide">
+      <h3>The frame loop <em>who writes Transform, and when</em></h3>
+      <div class="body">
+        <p>The plugin runs in <strong>PostUpdate</strong> by default, in three ordered sets:</p>
+        <ul>
+          <li><code>PhysicsSet::SyncBackend</code> — your component edits are copied into rapier.</li>
+          <li><code>PhysicsSet::StepSimulation</code> — the solver advances and emits collision messages.</li>
+          <li><code>PhysicsSet::Writeback</code> — rapier's results are written back into <code>Transform</code>.</li>
+        </ul>
+        <p>So: write to <code>Velocity</code> / <code>ExternalForce</code> during <code>Update</code> and they land in the next step. Read <code>Transform</code> during <code>Update</code> and you get last frame's result — fine for almost everything.</p>
+      </div>
+      <div class="codewrap"><pre><code>// Run physics on the fixed timestep instead of PostUpdate:
+RapierPhysicsPlugin::&lt;NoUserData&gt;::default().in_fixed_schedule()
+
+// Or any schedule you like:
+RapierPhysicsPlugin::&lt;NoUserData&gt;::default().in_schedule(MyPhysicsSchedule)
+
+// Order your own system against a physics set:
+app.add_systems(PostUpdate, my_camera_follow.after(PhysicsSet::Writeback));</code></pre></div>
+    </div>
+
+    <div class="card wide">
+      <h3>Reaching the world <em>ReadRapierContext / WriteRapierContext</em></h3>
+      <div class="body">
+        <p>Every raycast, overlap test, and contact lookup goes through the context. Since 0.29 it is four components on a context entity, and these two <code>SystemParam</code>s bundle them for you. <code>single()</code> returns a <code>Result</code>.</p>
+      </div>
+      <div class="codewrap"><pre><code>use bevy_rapier2d::prelude::*;
+
+fn my_system(rapier: ReadRapierContext) {
+    let Ok(ctx) = rapier.single() else { return };
+
+    // ctx.simulation     — broad phase, narrow phase, solver state
+    // ctx.colliders      — collider set + entity lookup
+    // ctx.joints         — impulse + multibody joint sets
+    // ctx.rigidbody_set  — body set + entity lookup
+
+    if let Some((entity, toi)) = ctx.cast_ray(
+        Vec2::ZERO, Vec2::X, 400.0, true, QueryFilter::default(),
+    ) {
+        info!("hit {entity} at {toi}");
+    }
+}
+
+// Need to mutate the world (teleport a body, run move_shape)? Use the write side:
+fn mutating(mut rapier: WriteRapierContext) {
+    let Ok(mut ctx) = rapier.single_mut() else { return };
+    ctx.propagate_modified_body_positions_to_colliders();
+}</code></pre></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════ BODIES ═══════════════ -->
+<section id="bodies" data-fam="dyn">
+  <div class="shead"><h2>Rigid bodies</h2><span class="sub">motion, forces, constraints on motion</span></div>
+  <div class="grid">
+
+    <div class="card wide">
+      <h3>The four body types</h3>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>Variant</th><th>Moved by</th><th>Use for</th></tr></thead>
+        <tbody>
+          <tr><td>RigidBody::<b>Dynamic</b></td><td>Forces, impulses, contacts, gravity</td><td>Anything that should behave like a physical object</td></tr>
+          <tr><td>RigidBody::<b>Fixed</b></td><td>Nothing. Infinite mass.</td><td>Walls, floors, immovable props</td></tr>
+          <tr><td>RigidBody::<b>KinematicPositionBased</b></td><td>You, by writing <code>Transform</code></td><td>Player characters, elevators, doors following a path</td></tr>
+          <tr><td>RigidBody::<b>KinematicVelocityBased</b></td><td>You, by writing <code>Velocity</code></td><td>Conveyors, constant-speed platforms</td></tr>
+        </tbody>
+      </table></div>
+      <div class="body" style="padding-top:13px">
+        <p class="note"><b>Kinematic bodies push, they never get pushed.</b> A dynamic crate resting on a kinematic lift rides up. The lift does not slow down. That is the point — and the reason a kinematic body can crush a dynamic one into a wall.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Velocity <em>renamed fields — 0.34+</em></h3>
+      <div class="codewrap"><pre><code>// 2D: angular is a scalar (radians/sec around Z).
+commands.spawn((
+    RigidBody::Dynamic,
+    Collider::ball(10.0),
+    Velocity { linear: Vec2::new(120.0, 0.0), angular: 0.4 },
+));
+
+// 3D: angular is a Vec3.
+Velocity { linear: Vec3::new(0.0, 5.0, 0.0), angular: Vec3::Y * 2.0 }
+
+fn steer(mut q: Query&lt;&amp;mut Velocity, With&lt;Player&gt;&gt;) {
+    for mut v in &amp;mut q {
+        v.linear.x = 250.0;   // was v.linvel.x before 0.34
+        v.angular = 0.0;      // was v.angvel
+    }
+}
+
+// Velocity at an arbitrary world point on the body:
+let v_at = velocity.linear_velocity_at_point(hit_point, center_of_mass);</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>Forces vs impulses</h3>
+      <div class="body">
+        <p><strong>Force</strong> = continuous push, applied every step while present. <strong>Impulse</strong> = instant change in momentum, consumed once.</p>
+      </div>
+      <div class="codewrap"><pre><code>// Spawn with either:
+commands.spawn((
+    RigidBody::Dynamic,
+    Collider::ball(8.0),
+    ExternalForce  { force: Vec2::new(0.0, 900.0), torque: 0.0 },
+    ExternalImpulse{ impulse: Vec2::new(60.0, 0.0), torque_impulse: 0.0 },
+));
+
+fn jump(mut q: Query&lt;&amp;mut ExternalImpulse, With&lt;Player&gt;&gt;) {
+    for mut imp in &amp;mut q {
+        imp.impulse = Vec2::new(0.0, 400.0);   // reset to zero automatically
+    }
+}
+
+// Off-centre application (produces torque for free):
+let mut f = ExternalForce::default();
+f += ExternalForce::at_point(Vec2::new(0.0, 500.0), hit_point, center_of_mass);</code></pre></div>
+      <div class="body">
+        <p class="note"><b>ExternalImpulse clears itself</b> after each step. <code>ExternalForce</code> does <b>not</b> — set it back to zero yourself or the body accelerates forever.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Motion modifiers</h3>
+      <div class="codewrap"><pre><code>// Air resistance / spin decay.
+Damping { linear_damping: 0.5, angular_damping: 1.0 }
+
+// Per-body gravity multiplier. 0.0 = floats, 2.0 = heavy, -1.0 = falls up.
+GravityScale(0.0)
+
+// Freeze axes. 2D flags: TRANSLATION_LOCKED_X/_Y, ROTATION_LOCKED.
+LockedAxes::ROTATION_LOCKED                       // upright character
+LockedAxes::TRANSLATION_LOCKED_X | LockedAxes::ROTATION_LOCKED
+
+// Continuous collision detection — for fast, thin, or small things.
+Ccd::enabled()
+SoftCcd { prediction: 10.0 }   // cheaper, less strict alternative
+
+// Sleeping: bodies below the threshold stop being simulated.
+Sleeping::disabled()
+
+// Dominance: higher group is never pushed by lower. -127..=127.
+Dominance::group(10)
+
+// Extra solver passes for this body and everything it touches.
+AdditionalSolverIterations(4)</code></pre></div>
+    </div>
+
+    <div class="card wide">
+      <h3>Mass properties <em>three ways to get them wrong</em></h3>
+      <div class="body">
+        <p>Mass comes from the collider's <strong>density</strong> by default. Adding <code>ColliderMassProperties</code> <em>replaces</em> that computation; adding <code>AdditionalMassProperties</code> <em>adds</em> on top of it.</p>
+      </div>
+      <div class="codewrap"><pre><code>// Replace: derive inertia from this shape at this density (the default, density 1.0).
+ColliderMassProperties::Density(2.5)
+
+// Replace: pin the mass, let the shape decide the inertia tensor.
+ColliderMassProperties::Mass(80.0)
+
+// Replace: specify everything by hand.
+ColliderMassProperties::MassProperties(MassProperties {
+    local_center_of_mass: Vec2::new(0.0, -10.0),
+    mass: 80.0,
+    principal_inertia: 400.0,       // Vec3 + principal_inertia_local_frame in 3D
+})
+
+// Add on top of the shape-derived mass (e.g. cargo in a truck).
+AdditionalMassProperties::Mass(20.0)
+
+// Read the result — this is a component the plugin keeps updated.
+fn report(q: Query&lt;&amp;ReadMassProperties&gt;) {
+    for mp in &amp;q { info!("{} kg", mp.mass); }
+}</code></pre></div>
+      <div class="body">
+        <p class="note"><b><code>MassProperties</code> is not a component.</b> Inserting it does nothing. Use <code>ColliderMassProperties</code> or <code>AdditionalMassProperties</code>.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Turning bodies off</h3>
+      <div class="body"><p>Cheaper than despawn-and-respawn, and it keeps the entity's other components intact.</p></div>
+      <div class="codewrap"><pre><code>commands.entity(e).insert(RigidBodyDisabled);   // frozen, ignored by solver
+commands.entity(e).insert(ColliderDisabled);    // shape stops colliding
+
+commands.entity(e).remove::&lt;RigidBodyDisabled&gt;();
+
+// Pause the entire simulation instead:
+fn pause(mut cfg: Query&lt;&amp;mut RapierConfiguration&gt;) {
+    for mut c in &amp;mut cfg { c.physics_pipeline_active = false; }
+}</code></pre></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════ COLLIDERS ═══════════════ -->
+<section id="colliders" data-fam="geo">
+  <div class="shead"><h2>Colliders</h2><span class="sub">shapes, surfaces, sensors</span></div>
+  <div class="grid">
+
+    <div class="card wide">
+      <h3>Shape constructors <em>0.34+ takes glam vectors — no <code>.into()</code></em></h3>
+      <div class="codewrap"><pre><code>// ---- 2D ----------------------------------------------------------
+Collider::ball(radius)
+Collider::cuboid(half_x, half_y)                  // HALF extents, not full size
+Collider::round_cuboid(half_x, half_y, border_radius)
+Collider::capsule(Vec2::new(0.0, -20.0), Vec2::new(0.0, 20.0), 10.0)
+Collider::capsule_y(half_height, radius)          // vertical, centred
+Collider::capsule_x(half_height, radius)
+Collider::segment(Vec2::ZERO, Vec2::new(100.0, 0.0))
+Collider::triangle(a, b, c)
+Collider::polyline(points, None)                  // open or closed line strip
+Collider::convex_hull(&amp;points)                    // -&gt; Option&lt;Collider&gt;
+Collider::convex_decomposition(&amp;verts, &amp;indices)  // concave, expensive to build
+Collider::heightfield(heights, scale)
+Collider::compound(vec![(pos, rot, shape), ..])
+
+// ---- 3D ----------------------------------------------------------
+Collider::cuboid(hx, hy, hz)
+Collider::cylinder(half_height, radius)
+Collider::cone(half_height, radius)
+Collider::capsule_y(half_height, radius)
+Collider::trimesh(vertices, indices)              // -&gt; Result&lt;Collider, _&gt;
+Collider::trimesh_with_flags(v, i, TriMeshFlags::MERGE_DUPLICATE_VERTICES)</code></pre></div>
+      <div class="body">
+        <p class="note"><b>Cuboids take half-extents.</b> A 64×64 sprite wants <code>Collider::cuboid(32.0, 32.0)</code>.</p>
+        <p class="note"><b>Trimeshes are hollow surfaces</b>, not solids. A dynamic body should use <code>convex_hull</code> or <code>convex_decomposition</code>; reserve trimesh for static level geometry.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Colliders from meshes</h3>
+      <div class="codewrap"><pre><code>// Directly, if you already have the Mesh:
+let collider = Collider::from_bevy_mesh(
+    mesh,
+    &amp;ComputedColliderShape::TriMesh(TriMeshFlags::MERGE_DUPLICATE_VERTICES),
+);
+
+// ComputedColliderShape variants:
+//   TriMesh(flags)            exact surface, static only
+//   ConvexHull                cheap, dynamic-friendly
+//   ConvexDecomposition(p)    concave + dynamic, slow to build
+
+// Deferred, once the asset loads (feature: async-collider):
+commands.spawn((
+    Mesh3d(handle.clone()),
+    AsyncCollider(ComputedColliderShape::ConvexHull),
+));
+
+// Whole glTF scene at once:
+commands.spawn((
+    SceneRoot(scene.clone()),
+    AsyncSceneCollider { shape: Some(ComputedColliderShape::TriMesh(default())), ..default() },
+));</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>Surface properties</h3>
+      <div class="codewrap"><pre><code>Friction {
+    coefficient: 0.9,
+    combine_rule: CoefficientCombineRule::Multiply,
+}
+Restitution::coefficient(0.9)     // 0 = dead thud, 1 = perfect bounce
+
+// Combine rules decide how two touching colliders merge their values:
+//   Average (default) · Min · Multiply · Max
+// Frictionless ice next to grippy rubber?
+//   Min      -&gt; ice wins
+//   Max      -&gt; rubber wins
+
+// A thin skin that starts resolving contact before shapes overlap.
+// Kills jitter on fast, small, or stacked bodies.
+ContactSkin(0.5)</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>Sensors <em>triggers, zones, pickups</em></h3>
+      <div class="body"><p>A sensor detects overlap and applies no force. It still needs <code>ActiveEvents</code> if you want messages from it.</p></div>
+      <div class="codewrap"><pre><code>commands.spawn((
+    Collider::cuboid(60.0, 60.0),
+    Sensor,
+    ActiveEvents::COLLISION_EVENTS,
+    Transform::from_xyz(0.0, 0.0, 0.0),
+));
+
+// Overlap events arrive with the SENSOR flag set:
+CollisionEvent::Started(a, b, CollisionEventFlags::SENSOR)</code></pre></div>
+      <div class="body">
+        <p class="note"><b>Sensor ↔ sensor produces nothing.</b> At least one side of the pair must be a solid collider.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Scaling &amp; offsets</h3>
+      <div class="body"><p>Collider shapes follow <code>Transform</code> scale automatically, including scale inherited from a parent. Non-uniform scale on a ball is approximated by a polygon — <code>scaled_shape_subdivision</code> controls how finely.</p></div>
+      <div class="codewrap"><pre><code>// Extra scale on top of the transform:
+ColliderScale::Absolute(Vec2::new(2.0, 1.0))
+ColliderScale::Relative(Vec2::new(2.0, 1.0))
+
+// Offset a shape from the body origin: put it on a child with a Transform.
+// A collider's own Transform rotation IS respected by the solver.</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>Debug rendering</h3>
+      <div class="codewrap"><pre><code>.add_plugins(RapierDebugRenderPlugin::default())
+
+// Toggle at runtime:
+fn toggle(mut ctx: ResMut&lt;DebugRenderContext&gt;, keys: Res&lt;ButtonInput&lt;KeyCode&gt;&gt;) {
+    if keys.just_pressed(KeyCode::F3) { ctx.enabled = !ctx.enabled; }
+}
+
+// Render only what you opt in:
+RapierDebugRenderPlugin { global: false, ..default() }
+commands.entity(e).insert(ColliderDebug::AlwaysRender);
+commands.entity(e).insert(ColliderDebugColor(Hsla::hsl(120.0, 1.0, 0.5)));</code></pre></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════ EVENTS ═══════════════ -->
+<section id="events" data-fam="evt">
+  <div class="shead"><h2>Collision events</h2><span class="sub">the push-based half of collision checks</span></div>
+  <div class="grid">
+
+    <div class="card wide">
+      <h3>Opt in, then read <em>0.32+ uses MessageReader</em></h3>
+      <div class="body">
+        <p>Events are <strong>off by default</strong> for performance. A collider only reports if it carries <code>ActiveEvents</code>. Only one of the two colliders needs the flag.</p>
+      </div>
+      <div class="codewrap"><pre><code>use bevy_rapier2d::prelude::*;
+
+commands.spawn((
+    RigidBody::Dynamic,
+    Collider::ball(12.0),
+    ActiveEvents::COLLISION_EVENTS,        // start/stop touching
+    // ActiveEvents::CONTACT_FORCE_EVENTS  // force magnitude reports
+));
+
+fn on_collision(
+    mut collisions: MessageReader&lt;CollisionEvent&gt;,   // EventReader before 0.32
+    players: Query&lt;&amp;Player&gt;,
+) {
+    for ev in collisions.read() {
+        match ev {
+            CollisionEvent::Started(a, b, flags) =&gt; {
+                if flags.contains(CollisionEventFlags::SENSOR) {
+                    info!("{a} entered trigger {b}");
+                } else if players.get(*a).is_ok() {
+                    info!("player {a} hit {b}");
+                }
+            }
+            CollisionEvent::Stopped(a, b, _) =&gt; info!("{a} left {b}"),
+        }
+    }
+}</code></pre></div>
+      <div class="body">
+        <p class="note"><b>Order is not guaranteed.</b> The entity you care about can be in either slot. Always test both, or write a helper that returns <code>(mine, theirs)</code>.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Impact strength <em>ContactForceEvent</em></h3>
+      <div class="body"><p>Fires when the summed contact force between a pair exceeds a threshold. This is how you tell a gentle landing from a fall that should hurt.</p></div>
+      <div class="codewrap"><pre><code>commands.spawn((
+    RigidBody::Dynamic,
+    Collider::ball(12.0),
+    ActiveEvents::CONTACT_FORCE_EVENTS,
+    ContactForceEventThreshold(600.0),
+));
+
+fn damage(mut forces: MessageReader&lt;ContactForceEvent&gt;) {
+    for ev in forces.read() {
+        // ev.collider1, ev.collider2
+        // ev.total_force        : Vec2 / Vec3
+        // ev.total_force_magnitude : f32
+        // ev.max_force_direction, ev.max_force_magnitude
+        let hp = (ev.total_force_magnitude / 100.0) as u32;
+        info!("{} took {hp} damage", ev.collider1);
+    }
+}</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>Which pairs generate events</h3>
+      <div class="body"><p>By default only pairs involving a <strong>dynamic</strong> body are considered. Two kinematic bodies, or a kinematic body against static level geometry, are silently skipped.</p></div>
+      <div class="codewrap"><pre><code>// Default: DYNAMIC_DYNAMIC | DYNAMIC_KINEMATIC | DYNAMIC_FIXED
+
+// A kinematic player that must detect static trigger volumes:
+commands.spawn((
+    RigidBody::KinematicPositionBased,
+    Collider::capsule_y(20.0, 10.0),
+    ActiveEvents::COLLISION_EVENTS,
+    ActiveCollisionTypes::default() | ActiveCollisionTypes::KINEMATIC_FIXED,
+));
+
+// Full set: DYNAMIC_KINEMATIC, DYNAMIC_FIXED, KINEMATIC_KINEMATIC,
+//           KINEMATIC_FIXED, FIXED_FIXED, DYNAMIC_DYNAMIC</code></pre></div>
+      <div class="body">
+        <p class="note"><b>The single most common "my trigger doesn't fire".</b> Kinematic player + static sensor needs <code>KINEMATIC_FIXED</code>.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Pull instead of push <em>CollidingEntities</em></h3>
+      <div class="body"><p>A component that tracks the current touch set for you. Simpler than buffering messages when you only care about "am I touching X right now".</p></div>
+      <div class="codewrap"><pre><code>commands.spawn((
+    Collider::cuboid(20.0, 20.0),
+    ActiveEvents::COLLISION_EVENTS,   // still required
+    CollidingEntities::default(),
+));
+
+fn check(q: Query&lt;&amp;CollidingEntities, With&lt;Player&gt;&gt;, lava: Query&lt;&amp;Lava&gt;) {
+    for touching in &amp;q {
+        if touching.iter().any(|e| lava.get(e).is_ok()) {
+            info!("standing in lava");
+        }
+    }
+}</code></pre></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════ CONTACTS ═══════════════ -->
+<section id="contacts" data-fam="evt">
+  <div class="shead"><h2>Contact data</h2><span class="sub">asking the narrow phase directly</span></div>
+  <div class="grid">
+
+    <div class="card wide">
+      <h3>Four lookups on the context</h3>
+      <div class="body">
+        <p>Events tell you <em>when</em> something changed. These tell you <em>what is true right now</em> — call them any frame, no <code>ActiveEvents</code> needed.</p>
+      </div>
+      <div class="codewrap"><pre><code>fn inspect(rapier: ReadRapierContext, q: Query&lt;Entity, With&lt;Player&gt;&gt;) {
+    let Ok(ctx) = rapier.single() else { return };
+    let player = q.single().unwrap();
+
+    // 1. Are these two specific solid colliders touching?
+    if let Some(pair) = ctx.contact_pair(player, some_wall) {
+        if pair.has_any_active_contact() { /* real, force-generating contact */ }
+    }
+
+    // 2. Everything currently touching this collider.
+    for pair in ctx.contact_pairs_with(player) {
+        let other = if pair.collider1() == Some(player) { pair.collider2() }
+                    else { pair.collider1() };
+        info!("touching {other:?}");
+    }
+
+    // 3. Is this specific sensor pair overlapping?
+    if ctx.intersection_pair(player, goal_sensor) == Some(true) { /* inside */ }
+
+    // 4. Every sensor overlap involving this collider.
+    for (a, b, intersecting) in ctx.intersection_pairs_with(goal_sensor) {
+        if intersecting { info!("{a} overlaps {b}"); }
+    }
+}</code></pre></div>
+      <div class="body">
+        <p class="note"><b>Solid pairs use <code>contact_*</code>; sensor pairs use <code>intersection_*</code>.</b> A sensor will never show up in <code>contact_pairs_with</code>.</p>
+      </div>
+    </div>
+
+    <div class="card wide">
+      <h3>Digging into a contact <em>manifolds, normals, impulses</em></h3>
+      <div class="body">
+        <p>A pair holds one or more <strong>manifolds</strong> (a flat region of contact); each manifold holds individual <strong>contact points</strong>. This is where you get the surface normal for a bounce, a decal, or a spark effect.</p>
+      </div>
+      <div class="codewrap"><pre><code>if let Some(pair) = ctx.contact_pair(a, b) {
+    for manifold in pair.manifolds() {
+        // Normals in the local frame of each collider:
+        let n1 = manifold.local_n1();
+        let n2 = manifold.local_n2();
+
+        for contact in manifold.points() {
+            let depth   = contact.dist();              // negative = penetrating
+            let p1      = contact.local_p1();          // point on collider 1
+            let impulse = contact.impulse();           // normal impulse applied
+            let tangent = contact.tangent_impulse();   // friction impulse
+        }
+
+        // Post-solve view, includes friction/restitution actually used:
+        for solver_contact in manifold.solver_contacts() {
+            let world_point = solver_contact.point();
+            let mu          = solver_contact.friction();
+        }
+    }
+}</code></pre></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════ QUERIES ═══════════════ -->
+<section id="queries" data-fam="pipe">
+  <div class="shead"><h2>Scene queries</h2><span class="sub">raycasts, overlaps, sweeps</span></div>
+  <div class="grid">
+
+    <div class="card wide">
+      <h3>Raycast <em>the workhorse</em></h3>
+      <div class="codewrap"><pre><code>fn shoot(rapier: ReadRapierContext) {
+    let Ok(ctx) = rapier.single() else { return };
+
+    let origin  = Vec2::new(0.0, 0.0);
+    let dir     = Vec2::new(1.0, 0.0);   // need not be normalised, but should be
+    let max_toi = 500.0;                 // in units of `dir` length
+    let solid   = true;                  // true: a ray starting inside a shape hits at toi 0
+    let filter  = QueryFilter::default();
+
+    // Nearest hit, distance only.
+    if let Some((entity, toi)) = ctx.cast_ray(origin, dir, max_toi, solid, filter) {
+        let point = origin + dir * toi;
+    }
+
+    // Nearest hit with surface data.
+    if let Some((entity, hit)) = ctx.cast_ray_and_get_normal(origin, dir, max_toi, solid, filter) {
+        let point  = hit.point;
+        let normal = hit.normal;
+        let toi    = hit.time_of_impact;   // renamed from `toi` in 0.26
+        let feature = hit.feature;         // which vertex/edge/face was struck
+    }
+
+    // EVERY hit along the ray. Return false from the callback to stop early.
+    ctx.intersect_ray(origin, dir, max_toi, solid, filter, |entity, hit| {
+        info!("pierced {entity} at {}", hit.time_of_impact);
+        true      // keep going
+    });
+}</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>Point queries</h3>
+      <div class="codewrap"><pre><code>// Everything containing this point (click-to-select, area damage centre).
+ctx.intersect_point(world_pos, QueryFilter::default(), |entity| {
+    info!("point is inside {entity}");
+    true                      // false stops the search
+});
+
+// Nearest surface point on the nearest collider.
+if let Some((entity, proj)) = ctx.project_point(
+    world_pos, 200.0 /* max_dist */, true /* solid */, QueryFilter::default(),
+) {
+    let closest = proj.point;
+    let inside  = proj.is_inside;
+}</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>Shape overlap</h3>
+      <div class="body"><p>"What is inside this box / sphere right now" — explosions, melee arcs, spawn-point validation.</p></div>
+      <div class="codewrap"><pre><code>let blast = Collider::ball(150.0);
+
+ctx.intersect_shape(
+    epicentre,                       // shape_pos
+    0.0,                             // shape_rot: f32 in 2D, Quat in 3D
+    &amp;*blast,                         // &amp;dyn Shape — deref the Collider
+    QueryFilter::default().exclude_sensors(),
+    |entity| { damage(entity); true },
+);
+
+// Cheap and approximate — broad-phase AABBs only, no exact test.
+// Great as a first pass before something expensive.
+use bevy::math::bounding::Aabb2d;
+ctx.intersect_aabb_conservative(
+    Aabb2d { min: Vec2::new(-50.0, -50.0), max: Vec2::new(50.0, 50.0) },
+    QueryFilter::default(),
+    |entity| { candidates.push(entity); true },
+);</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>Shape cast <em>a thick raycast</em></h3>
+      <div class="body"><p>Sweeps a shape along a vector and reports the first thing it would touch. Use it for ground checks with a real footprint, and for fast projectiles that a thin ray would slip past.</p></div>
+      <div class="codewrap"><pre><code>let shape = Collider::cuboid(14.0, 2.0);
+
+let hit = ctx.cast_shape(
+    start_pos,
+    0.0,                             // shape rotation
+    Vec2::NEG_Y * 40.0,              // shape velocity / sweep vector
+    &amp;*shape,
+    ShapeCastOptions {
+        max_time_of_impact: 1.0,     // fraction of the sweep vector
+        target_distance: 0.0,        // stop this far short of contact
+        stop_at_penetration: false,  // ignore shapes already overlapping at t=0
+        compute_impact_geometry_on_penetration: true,
+    },
+    QueryFilter::default().exclude_collider(me),
+);
+
+if let Some((entity, h)) = hit {
+    let toi    = h.time_of_impact;
+    let status = h.status;   // Converged / Failed / PenetratingOrWithinTargetDist
+
+    // Geometry lives behind `details`, and it is None when the shapes already
+    // overlapped at t = 0 and compute_impact_geometry_on_penetration was false.
+    if let Some(d) = h.details {
+        let normal  = d.normal1;    // normal on the hit collider
+        let contact = d.witness1;   // point on the hit collider
+        let mine    = d.witness2;   // the matching point on the cast shape
+    }
+}</code></pre></div>
+      <div class="body">
+        <p class="note"><b><code>ShapeCastHit</code> only carries <code>time_of_impact</code> and <code>status</code> directly.</b> Reaching for <code>hit.normal1</code> is the usual mistake — everything geometric sits inside <code>hit.details: Option&lt;ShapeCastHitDetails&gt;</code>.</p>
+      </div>
+    </div>
+
+    <div class="card wide">
+      <h3>Batching <em>with_query_pipeline</em></h3>
+      <div class="body">
+        <p>Each shortcut method builds a scoped query pipeline internally. Firing hundreds of rays in one system? Build it once and reuse it.</p>
+      </div>
+      <div class="codewrap"><pre><code>fn many_rays(rapier: ReadRapierContext) {
+    let Ok(ctx) = rapier.single() else { return };
+    let filter = QueryFilter::default().exclude_sensors();
+
+    let hits: Vec&lt;_&gt; = ctx.with_query_pipeline(filter, |pipeline| {
+        (0..360).step_by(5).filter_map(|deg| {
+            let a = (deg as f32).to_radians();
+            let dir = Vec2::new(a.cos(), a.sin());
+            pipeline.cast_ray(Vec2::ZERO, dir, 400.0, true)
+        }).collect()
+    });
+
+    info!("{} rays connected", hits.len());
+}</code></pre></div>
+      <div class="body">
+        <p class="note ok"><b>None of this works on a shape you haven't spawned.</b> Every method here searches registered colliders. To test arbitrary shapes at arbitrary transforms — or to get a contact normal and penetration depth — drop below the ECS to <a href="#parry" style="color:var(--geo)">Direct parry</a>.</p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════ FILTERS ═══════════════ -->
+<section id="filters" data-fam="pipe">
+  <div class="shead"><h2>QueryFilter</h2><span class="sub">stop hitting yourself</span></div>
+  <div class="grid">
+
+    <div class="card wide">
+      <h3>Builder methods</h3>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>Call</th><th>Keeps</th></tr></thead>
+        <tbody>
+          <tr><td>QueryFilter::default()</td><td>Everything, sensors included</td></tr>
+          <tr><td>.exclude_sensors()</td><td>Solid colliders only — <b>you almost always want this</b></td></tr>
+          <tr><td>.exclude_solids()</td><td>Sensors only</td></tr>
+          <tr><td>.exclude_collider(e)</td><td>Skips one collider entity</td></tr>
+          <tr><td>.exclude_rigid_body(e)</td><td>Skips every collider attached to that body</td></tr>
+          <tr><td>QueryFilter::only_dynamic()</td><td>Colliders on dynamic bodies</td></tr>
+          <tr><td>QueryFilter::only_fixed()</td><td>Static world geometry</td></tr>
+          <tr><td>QueryFilter::only_kinematic()</td><td>Kinematic bodies</td></tr>
+          <tr><td>.exclude_dynamic() / _fixed() / _kinematic()</td><td>The inverse of each</td></tr>
+          <tr><td>.groups(CollisionGroups::new(m, f))</td><td>Applies the bitmask rules to the query itself</td></tr>
+          <tr><td>.predicate(&amp;|e| bool)</td><td>Arbitrary per-entity test — the escape hatch</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="card wide">
+      <h3>Composing them</h3>
+      <div class="codewrap"><pre><code>// Ground check: solid, not me, not my own body's other shapes.
+let filter = QueryFilter::default()
+    .exclude_sensors()
+    .exclude_rigid_body(player_body);
+
+// Line of sight: only the walls layer.
+let filter = QueryFilter::default()
+    .exclude_sensors()
+    .groups(CollisionGroups::new(Group::ALL, WALLS));
+
+// Anything the predicate can see. Note the &amp;-borrowed closure.
+let enemies: Query&lt;&amp;Enemy&gt; = /* ... */;
+let is_enemy = |e: Entity| enemies.get(e).is_ok();
+let filter = QueryFilter::default().predicate(&amp;is_enemy);
+
+// Static geometry only, ignoring one door that's currently open.
+let filter = QueryFilter::only_fixed().exclude_collider(open_door);</code></pre></div>
+      <div class="body">
+        <p class="note"><b>A ray fired from inside a body hits that body first.</b> With <code>solid = true</code> it returns a hit at <code>toi = 0</code>. Exclude yourself, or start the ray outside your own shape.</p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════ PARRY ═══════════════ -->
+<section id="parry" data-fam="geo">
+  <div class="shead"><h2>Going direct to parry</h2><span class="sub">shape maths with no bodies, no colliders, no simulation</span></div>
+  <div class="grid">
+
+    <div class="card wide">
+      <h3>What this is, and when you want it</h3>
+      <div class="body">
+        <p>Everything in <strong>Scene queries</strong> asks the same question: <em>which registered colliders does this touch?</em> It needs entities, a spawned collider, and a broad-phase that is only up to date after the last simulation step.</p>
+        <p><strong>parry</strong> is the geometry library underneath rapier, and it answers a smaller question with no bookkeeping at all: <em>do these two shapes, at these two transforms, touch — and where?</em> Nothing is spawned, nothing is stepped, nothing has an <code>Entity</code>. Use it for hypotheticals: can this building be placed here, does this AoE cone cover that point, would the door close if the crate stayed put.</p>
+      </div>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>You want</th><th>Use</th></tr></thead>
+        <tbody>
+          <tr><td>What's in the world near me</td><td>Scene queries — <b>they own the BVH</b></td></tr>
+          <tr><td>Two shapes you made up, right now</td><td>parry <code>query::*</code></td></tr>
+          <tr><td>Contact normal + penetration depth</td><td>parry <code>query::contact</code> — scene queries won't give you this</td></tr>
+          <tr><td>Test a shape before spawning it</td><td>parry — no collider needed</td></tr>
+          <tr><td>Thousands of pairs per frame</td><td>Scene queries, or build your own index</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="card">
+      <h3>Where it lives <em>no extra dependency</em></h3>
+      <div class="body">
+        <p>You already have it. bevy_rapier re-exports rapier, and rapier re-exports parry, so nothing goes in <code>Cargo.toml</code>.</p>
+      </div>
+      <div class="codewrap"><pre><code>// bevy_rapier3d 0.36 → rapier3d 0.35 → parry3d 0.30
+use bevy_rapier2d::parry::{
+    query,                                  // the pairwise queries
+    shape::{Ball, Cuboid, SharedShape, Shape},
+    math::{Pose, Real, Vector},             // parry's own math aliases
+    bounding_volume::{Aabb, BoundingVolume},
+};
+
+// The long way round works too, and is what the re-export points at:
+use bevy_rapier2d::rapier::parry;</code></pre></div>
+      <div class="body">
+        <p class="note"><b>Never add <code>parry2d</code> to Cargo.toml yourself.</b> You will get a second copy at a different version, and the two <code>Shape</code> traits are unrelated types. Every error message will be about <code>Shape</code> not implementing <code>Shape</code>.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Poses, points, vectors <em>glam since 0.34</em></h3>
+      <div class="body">
+        <p>parry used to speak nalgebra. Since the glam migration it speaks the same types Bevy does, which removed nearly all the conversion noise.</p>
+      </div>
+      <div class="codewrap"><pre><code>// Before (bevy_rapier ≤ 0.33):
+//   use parry2d::na::{Point2, Vector2, Isometry2, Unit};
+//   let p = Point2::new(1.0, 2.0);
+//   let m = Isometry2::translation(1.0, 2.0);
+//   collider_fn(p.into(), m.into())      // .into() everywhere
+
+// Now:
+use bevy_rapier2d::parry::math::{Pose, Vector};
+
+let v: Vector = Vec2::new(1.0, 2.0);   // Vector IS the glam vector
+let p: Vector = point;                 // points are vectors too — no Point type
+let n = dir.normalize();               // no Unit&lt;_&gt; wrapper
+
+let pose = Pose::translation(4.0, 0.0);          // pure translation
+let pose = Pose::from_parts(tf.translation, tf.rotation);</code></pre></div>
+      <div class="body">
+        <p class="note"><b><code>Pose</code> is parry's transform</b> — translation plus rotation, no scale, which is why scaling a collider rebuilds the shape instead. Constructor spelling shifted during the glam migration, so if <code>from_parts</code> doesn't resolve, check <code>parry::math::Pose</code> in your pinned version; <code>Pose::translation</code> and bevy_rapier's <code>utils::iso_to_transform</code> are the stable ones.</p>
+      </div>
+    </div>
+
+    <div class="card wide">
+      <h3>The pairwise query menu <em>any shape against any shape</em></h3>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>Call</th><th>Answers</th><th>Returns</th></tr></thead>
+        <tbody>
+          <tr><td>query::<b>intersection_test</b></td><td>Are they overlapping at all?</td><td>Result&lt;bool, Unsupported&gt;</td></tr>
+          <tr><td>query::<b>contact</b></td><td>Where do they touch, which way, how deep?</td><td>Result&lt;Option&lt;Contact&gt;, _&gt;</td></tr>
+          <tr><td>query::<b>closest_points</b></td><td>Nearest point on each, within a margin</td><td>Result&lt;ClosestPoints, _&gt;</td></tr>
+          <tr><td>query::<b>distance</b></td><td>Gap between them. 0.0 if touching</td><td>Result&lt;Real, _&gt;</td></tr>
+          <tr><td>query::<b>cast_shapes</b></td><td>When do they touch, both moving in straight lines?</td><td>Result&lt;Option&lt;ShapeCastHit&gt;, _&gt;</td></tr>
+          <tr><td>query::<b>cast_shapes_nonlinear</b></td><td>Same, but the motions rotate too</td><td>Result&lt;Option&lt;ShapeCastHit&gt;, _&gt;</td></tr>
+          <tr><td>RayCast::<b>cast_ray_and_get_normal</b></td><td>Ray against one shape</td><td>Option&lt;RayIntersection&gt;</td></tr>
+          <tr><td>PointQuery::<b>project_point</b></td><td>Nearest surface point to a point</td><td>PointProjection</td></tr>
+          <tr><td>Shape::<b>compute_aabb</b></td><td>Bounds at a given pose</td><td>Aabb</td></tr>
+        </tbody>
+      </table></div>
+      <div class="body" style="padding-top:13px">
+        <p class="note"><b>That <code>Unsupported</code> error is real, not ceremony.</b> parry returns <code>Err</code> for pairs it has no algorithm for — see the limits card below. <code>.unwrap()</code> here will panic in production on the one trimesh you forgot about; prefer <code>.unwrap_or(false)</code> or an explicit match.</p>
+      </div>
+    </div>
+
+    <div class="card wide">
+      <h3>Shape vs shape <em>the whole point of this section</em></h3>
+      <div class="codewrap"><pre><code>use bevy_rapier2d::parry::{query, shape::Cuboid, math::{Pose, Vector}};
+use bevy_rapier2d::parry::query::ClosestPoints;
+
+/// Would this building fit here? Nothing is spawned to find out.
+fn placement_is_legal(ghost: &amp;dyn Shape, at: Pose, obstacles: &amp;[(Pose, Collider)]) -&gt; bool {
+    obstacles.iter().all(|(pose, c)| {
+        // &amp;*c derefs a bevy_rapier Collider into &amp;dyn Shape.
+        !query::intersection_test(&amp;at, ghost, pose, &amp;**c).unwrap_or(false)
+    })
+}
+
+// Contact: point, direction and depth. This is what scene queries cannot give you.
+if let Ok(Some(c)) = query::contact(&amp;pose_a, &amp;shape_a, &amp;pose_b, &amp;shape_b, 0.0) {
+    let depth  = -c.dist;         // dist is NEGATIVE while penetrating
+    let normal = c.normal1;       // pointing away from shape 1
+    let on_a   = c.point1;
+    let on_b   = c.point2;
+    let separate = normal * depth;
+}
+
+// The `prediction` argument is a margin: pass 0.5 and you get contacts for
+// shapes up to 0.5 apart, with a positive `dist`. Useful for "almost touching".
+
+// Distance and closest points — proximity UI, AI awareness, snapping.
+let gap = query::distance(&amp;pose_a, &amp;shape_a, &amp;pose_b, &amp;shape_b).unwrap_or(f32::MAX);
+
+match query::closest_points(&amp;pose_a, &amp;shape_a, &amp;pose_b, &amp;shape_b, 20.0) {
+    Ok(ClosestPoints::Intersecting)        =&gt; { /* overlapping */ }
+    Ok(ClosestPoints::WithinMargin(p1, p2)) =&gt; { draw_line(p1, p2); }
+    Ok(ClosestPoints::Disjoint)            =&gt; { /* further than 20.0 apart */ }
+    Err(_) =&gt; { /* unsupported pair */ }
+}</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>Borrowing the shape out of a Collider</h3>
+      <div class="body">
+        <p>The bridge in both directions. A <code>Collider</code> is a thin wrapper over parry's reference-counted <code>SharedShape</code>.</p>
+      </div>
+      <div class="codewrap"><pre><code>let collider = Collider::capsule_y(20.0, 10.0);
+
+// 1. Deref to a trait object — what every parry query wants.
+let shape: &amp;dyn Shape = &amp;*collider;
+
+// 2. The refcounted handle. Cloning is cheap; the geometry is shared.
+let shared: SharedShape = collider.raw.clone();
+
+// 3. Read the concrete parameters back out.
+match collider.as_typed_shape() {
+    ColliderView::Cuboid(c) =&gt; { let half = c.half_extents(); }
+    ColliderView::Ball(b)   =&gt; { let r = b.radius(); }
+    _ =&gt; {}
+}
+
+// 4. Back the other way: any parry shape becomes a spawnable Collider.
+let from_parry = Collider::from(SharedShape::new(
+    Cuboid::new(Vector::new(0.5, 0.5)),
+));
+
+// 5. Bounds without touching the simulation.
+let aabb: Aabb = shape.compute_aabb(&amp;pose);
+let merged = aabb.merged(&amp;other_aabb);</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>Rays and points on a bare shape</h3>
+      <div class="body">
+        <p>Two traits, imported separately. These hit <em>one</em> shape you already have — no broad phase, no filter, no entity.</p>
+      </div>
+      <div class="codewrap"><pre><code>use bevy_rapier2d::parry::query::{Ray, RayCast, PointQuery};
+
+let shape = Cuboid::new(Vector::new(1.0, 2.0));
+let pose  = Pose::translation(0.0, 0.0);
+let ray   = Ray::new(origin, direction);
+
+// solid = true means a ray starting inside reports toi 0 rather than the exit.
+if let Some(hit) = shape.cast_ray_and_get_normal(&amp;pose, &amp;ray, 100.0, true) {
+    let point   = ray.point_at(hit.time_of_impact);
+    let normal  = hit.normal;
+    let feature = hit.feature;      // which vertex / edge / face
+}
+
+// Point queries.
+let inside = shape.contains_point(&amp;pose, p);
+let proj   = shape.project_point(&amp;pose, p, true);   // proj.point, proj.is_inside
+let d      = shape.distance_to_point(&amp;pose, p, true);
+
+// Local-space variants skip the pose entirely. Cheapest thing here —
+// transform the ray into shape space once, then loop.
+shape.cast_local_ray(&amp;ray, 100.0, true);</code></pre></div>
+    </div>
+
+    <div class="card wide">
+      <h3>Sweeping two moving shapes <em>cast_shapes</em></h3>
+      <div class="body">
+        <p>The scene-query <code>cast_shape</code> sweeps your shape against a <em>static</em> snapshot of the world. This one lets both sides move, which is what you need for projectile-vs-projectile, or for two things converging in the same frame.</p>
+      </div>
+      <div class="codewrap"><pre><code>use bevy_rapier2d::parry::query::{self, ShapeCastOptions};
+
+let hit = query::cast_shapes(
+    &amp;pose_a, &amp;vel_a, &amp;shape_a,        // velocities are per-unit-of-time,
+    &amp;pose_b, &amp;vel_b, &amp;shape_b,        // so t comes back in the same units
+    ShapeCastOptions {
+        max_time_of_impact: 1.0,
+        target_distance: 0.0,
+        stop_at_penetration: true,
+        compute_impact_geometry_on_penetration: true,
+    },
+);
+
+match hit {
+    Ok(Some(h)) =&gt; {
+        let t = h.time_of_impact;               // 0.0..=max
+        let a_at_impact = pose_a.translation + vel_a * t;
+        if let Some(d) = h.details {            // same Option as everywhere else
+            let (normal, point) = (d.normal1, d.witness1);
+        }
+    }
+    Ok(None) =&gt; { /* they never meet within max_time_of_impact */ }
+    Err(_)   =&gt; { /* one of them is non-convex — see limits */ }
+}
+
+// Rotating motions need the nonlinear version, which takes NonlinearRigidMotion
+// (a start pose, a local centre of mass, and linear + angular velocity) instead.</code></pre></div>
+    </div>
+
+    <div class="card wide">
+      <h3>What parry will refuse <em>read this before designing around it</em></h3>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>Pair or operation</th><th>What happens</th></tr></thead>
+        <tbody>
+          <tr><td>trimesh ↔ trimesh</td><td><b>Err(Unsupported)</b> for contact generation. Non-convex vs non-convex has no algorithm</td></tr>
+          <tr><td>trimesh ↔ heightfield, heightfield ↔ heightfield</td><td>Same. Static environment is not meant to collide with static environment</td></tr>
+          <tr><td>Casting a non-convex shape</td><td>Unsupported. A trimesh can be the <em>target</em> of a cast, never the thing being cast</td></tr>
+          <tr><td>Point inside a trimesh</td><td>Always "outside" — a trimesh is a surface with no interior unless built with <code>TriMeshFlags::ORIENTED</code> on a closed mesh</td></tr>
+          <tr><td>Voxels ↔ mesh / heightfield / voxels</td><td>Unsupported, and voxels cannot be shape-cast at all</td></tr>
+          <tr><td>Round shapes (RoundCuboid, RoundCylinder…)</td><td>Supported, but fall onto slower generic paths</td></tr>
+        </tbody>
+      </table></div>
+      <div class="body" style="padding-top:13px">
+        <p class="note"><b>The fix for all of these is convex decomposition.</b> <code>Collider::convex_decomposition</code> (VHACD) turns a concave mesh into a compound of convex pieces, which collide with everything. It is slow — do it at asset build time, not at spawn.</p>
+        <p class="note ok"><b>Building your own index?</b> parry's BVH lives in <code>parry::partitioning</code> and is what rapier's broad phase is made of. The type name has moved around across recent releases, so start from the module docs rather than a snippet. For a few hundred pairs, a linear scan over AABBs from <code>compute_aabb</code> beats the setup cost anyway.</p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════ GROUPS ═══════════════ -->
+<section id="groups" data-fam="geo">
+  <div class="shead"><h2>Collision groups</h2><span class="sub">layers, masks, and the two-way rule</span></div>
+  <div class="grid">
+
+    <div class="card wide">
+      <h3>The rule <em>both directions must agree</em></h3>
+      <div class="body">
+        <p>Each collider carries a <strong>membership</strong> mask (what I am) and a <strong>filter</strong> mask (what I interact with). Two colliders interact only when:</p>
+      </div>
+      <div class="codewrap"><pre><code>(A.memberships &amp; B.filter) != 0   &amp;&amp;   (B.memberships &amp; A.filter) != 0</code></pre></div>
+      <div class="body" style="padding-top:13px">
+        <p class="note"><b>One-sided setups silently do nothing.</b> If bullets filter for enemies but enemies don't filter for bullets, they pass straight through. Both sides, every time.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Declaring layers</h3>
+      <div class="codewrap"><pre><code>const PLAYER:  Group = Group::GROUP_1;
+const ENEMY:   Group = Group::GROUP_2;
+const BULLET:  Group = Group::GROUP_3;
+const TERRAIN: Group = Group::GROUP_4;
+// Group::GROUP_1 .. GROUP_32, plus Group::ALL and Group::NONE
+
+// A player bullet: is a BULLET, hits enemies and terrain.
+commands.spawn((
+    RigidBody::Dynamic,
+    Collider::ball(3.0),
+    CollisionGroups::new(BULLET, ENEMY | TERRAIN),
+    Ccd::enabled(),
+));
+
+// The enemy must reciprocate:
+CollisionGroups::new(ENEMY, PLAYER | BULLET | TERRAIN)
+
+// Terrain accepts everyone:
+CollisionGroups::new(TERRAIN, Group::ALL)</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>SolverGroups <em>touch but don't push</em></h3>
+      <div class="body">
+        <p><code>CollisionGroups</code> decides whether contacts are <em>detected</em>. <code>SolverGroups</code> decides whether detected contacts produce <em>force</em>.</p>
+        <p>Setting collision groups to allow and solver groups to deny gives you a pair that generates full contact events and manifolds while passing through each other — ghost mode, phasing enemies, one-way triggers that still need normals.</p>
+      </div>
+      <div class="codewrap"><pre><code>commands.spawn((
+    Collider::ball(20.0),
+    CollisionGroups::new(GHOST, Group::ALL),   // detected by everything
+    SolverGroups::new(GHOST, TERRAIN),         // only terrain can stop it
+    ActiveEvents::COLLISION_EVENTS,
+));</code></pre></div>
+    </div>
+
+    <div class="card wide">
+      <h3>Physics hooks <em>when masks aren't enough</em></h3>
+      <div class="body">
+        <p>Bitmasks are static. A hook runs Rust for each candidate pair — the way to build one-way platforms, team-based pass-through, or contact rules that depend on velocity.</p>
+      </div>
+      <div class="codewrap"><pre><code>use bevy::ecs::system::SystemParam;
+
+#[derive(SystemParam)]
+struct OneWayHook&lt;'w, 's&gt; {
+    platforms: Query&lt;'w, 's, &amp;'static OneWayPlatform&gt;,
+    velocities: Query&lt;'w, 's, &amp;'static Velocity&gt;,
+}
+
+impl BevyPhysicsHooks for OneWayHook&lt;'_, '_&gt; {
+    fn filter_contact_pair(&amp;self, ctx: PairFilterContext) -&gt; Option&lt;SolverFlags&gt; {
+        let (platform, other) = if self.platforms.get(ctx.collider1).is_ok() {
+            (ctx.collider1, ctx.collider2)
+        } else if self.platforms.get(ctx.collider2).is_ok() {
+            (ctx.collider2, ctx.collider1)
+        } else {
+            return Some(SolverFlags::COMPUTE_IMPULSES);   // not our case
+        };
+
+        // Only solid while the other body is moving downward.
+        match self.velocities.get(other) {
+            Ok(v) if v.linear.y &lt;= 0.0 =&gt; Some(SolverFlags::COMPUTE_IMPULSES),
+            _ =&gt; None,                                     // pass through
+        }
+    }
+}
+
+// Register the hook type on the plugin...
+.add_plugins(RapierPhysicsPlugin::&lt;OneWayHook&gt;::pixels_per_meter(100.0))
+
+// ...and opt each collider in:
+commands.spawn((
+    Collider::cuboid(80.0, 6.0),
+    OneWayPlatform,
+    ActiveHooks::FILTER_CONTACT_PAIRS,
+));
+
+// Other flags: FILTER_INTERSECTION_PAIR, MODIFY_SOLVER_CONTACTS</code></pre></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════ CHARACTER ═══════════════ -->
+<section id="character" data-fam="dyn">
+  <div class="shead"><h2>Character controller</h2><span class="sub">movement that feels authored, not simulated</span></div>
+  <div class="grid">
+
+    <div class="card wide">
+      <h3>Setup and read-back</h3>
+      <div class="body">
+        <p>Write a desired translation each frame; rapier slides it along obstacles and writes the corrected result to <code>Transform</code>. Pair it with <code>RigidBody::KinematicPositionBased</code>.</p>
+      </div>
+      <div class="codewrap"><pre><code>commands.spawn((
+    RigidBody::KinematicPositionBased,
+    Collider::capsule_y(20.0, 10.0),
+    KinematicCharacterController {
+        up: Vec2::Y,
+        // Keep a small gap so the shape never rests exactly on a surface.
+        offset: CharacterLength::Absolute(0.01),
+        slide: true,
+        autostep: Some(CharacterAutostep {
+            max_height: CharacterLength::Absolute(12.0),
+            min_width:  CharacterLength::Absolute(4.0),
+            include_dynamic_bodies: true,
+        }),
+        max_slope_climb_angle: 45f32.to_radians(),
+        min_slope_slide_angle: 30f32.to_radians(),
+        snap_to_ground: Some(CharacterLength::Absolute(8.0)),
+        apply_impulse_to_dynamic_bodies: true,
+        ..default()
+    },
+));
+
+fn move_player(
+    time: Res&lt;Time&gt;,
+    keys: Res&lt;ButtonInput&lt;KeyCode&gt;&gt;,
+    mut q: Query&lt;(&amp;mut KinematicCharacterController,
+                  Option&lt;&amp;KinematicCharacterControllerOutput&gt;)&gt;,
+    mut vy: Local&lt;f32&gt;,
+) {
+    for (mut controller, output) in &amp;mut q {
+        let grounded = output.map(|o| o.grounded).unwrap_or(false);
+
+        if grounded { *vy = 0.0; }
+        if grounded &amp;&amp; keys.just_pressed(KeyCode::Space) { *vy = 500.0; }
+        *vy -= 980.0 * time.delta_secs();
+
+        let mut dx = 0.0;
+        if keys.pressed(KeyCode::KeyA) { dx -= 260.0; }
+        if keys.pressed(KeyCode::KeyD) { dx += 260.0; }
+
+        controller.translation = Some(Vec2::new(dx, *vy) * time.delta_secs());
+    }
+}</code></pre></div>
+      <div class="body">
+        <p class="note"><b><code>KinematicCharacterControllerOutput</code> is inserted by the plugin</b> after the first move. Query it as <code>Option</code> or your system silently never runs on frame one.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>What the output tells you</h3>
+      <div class="codewrap"><pre><code>o.desired_translation      // what you asked for
+o.effective_translation    // what actually happened after sliding
+o.grounded                 // bool
+o.is_sliding_down_slope    // too steep to stand on
+o.collisions               // Vec&lt;CharacterCollision&gt;
+
+for c in &amp;o.collisions {
+    let who = c.entity;
+    let toi = c.hit.time_of_impact;
+    if let Some(d) = c.hit.details {   // geometry is behind `details`
+        let normal = d.normal1;
+        let point  = d.witness1;
+    }
+}
+
+// Blocked horizontally? Compare what you wanted to what you got.
+let blocked = (o.desired_translation.x - o.effective_translation.x).abs() &gt; 0.01;</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>Notes &amp; limits</h3>
+      <div class="body">
+        <ul>
+          <li>Collisions with <strong>sensors are ignored</strong> by the controller. Detect pickups with events or <code>intersection_pairs_with</code> instead.</li>
+          <li><code>custom_shape</code> lets the controller sweep a different shape than the entity's collider — a slimmer capsule for movement than for hitboxes.</li>
+          <li>Set <code>filter_flags</code> and <code>filter_groups</code> to control what the character sweeps against.</li>
+          <li>Need the raw primitive? <code>RapierContextMut::move_shape</code> does the same sweep-and-slide with no components involved.</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════ JOINTS ═══════════════ -->
+<section id="joints" data-fam="dyn">
+  <div class="shead"><h2>Joints</h2><span class="sub">constraints between bodies</span></div>
+  <div class="grid">
+
+    <div class="card wide">
+      <h3>Impulse vs multibody</h3>
+      <div class="body">
+        <p><strong>ImpulseJoint</strong> — solved with everything else. Fast, allows loops, can stretch under load. The default choice.</p>
+        <p><strong>MultibodyJoint</strong> — reduced-coordinate, cannot drift apart, but forms a strict tree (no closed loops). For robot arms and machinery that must not sag.</p>
+        <p>Both attach to the <em>child</em> entity and name the parent body.</p>
+      </div>
+      <div class="codewrap"><pre><code>let anchor = commands.spawn((RigidBody::Fixed, Transform::from_xyz(0.0, 200.0, 0.0))).id();
+
+let joint = RevoluteJointBuilder::new()          // 3D: ::new(Vec3::Z) — the axis
+    .local_anchor1(Vec2::new(0.0, 0.0))          // on the parent
+    .local_anchor2(Vec2::new(0.0, 60.0))         // on this body
+    .limits([-1.2, 1.2])                         // radians
+    .motor_velocity(2.0, 0.4);                   // target vel, damping factor
+
+commands.spawn((
+    RigidBody::Dynamic,
+    Collider::cuboid(8.0, 60.0),
+    ImpulseJoint::new(anchor, joint),
+));</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>The joint menu</h3>
+      <div class="codewrap"><pre><code>FixedJointBuilder::new()
+    .local_anchor1(a).local_anchor2(b)
+
+RevoluteJointBuilder::new()        // hinge  (2D: no axis argument)
+    .limits([min, max])
+    .motor_position(target, stiffness, damping)
+
+PrismaticJointBuilder::new(Vec2::X)   // slider
+    .limits([0.0, 120.0])
+    .motor_velocity(50.0, 1.0)
+
+SphericalJointBuilder::new()       // 3D ball-and-socket
+
+RopeJointBuilder::new(max_length)  // max distance, slack allowed
+
+SpringJointBuilder::new(rest_length, stiffness, damping)
+
+// Every builder produces a GenericJoint underneath:
+GenericJointBuilder::new(JointAxesMask::LOCKED_FIXED_AXES)
+    .local_axis1(Vec2::Y)
+    .set_motor(JointAxis::LinY, target_pos, target_vel, stiffness, damping)
+    .contacts_enabled(false)       // stop the two linked bodies colliding</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>Reading &amp; editing at runtime</h3>
+      <div class="codewrap"><pre><code>fn drive(mut joints: Query&lt;&amp;mut ImpulseJoint&gt;) {
+    for mut j in &amp;mut joints {
+        if let TypedJoint::RevoluteJoint(rev) = &amp;mut j.data {
+            rev.set_motor_velocity(4.0, 0.5);
+        }
+        // Or drop to the underlying GenericJoint:
+        j.data.as_mut().set_contacts_enabled(false);
+    }
+}
+
+// Current hinge angle, straight from the context:
+let angle = ctx.impulse_revolute_joint_angle(joint_entity);
+
+// Despawn the child entity and the joint goes with it.</code></pre></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════ TUNING ═══════════════ -->
+<section id="tuning" data-fam="pipe">
+  <div class="shead"><h2>Config &amp; tuning</h2><span class="sub">gravity, timestep, scale, stability</span></div>
+  <div class="grid">
+
+    <div class="card">
+      <h3>RapierConfiguration <em>a component, since 0.28</em></h3>
+      <div class="body"><p>It lives on the physics context entity, not in a resource. Query for it.</p></div>
+      <div class="codewrap"><pre><code>fn set_gravity(mut cfg: Query&lt;&amp;mut RapierConfiguration&gt;) {
+    for mut c in &amp;mut cfg {
+        c.gravity = Vec2::new(0.0, -980.0);   // px/s² at 100 px per metre
+        c.physics_pipeline_active = true;
+        c.scaled_shape_subdivision = 10;
+        c.force_update_from_transform_changes = false;  // true for rollback nets
+    }
+}
+
+// Top-down game with no gravity:
+c.gravity = Vec2::ZERO;</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>TimestepMode <em>a resource</em></h3>
+      <div class="codewrap"><pre><code>// Deterministic, matches Bevy's FixedUpdate. Best for gameplay logic.
+app.insert_resource(TimestepMode::Fixed { dt: 1.0 / 60.0, substeps: 1 });
+
+// Default. Follows frame time, capped.
+TimestepMode::Variable { max_dt: 1.0 / 60.0, time_scale: 1.0, substeps: 1 }
+
+// Fixed steps, visually smoothed between them.
+// Bodies need a TransformInterpolation component to benefit.
+TimestepMode::Interpolated { dt: 1.0 / 60.0, time_scale: 1.0, substeps: 2 }
+
+// Slow motion:
+TimestepMode::Variable { max_dt: 1.0 / 60.0, time_scale: 0.25, substeps: 1 }</code></pre></div>
+    </div>
+
+    <div class="card wide">
+      <h3>Scale: pixels_per_meter and length_unit</h3>
+      <div class="body">
+        <p>Rapier's solver is tuned for objects roughly 0.1–10 metres across. A 2D game working in pixels breaks that assumption badly, which shows up as jitter, sinking, and mushy stacks.</p>
+        <p><code>pixels_per_meter(100.0)</code> sets rapier's internal <code>length_unit</code> so the solver's thresholds scale with your world. You still author everything in pixels — a <code>Collider::ball(50.0)</code> is a 50 px ball that rapier reasons about as half a metre.</p>
+      </div>
+      <div class="codewrap"><pre><code>// 2D, working in pixels:
+RapierPhysicsPlugin::&lt;NoUserData&gt;::pixels_per_meter(100.0)
+
+// 3D, or 2D authored in metres:
+RapierPhysicsPlugin::&lt;NoUserData&gt;::default()
+
+// Remember to scale gravity to match: 9.81 m/s² == 981 px/s².</code></pre></div>
+    </div>
+
+    <div class="card wide">
+      <h3>When the simulation misbehaves</h3>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>Symptom</th><th>Try</th></tr></thead>
+        <tbody>
+          <tr><td>Fast object tunnels through walls</td><td><code>Ccd::enabled()</code>, thicker colliders, smaller <code>dt</code>, or a shape cast instead of teleporting</td></tr>
+          <tr><td>Stacks jitter or sink</td><td>Raise <code>num_solver_iterations</code>, add <code>ContactSkin</code>, check that masses aren't wildly different</td></tr>
+          <tr><td>One heavy thing crushes a light one</td><td>Mass ratios above ~100:1 are unstable. Rescale, or use <code>Dominance</code></td></tr>
+          <tr><td>Ball won't roll straight on a trimesh</td><td><code>TriMeshFlags::MERGE_DUPLICATE_VERTICES</code> and <code>FIX_INTERNAL_EDGES</code></td></tr>
+          <tr><td>Bodies won't settle</td><td>Add <code>Damping</code>; check that a system isn't writing <code>Transform</code> every frame</td></tr>
+          <tr><td>Only one part of the scene needs accuracy</td><td><code>AdditionalSolverIterations</code> on those bodies alone</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════ RECIPES ═══════════════ -->
+<section id="recipes" data-fam="prac">
+  <div class="shead"><h2>Recipes</h2><span class="sub">the checks you'll actually write</span></div>
+  <div class="grid">
+
+    <div class="card wide">
+      <h3>Ground check <em>three levels of correctness</em></h3>
+      <div class="codewrap"><pre><code>const HALF_H: f32 = 24.0;
+const SKIN:   f32 = 2.0;
+
+// 1. Single ray. Cheap, and wrong on ledges.
+fn grounded_ray(rapier: ReadRapierContext, q: Query&lt;(Entity, &amp;Transform), With&lt;Player&gt;&gt;) {
+    let Ok(ctx) = rapier.single() else { return };
+    for (e, tf) in &amp;q {
+        let hit = ctx.cast_ray(
+            tf.translation.truncate(), Vec2::NEG_Y, HALF_H + SKIN, true,
+            QueryFilter::default().exclude_sensors().exclude_rigid_body(e),
+        );
+        let grounded = hit.is_some();
+    }
+}
+
+// 2. Shape cast. Uses the real footprint — the right default.
+fn grounded_cast(rapier: ReadRapierContext, q: Query&lt;(Entity, &amp;Transform), With&lt;Player&gt;&gt;) {
+    let Ok(ctx) = rapier.single() else { return };
+    let feet = Collider::cuboid(10.0, 1.0);
+    for (e, tf) in &amp;q {
+        let hit = ctx.cast_shape(
+            tf.translation.truncate(), 0.0, Vec2::NEG_Y * (HALF_H + SKIN), &amp;*feet,
+            ShapeCastOptions { max_time_of_impact: 1.0, stop_at_penetration: false, ..default() },
+            QueryFilter::default().exclude_sensors().exclude_rigid_body(e),
+        );
+        // Reject walls: only count surfaces you could stand on.
+        // `details` is None if the shapes already overlapped at t = 0.
+        let grounded = hit
+            .and_then(|(_, h)| h.details)
+            .is_some_and(|d| d.normal1.y &gt; 0.5);
+    }
+}
+
+// 3. Using the character controller — it already told you.
+let grounded = output.grounded;</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>Click to pick a body</h3>
+      <div class="codewrap"><pre><code>fn pick(
+    rapier: ReadRapierContext,
+    windows: Query&lt;&amp;Window&gt;,
+    cameras: Query&lt;(&amp;Camera, &amp;GlobalTransform)&gt;,
+    buttons: Res&lt;ButtonInput&lt;MouseButton&gt;&gt;,
+) {
+    if !buttons.just_pressed(MouseButton::Left) { return; }
+    let Ok(ctx) = rapier.single() else { return };
+    let Ok(window) = windows.single() else { return };
+    let Some(cursor) = window.cursor_position() else { return };
+    let Ok((camera, cam_tf)) = cameras.single() else { return };
+    let Ok(world) = camera.viewport_to_world_2d(cam_tf, cursor) else { return };
+
+    ctx.intersect_point(world, QueryFilter::default(), |entity| {
+        info!("clicked {entity}");
+        false                                  // stop at the first hit
+    });
+}
+
+// 3D: camera.viewport_to_world(cam_tf, cursor) gives a Ray3d —
+// feed ray.origin and *ray.direction into cast_ray.</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>Hitscan with wall-blocking</h3>
+      <div class="codewrap"><pre><code>fn fire(rapier: ReadRapierContext, shooter: Entity, from: Vec2, dir: Vec2) {
+    let Ok(ctx) = rapier.single() else { return };
+
+    let filter = QueryFilter::default()
+        .exclude_sensors()
+        .exclude_rigid_body(shooter)
+        .groups(CollisionGroups::new(Group::ALL, ENEMY | TERRAIN));
+
+    if let Some((hit_entity, hit)) = ctx.cast_ray_and_get_normal(
+        from, dir.normalize(), 2000.0, true, filter,
+    ) {
+        spawn_impact(hit.point, hit.normal);
+        // Only the first thing along the ray is hit — walls block by construction.
+        apply_damage(hit_entity);
+    }
+}</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>Explosion damage with falloff</h3>
+      <div class="codewrap"><pre><code>fn explode(rapier: ReadRapierContext, centre: Vec2, radius: f32) {
+    let Ok(ctx) = rapier.single() else { return };
+    let blast = Collider::ball(radius);
+    let mut caught = Vec::new();
+
+    ctx.intersect_shape(centre, 0.0, &amp;*blast,
+        QueryFilter::default().exclude_sensors(),
+        |e| { caught.push(e); true });
+
+    // Second pass: line of sight, so walls shield.
+    for e in caught {
+        let Some(pos) = position_of(e) else { continue };
+        let to = pos - centre;
+        let blocked = ctx.cast_ray(
+            centre, to.normalize(), to.length(), true,
+            QueryFilter::only_fixed(),
+        ).is_some();
+        if !blocked {
+            let falloff = 1.0 - (to.length() / radius).clamp(0.0, 1.0);
+            apply_damage(e, 100.0 * falloff);
+        }
+    }
+}</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>Moving platform that carries riders</h3>
+      <div class="codewrap"><pre><code>// Kinematic velocity-based moves predictably and pushes dynamic bodies.
+commands.spawn((
+    RigidBody::KinematicVelocityBased,
+    Collider::cuboid(100.0, 10.0),
+    Velocity { linear: Vec2::new(60.0, 0.0), angular: 0.0 },
+    Friction::coefficient(1.0),     // friction is what carries the rider
+));
+
+fn patrol(time: Res&lt;Time&gt;, mut q: Query&lt;(&amp;mut Velocity, &amp;Transform), With&lt;Platform&gt;&gt;) {
+    for (mut v, tf) in &amp;mut q {
+        if tf.translation.x &gt; 300.0 { v.linear.x = -60.0; }
+        if tf.translation.x &lt; -300.0 { v.linear.x =  60.0; }
+    }
+}</code></pre></div>
+    </div>
+
+    <div class="card">
+      <h3>Teleporting a dynamic body</h3>
+      <div class="body"><p>Writing <code>Transform</code> on a dynamic body works, but the body keeps its old velocity and the move is instantaneous — it can end up inside geometry. Clear velocity, and check the destination first.</p></div>
+      <div class="codewrap"><pre><code>fn teleport(
+    rapier: ReadRapierContext,
+    mut q: Query&lt;(Entity, &amp;mut Transform, &amp;mut Velocity)&gt;,
+    dest: Vec2,
+) {
+    let Ok(ctx) = rapier.single() else { return };
+    let shape = Collider::ball(12.0);
+
+    for (e, mut tf, mut v) in &amp;mut q {
+        let mut clear = true;
+        ctx.intersect_shape(dest, 0.0, &amp;*shape,
+            QueryFilter::default().exclude_sensors().exclude_rigid_body(e),
+            |_| { clear = false; false });
+
+        if clear {
+            tf.translation = dest.extend(tf.translation.z);
+            v.linear = Vec2::ZERO;
+            v.angular = 0.0;
+        }
+    }
+}</code></pre></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════ GOTCHAS ═══════════════ -->
+<section id="gotchas" data-fam="prac">
+  <div class="shead"><h2>Gotchas</h2><span class="sub">read this before opening an issue</span></div>
+  <div class="grid">
+
+    <div class="card wide">
+      <h3>My thing falls through the floor</h3>
+      <div class="body">
+        <ul>
+          <li>Is it moving fast? Add <code>Ccd::enabled()</code>. A body that travels further than its own thickness in one step can miss entirely.</li>
+          <li>Is the floor a <code>Collider::cuboid</code> with a tiny half-height? Give it real thickness — 1 px floors are tunnels.</li>
+          <li>Are the collision groups reciprocal? Check <em>both</em> directions of the mask test.</li>
+          <li>Did something write <code>Transform</code> directly on the dynamic body this frame? That overrides the solver and can shove it through.</li>
+          <li>Is the floor a trimesh with duplicate vertices? Rebuild with <code>MERGE_DUPLICATE_VERTICES</code>.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card wide">
+      <h3>My collision events never fire</h3>
+      <div class="body">
+        <ul>
+          <li><code>ActiveEvents::COLLISION_EVENTS</code> is missing. It is opt-in, on at least one collider of the pair.</li>
+          <li>Neither body is dynamic — add the relevant <code>ActiveCollisionTypes</code> flag (<code>KINEMATIC_FIXED</code> is the usual one).</li>
+          <li>You're using <code>EventReader</code> on 0.32+. It must be <code>MessageReader</code>.</li>
+          <li>Both colliders are sensors. One side has to be solid.</li>
+          <li>You're checking one slot of the pair. The entity can be in <code>a</code> or <code>b</code>.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Upgrade breakages, newest first</h3>
+      <div class="body">
+        <ul>
+          <li><strong>0.36</strong> — <code>simd-stable</code> / <code>simd-nightly</code> gone; SIMD is unconditional. New <code>simd8</code> feature.</li>
+          <li><strong>0.34</strong> — <code>Velocity.linvel</code> → <code>linear</code>, <code>angvel</code> → <code>angular</code>. Collider and query APIs take glam types; delete the <code>.into()</code> calls on points and isometries.</li>
+          <li><strong>0.32</strong> — <code>CollisionEvent</code>, <code>ContactForceEvent</code>, <code>MassModifiedEvent</code> are <code>Message</code>s. <code>EventReader</code> → <code>MessageReader</code>.</li>
+          <li><strong>0.31</strong> — <code>RapierQueryPipeline</code> stopped being a component. Go through <code>RapierContext</code> or <code>with_query_pipeline</code>.</li>
+          <li><strong>0.29</strong> — the context split into four components; <code>DefaultReadRapierContext</code> → <code>ReadRapierContext</code>.</li>
+          <li><strong>0.28</strong> — context and config became components on a context entity; multiple physics worlds became possible.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Smaller traps</h3>
+      <div class="body">
+        <ul>
+          <li><code>ExternalForce</code> persists across frames; <code>ExternalImpulse</code> resets itself. Mixing them up gives you a rocket.</li>
+          <li>Bodies read their spawn position from <code>GlobalTransform</code>. A body parented under a moved entity starts where the parent is.</li>
+          <li>Sleeping bodies stop reporting. If a resting object seems inert, that's why — <code>Sleeping::disabled()</code> to opt out.</li>
+          <li>A ray with <code>solid: true</code> that starts inside a shape returns <code>toi = 0.0</code>. That is correct, and it is usually not what you wanted.</li>
+          <li>Cuboids are half-extents; capsules are half-height plus radius. Total height of <code>capsule_y(20.0, 10.0)</code> is 60.</li>
+          <li>Importing both <code>bevy_rapier2d::prelude::*</code> and <code>bevy_rapier3d::prelude::*</code> is a name collision, not a feature.</li>
+          <li>Despawning a body removes its joints and colliders automatically. No manual cleanup needed.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card wide">
+      <h3>Where to look next</h3>
+      <div class="body">
+        <p>The <code>bevy_rapier2d/examples</code> and <code>bevy_rapier3d/examples</code> folders in the repo are the most reliable documentation in the project — they compile against the exact version you're pinning, which no blog post does. Start with <code>events2</code>, <code>ray_casting2</code>, <code>character_controller3</code>, and <code>joints3</code>.</p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<div class="empty" id="empty">No cards match that. Try a shorter word.</div>
+
+</main>
+</div>
+
+<footer>
+  <span>bevy_rapier 0.36 · bevy 0.19 · rapier 0.35 — verified against docs.rs and the repo changelog, August 2026</span>
+  <span><a href="https://rapier.rs/docs/">rapier.rs/docs</a> · <a href="https://docs.rs/bevy_rapier2d">docs.rs</a> · <a href="https://github.com/dimforge/bevy_rapier">github</a></span>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- syntax highlighting ---------- */
+  var KW = /^(fn|let|mut|pub|use|struct|enum|impl|for|in|if|else|match|return|move|as|const|crate|self|Self|true|false|dyn|where|while|loop|break|continue|type|ref|trait)$/;
+  var TOKEN = /(\/\/[^\n]*)|("(?:\\.|[^"\\])*")|(#!?\[[^\]]*\])|([A-Za-z_][A-Za-z0-9_]*!)|(\b\d[\d_]*(?:\.\d+)?(?:f32|f64|usize|u32|i32|u8)?\b)|([A-Z][A-Za-z0-9_]*)|([a-z_][a-z0-9_]*)/g;
+
+  function esc(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function highlight(src) {
+    var out = "", last = 0, m;
+    TOKEN.lastIndex = 0;
+    while ((m = TOKEN.exec(src)) !== null) {
+      out += esc(src.slice(last, m.index));
+      var t = m[0], cls = "";
+      if (m[1]) cls = "c";
+      else if (m[2]) cls = "s";
+      else if (m[3]) cls = "a";
+      else if (m[4]) cls = "m";
+      else if (m[5]) cls = "n";
+      else if (m[6]) cls = "t";
+      else if (m[7]) cls = KW.test(t) ? "k" : "";
+      out += cls ? '<span class="t-' + cls + '">' + esc(t) + "</span>" : esc(t);
+      last = m.index + t.length;
+    }
+    return out + esc(src.slice(last));
+  }
+
+  var blocks = document.querySelectorAll(".codewrap pre code");
+  for (var i = 0; i < blocks.length; i++) {
+    blocks[i].innerHTML = highlight(blocks[i].textContent);
+  }
+
+  /* ---------- copy buttons ---------- */
+  document.querySelectorAll(".codewrap").forEach(function (wrap) {
+    var btn = document.createElement("button");
+    btn.className = "copy";
+    btn.type = "button";
+    btn.textContent = "copy";
+    btn.addEventListener("click", function () {
+      var text = wrap.querySelector("pre").textContent;
+      var done = function () {
+        btn.textContent = "copied";
+        btn.classList.add("done");
+        setTimeout(function () {
+          btn.textContent = "copy";
+          btn.classList.remove("done");
+        }, 1400);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, function () {});
+      } else {
+        var ta = document.createElement("textarea");
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand("copy"); done(); } catch (e) {}
+        document.body.removeChild(ta);
+      }
+    });
+    wrap.appendChild(btn);
+  });
+
+  /* ---------- filter ---------- */
+  var input = document.getElementById("q");
+  var hits = document.getElementById("hits");
+  var empty = document.getElementById("empty");
+  var cards = [].slice.call(document.querySelectorAll(".card")).map(function (el) {
+    return { el: el, text: el.textContent.toLowerCase() };
+  });
+  var sections = [].slice.call(document.querySelectorAll("section"));
+
+  function applyFilter() {
+    var q = input.value.trim().toLowerCase();
+    if (!q) {
+      cards.forEach(function (c) { c.el.style.display = ""; });
+      sections.forEach(function (s) { s.style.display = ""; });
+      document.body.classList.remove("filtering");
+      empty.classList.remove("on");
+      hits.textContent = "";
+      return;
+    }
+    document.body.classList.add("filtering");
+    var terms = q.split(/\s+/);
+    var shown = 0;
+    cards.forEach(function (c) {
+      var ok = terms.every(function (t) { return c.text.indexOf(t) !== -1; });
+      c.el.style.display = ok ? "" : "none";
+      if (ok) shown++;
+    });
+    sections.forEach(function (s) {
+      var any = s.querySelector(".card:not([style*='display: none'])");
+      s.style.display = any ? "" : "none";
+    });
+    hits.textContent = shown + (shown === 1 ? " card" : " cards");
+    empty.classList.toggle("on", shown === 0);
+  }
+
+  input.addEventListener("input", applyFilter);
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "/" && document.activeElement !== input) {
+      e.preventDefault();
+      input.focus();
+      input.select();
+    } else if (e.key === "Escape" && document.activeElement === input) {
+      input.value = "";
+      applyFilter();
+      input.blur();
+    }
+  });
+
+  /* ---------- scroll spy ---------- */
+  var links = [].slice.call(document.querySelectorAll("nav a"));
+  var byId = {};
+  links.forEach(function (a) { byId[a.getAttribute("href").slice(1)] = a; });
+
+  if ("IntersectionObserver" in window) {
+    var obs = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          links.forEach(function (a) { a.classList.remove("on"); });
+          var a = byId[entry.target.id];
+          if (a) a.classList.add("on");
+        }
+      });
+    }, { rootMargin: "-130px 0px -70% 0px" });
+    sections.forEach(function (s) { obs.observe(s); });
+  }
+})();
+</script>
+
+</body>
+</html>

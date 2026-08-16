@@ -1,0 +1,2181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Collision shapes — Rust &amp; Bevy cheatsheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0F1116;
+    --panel:#161922;
+    --panel-2:#1B1F29;
+    --line:#272C38;
+    --line-soft:#1F2430;
+    --ink:#C9CFDA;
+    --ink-hi:#EEF1F6;
+    --dim:#7F8899;
+    --a:#B38CF5;   /* shape A */
+    --b:#F0A93B;   /* shape B */
+    --r:#45D9B4;   /* the result: hit point, normal, t */
+    --warn:#FF7D6B;
+    --sans:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    --cond:"IBM Plex Sans Condensed", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    --mono:"IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:var(--sans); font-size:15px; line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit}
+  .wrap{max-width:1260px; margin:0 auto; padding:0 24px}
+
+  /* ---------- hero ---------- */
+  .hero{border-bottom:1px solid var(--line); padding:56px 0 40px}
+  .eyebrow{
+    font-family:var(--mono); font-size:11.5px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--dim); margin:0 0 18px
+  }
+  .eyebrow b{color:var(--r); font-weight:500}
+  h1{
+    font-family:var(--cond); font-weight:700; font-size:clamp(34px,6vw,58px);
+    line-height:1.02; letter-spacing:-.015em; margin:0 0 16px; color:var(--ink-hi);
+    max-width:16ch;
+  }
+  .deck{max-width:62ch; color:var(--dim); margin:0 0 26px}
+  .deck code{font-family:var(--mono); font-size:.88em; color:var(--ink)}
+  .legend{display:flex; flex-wrap:wrap; gap:8px 20px; font-family:var(--mono); font-size:12px; color:var(--dim)}
+  .legend span{display:inline-flex; align-items:center; gap:7px}
+  .swatch{width:10px; height:10px; border-radius:2px; display:inline-block}
+
+  /* ---------- matrix ---------- */
+  .matrix-head{display:flex; align-items:baseline; justify-content:space-between; gap:16px; margin:44px 0 12px; flex-wrap:wrap}
+  .matrix-head h2{font-family:var(--cond); font-size:19px; letter-spacing:.01em; margin:0; color:var(--ink-hi); font-weight:600}
+  .matrix-head p{margin:0; color:var(--dim); font-size:13px}
+  .scroller{overflow-x:auto; border:1px solid var(--line); border-radius:10px; background:var(--panel)}
+  table.matrix{border-collapse:collapse; width:100%; min-width:820px; font-size:12.5px}
+  table.matrix th, table.matrix td{
+    border-right:1px solid var(--line-soft); border-bottom:1px solid var(--line-soft);
+    padding:9px 12px; text-align:left; vertical-align:top;
+  }
+  table.matrix tr:last-child td{border-bottom:0}
+  table.matrix th:last-child, table.matrix td:last-child{border-right:0}
+  table.matrix thead th{
+    font-family:var(--mono); font-weight:500; font-size:11px; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--b); background:var(--panel-2); white-space:nowrap;
+  }
+  table.matrix tbody th{
+    font-family:var(--mono); font-weight:500; font-size:11px; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--a); background:var(--panel-2); white-space:nowrap;
+  }
+  table.matrix td{font-family:var(--mono); color:var(--ink)}
+  table.matrix td a{color:var(--ink); text-decoration:none; border-bottom:1px solid rgba(69,217,180,.35)}
+  table.matrix td a:hover{color:var(--r); border-bottom-color:var(--r)}
+  td.mirror{color:#4A5162}
+  td.na{color:#3C4252}
+
+  /* ---------- layout ---------- */
+  .layout{display:grid; grid-template-columns:200px minmax(0,1fr); gap:56px; align-items:start; padding:56px 0 96px}
+  nav.rail{position:sticky; top:24px}
+  nav.rail ol{list-style:none; margin:0; padding:0}
+  nav.rail li{margin:0 0 2px}
+  nav.rail a{
+    display:block; padding:5px 10px; border-left:2px solid var(--line);
+    font-family:var(--mono); font-size:12px; color:var(--dim); text-decoration:none;
+  }
+  nav.rail a:hover{color:var(--ink-hi); border-left-color:var(--r); background:var(--panel)}
+
+  /* ---------- sections ---------- */
+  section.sec{margin:0 0 72px; scroll-margin-top:20px}
+  section.sec > .kicker{
+    font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--dim); margin:0 0 6px;
+  }
+  section.sec > h2{
+    font-family:var(--cond); font-weight:600; font-size:30px; letter-spacing:-.01em;
+    margin:0 0 10px; color:var(--ink-hi);
+  }
+  section.sec > .intro{max-width:70ch; color:var(--dim); margin:0 0 24px}
+  section.sec > .intro code, .note code, li code{font-family:var(--mono); font-size:.88em; color:var(--ink)}
+
+  /* ---------- cards ---------- */
+  .card{border:1px solid var(--line); border-radius:10px; background:var(--panel); margin:0 0 20px; overflow:hidden}
+  .card-head{
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+    padding:11px 16px; border-bottom:1px solid var(--line); background:var(--panel-2);
+  }
+  .card-head h3{
+    font-family:var(--mono); font-weight:500; font-size:13px; margin:0; color:var(--ink-hi);
+    letter-spacing:.01em;
+  }
+  .pill{
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--dim); border:1px solid var(--line); border-radius:100px; padding:2px 8px;
+  }
+  .pill.hot{color:var(--r); border-color:rgba(69,217,180,.35)}
+  button.copy{
+    margin-left:auto; font-family:var(--mono); font-size:11px; letter-spacing:.06em;
+    color:var(--dim); background:none; border:1px solid var(--line); border-radius:5px;
+    padding:3px 9px; cursor:pointer; transition:color .12s, border-color .12s;
+  }
+  button.copy:hover{color:var(--r); border-color:var(--r)}
+  button.copy:focus-visible, nav.rail a:focus-visible, table.matrix td a:focus-visible{
+    outline:2px solid var(--r); outline-offset:2px;
+  }
+  pre.code{
+    margin:0; padding:16px 18px; overflow-x:auto;
+    font-family:var(--mono); font-size:12.5px; line-height:1.62; color:var(--ink); tab-size:4;
+  }
+  .note{
+    border-top:1px dashed var(--line); padding:12px 18px; font-size:13px; color:var(--dim);
+  }
+  .note b{color:var(--ink); font-weight:600}
+  .note.warn{border-top:1px solid var(--line); border-left:2px solid var(--warn)}
+  .note.warn b{color:var(--warn)}
+  .note + .note{border-top:1px dashed var(--line)}
+
+  /* ---------- figures ---------- */
+  figure.fig{margin:0; padding:18px 18px 6px; border-bottom:1px solid var(--line); background:#12151D}
+  figure.fig svg{display:block; width:100%; height:auto; max-width:520px; margin:0 auto}
+  figure.fig figcaption{
+    font-family:var(--mono); font-size:11.5px; color:var(--dim); text-align:center; padding:10px 0 8px;
+  }
+  .svg-a{stroke:var(--a)} .svg-b{stroke:var(--b)} .svg-r{stroke:var(--r)}
+  .fill-a{fill:var(--a)} .fill-b{fill:var(--b)} .fill-r{fill:var(--r)}
+  text.lbl{font-family:var(--mono); font-size:9.5px; fill:var(--dim)}
+
+  /* ---------- syntax ---------- */
+  .t-com{color:#5C footer} /* overridden below */
+  .t-com{color:#59637A; font-style:italic}
+  .t-str{color:#8FD6A0}
+  .t-num{color:#E2B96B}
+  .t-kw{color:#7FB4F5}
+  .t-typ{color:#C7A6F7}
+  .t-fn{color:#65D8BC}
+
+  /* ---------- lists / tables in prose ---------- */
+  ul.tight{margin:0; padding:0 0 0 18px}
+  ul.tight li{margin:0 0 6px}
+  table.plain{width:100%; border-collapse:collapse; font-size:13px}
+  table.plain th, table.plain td{border-bottom:1px solid var(--line-soft); padding:9px 12px; text-align:left; vertical-align:top}
+  table.plain th{font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); font-weight:500}
+  table.plain td code{font-family:var(--mono); font-size:12px; color:var(--ink)}
+  table.plain tr:last-child td{border-bottom:0}
+
+  footer.foot{border-top:1px solid var(--line); padding:28px 0 60px; color:var(--dim); font-size:12.5px}
+  footer.foot code{font-family:var(--mono)}
+
+  @media (max-width:920px){
+    .layout{grid-template-columns:1fr; gap:28px; padding-top:32px}
+    nav.rail{position:static}
+    nav.rail ol{display:flex; gap:6px; overflow-x:auto; padding-bottom:6px}
+    nav.rail a{border-left:0; border-bottom:2px solid var(--line); white-space:nowrap; padding:6px 10px}
+    .hero{padding:36px 0 28px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{transition:none !important}
+    html{scroll-behavior:auto}
+  }
+  html{scroll-behavior:smooth}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <p class="eyebrow">Rust &nbsp;·&nbsp; glam / bevy_math &nbsp;·&nbsp; <b>bevy 0.19</b></p>
+    <h1>Collision shapes and the axes between them</h1>
+    <p class="deck">
+      Hand-rolled narrow-phase tests for AABB, OBB, sphere, triangle and plane — the intersection
+      predicates, the raycasts, the sweeps, and how to get a usable <code>point</code>,
+      <code>normal</code> and <code>t</code> back out. Then the same jobs done with what Bevy ships.
+      Everything assumes right-handed Y-up, unit ray directions, and <code>f32</code>.
+    </p>
+    <div class="legend">
+      <span><i class="swatch" style="background:var(--a)"></i> shape A / the query</span>
+      <span><i class="swatch" style="background:var(--b)"></i> shape B / the target</span>
+      <span><i class="swatch" style="background:var(--r)"></i> the result: t, point, normal</span>
+    </div>
+
+    <div class="matrix-head">
+      <h2>What to call when A meets B</h2>
+      <p>Row = query shape · column = target</p>
+    </div>
+    <div class="scroller">
+      <table class="matrix">
+        <thead>
+          <tr><th>&nbsp;</th><th>AABB</th><th>OBB</th><th>Sphere</th><th>Triangle</th><th>Plane</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th>AABB</th>
+            <td><a href="#aabb">aabb_vs_aabb</a></td>
+            <td><a href="#obb">obb_vs_obb</a> <span class="pill">as OBB</span></td>
+            <td><a href="#aabb">aabb_vs_sphere</a></td>
+            <td><a href="#tri">tri_vs_aabb</a></td>
+            <td><a href="#plane">aabb_vs_plane</a></td>
+          </tr>
+          <tr>
+            <th>OBB</th>
+            <td class="mirror">↖ mirror</td>
+            <td><a href="#obb">obb_vs_obb</a></td>
+            <td><a href="#obb">obb_vs_sphere</a></td>
+            <td><a href="#tri">tri_vs_obb</a> <span class="pill">→ local</span></td>
+            <td><a href="#plane">obb_vs_plane</a></td>
+          </tr>
+          <tr>
+            <th>Sphere</th>
+            <td class="mirror">↖ mirror</td>
+            <td class="mirror">↖ mirror</td>
+            <td><a href="#aabb">sphere_vs_sphere</a></td>
+            <td><a href="#tri">tri_vs_sphere</a></td>
+            <td><a href="#plane">sphere_vs_plane</a></td>
+          </tr>
+          <tr>
+            <th>Triangle</th>
+            <td class="mirror">↖ mirror</td>
+            <td class="mirror">↖ mirror</td>
+            <td class="mirror">↖ mirror</td>
+            <td class="na">SAT, 11 axes — use parry</td>
+            <td><a href="#plane">classify 3 verts</a></td>
+          </tr>
+          <tr>
+            <th>Ray</th>
+            <td><a href="#ray">ray_vs_aabb</a></td>
+            <td><a href="#ray">ray_vs_obb</a></td>
+            <td><a href="#ray">ray_vs_sphere</a></td>
+            <td><a href="#ray">ray_vs_tri</a></td>
+            <td><a href="#ray">ray_vs_plane</a></td>
+          </tr>
+          <tr>
+            <th>Sphere cast</th>
+            <td><a href="#cast">cast_sphere_aabb</a></td>
+            <td class="na">→ OBB local space</td>
+            <td><a href="#cast">cast_sphere_sphere</a></td>
+            <td><a href="#cast">cast_sphere_tri</a></td>
+            <td><a href="#cast">cast_sphere_plane</a></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</header>
+
+<div class="wrap layout">
+
+  <nav class="rail" aria-label="Sections">
+    <ol>
+      <li><a href="#types">types</a></li>
+      <li><a href="#aabb">aabb</a></li>
+      <li><a href="#obb">obb</a></li>
+      <li><a href="#tri">triangle</a></li>
+      <li><a href="#plane">plane</a></li>
+      <li><a href="#ray">raycast</a></li>
+      <li><a href="#hit">hit info</a></li>
+      <li><a href="#cast">sphere cast</a></li>
+      <li><a href="#bevy">bevy</a></li>
+      <li><a href="#physics">avian / rapier</a></li>
+      <li><a href="#traps">traps</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+  <!-- ============================================================ TYPES -->
+  <section class="sec" id="types">
+    <p class="kicker">Ground rules</p>
+    <h2>Types and conventions</h2>
+    <p class="intro">
+      One shared vocabulary for the whole page. Every test below takes these by reference and returns
+      either a <code>bool</code>, a contact, or an <code>Option&lt;Hit&gt;</code>. Ray directions are
+      always unit length, so <code>t</code> is a distance in world units.
+    </p>
+
+    <div class="card">
+      <div class="card-head"><h3>prelude.rs</h3><span class="pill">glam re-exported by bevy_math</span><button class="copy">copy</button></div>
+      <pre class="code" data-src="prelude"></pre>
+      <div class="note">
+        <b>On epsilons.</b> <code>EPS = 1e-5</code> suits scenes roughly in the 0.01–1000 unit range.
+        If your world is in millimetres or kilometres, scale it. Absolute epsilons on dot products
+        of large vectors are the usual source of "it works near the origin" bugs.
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ AABB -->
+  <section class="sec" id="aabb">
+    <p class="kicker">Axis-aligned</p>
+    <h2>AABB</h2>
+    <p class="intro">
+      Six floats, no rotation, and every test is a comparison or a clamp. This is the shape you use
+      for the broad phase and for anything that never rotates. The one method worth internalising is
+      <code>closest_point</code> — clamping a point into the box gives you sphere tests, distance
+      queries and contact points for free.
+    </p>
+
+    <div class="card">
+      <div class="card-head"><h3>Construct, query, grow</h3><button class="copy">copy</button></div>
+      <pre class="code" data-src="aabb-build"></pre>
+      <div class="note">
+        <b>Transforming an AABB</b> means re-fitting it: rotate the 8 corners and take min/max, or
+        use the absolute-matrix trick in <a href="#obb" style="color:var(--r)">OBB → enclosing AABB</a>.
+        Never rotate an AABB repeatedly — it grows every time. Rotate the source shape instead.
+      </div>
+    </div>
+
+    <div class="card">
+      <figure class="fig">
+        <svg viewBox="0 0 480 150" role="img" aria-label="Two overlapping boxes with per-axis overlap and the minimum translation vector">
+          <rect x="40" y="30" width="150" height="95" class="svg-a" fill="none" stroke-width="1.5"/>
+          <rect x="140" y="62" width="150" height="80" class="svg-b" fill="none" stroke-width="1.5"/>
+          <rect x="140" y="62" width="50" height="63" fill="#45D9B4" opacity=".13"/>
+          <line x1="140" y1="140" x2="190" y2="140" class="svg-r" stroke-width="1" stroke-dasharray="3 3"/>
+          <line x1="305" y1="62" x2="305" y2="125" class="svg-r" stroke-width="1" stroke-dasharray="3 3"/>
+          <line x1="215" y1="93" x2="255" y2="93" class="svg-r" stroke-width="1.5" marker-end="url(#ar)"/>
+          <defs><marker id="ar" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 z" fill="#45D9B4"/></marker></defs>
+          <text class="lbl" x="46" y="24">A</text>
+          <text class="lbl" x="278" y="156" text-anchor="end">B</text>
+          <text class="lbl" x="152" y="136">overlap.x</text>
+          <text class="lbl" x="312" y="96">overlap.y</text>
+          <text class="lbl" x="222" y="86">MTV = min axis</text>
+        </svg>
+        <figcaption>overlap per axis; push out along the smallest one</figcaption>
+      </figure>
+      <div class="card-head"><h3>AABB vs AABB — test and penetration</h3><span class="pill hot">O(1)</span><button class="copy">copy</button></div>
+      <pre class="code" data-src="aabb-aabb"></pre>
+      <div class="note">
+        <b>The MTV lies at corners.</b> Minimum-translation resolution snaps to a face axis, so a box
+        clipping a corner gets pushed along X or Y, never diagonally. That is usually what you want for
+        platformers and usually wrong for physics. For stacking, use a real solver.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h3>AABB vs sphere, sphere vs sphere</h3><span class="pill">closest-point</span><button class="copy">copy</button></div>
+      <pre class="code" data-src="aabb-sphere"></pre>
+      <div class="note warn">
+        <b>Centre inside the box</b> is the degenerate case: <code>closest_point</code> returns the
+        centre itself, the delta is zero, and the normal is undefined. The code below falls back to
+        the nearest face, which is the only sane answer.
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ OBB -->
+  <section class="sec" id="obb">
+    <p class="kicker">Oriented</p>
+    <h2>OBB</h2>
+    <p class="intro">
+      An AABB plus a rotation. Point and sphere tests are just AABB tests done in the box's local
+      space — rotate the world into the box, clamp, rotate back. Box-vs-box is the one that needs
+      the separating axis theorem: 15 candidate axes, and finding one that separates proves no overlap.
+    </p>
+
+    <div class="card">
+      <div class="card-head"><h3>Local space is the whole trick</h3><button class="copy">copy</button></div>
+      <pre class="code" data-src="obb-core"></pre>
+      <div class="note">
+        <b>Non-uniform scale.</b> An OBB has no scale field; bake scale into <code>half</code>. If you
+        take the rotation from a <code>Transform</code> with non-uniform scale on a rotated parent, the
+        result is a sheared box that an OBB cannot represent — decompose the global affine and accept
+        the fit, or use a convex hull.
+      </div>
+    </div>
+
+    <div class="card">
+      <figure class="fig">
+        <svg viewBox="0 0 480 160" role="img" aria-label="Two rotated boxes projected onto a candidate separating axis">
+          <g transform="rotate(-18 120 80)">
+            <rect x="52" y="48" width="136" height="64" class="svg-a" fill="none" stroke-width="1.5"/>
+          </g>
+          <g transform="rotate(26 300 86)">
+            <rect x="240" y="52" width="120" height="70" class="svg-b" fill="none" stroke-width="1.5"/>
+          </g>
+          <line x1="30" y1="146" x2="450" y2="146" stroke="#272C38" stroke-width="1"/>
+          <line x1="48" y1="146" x2="196" y2="146" class="svg-a" stroke-width="3"/>
+          <line x1="228" y1="146" x2="376" y2="146" class="svg-b" stroke-width="3"/>
+          <line x1="196" y1="146" x2="228" y2="146" class="svg-r" stroke-width="3"/>
+          <text class="lbl" x="30" y="138">projection onto candidate axis L</text>
+          <text class="lbl" x="200" y="160">gap ⇒ separated</text>
+        </svg>
+        <figcaption>SAT: 3 axes of A, 3 of B, 9 cross products</figcaption>
+      </figure>
+      <div class="card-head"><h3>OBB vs OBB — SAT</h3><span class="pill hot">15 axes</span><button class="copy">copy</button></div>
+      <pre class="code" data-src="obb-sat"></pre>
+      <div class="note">
+        <b>Why the epsilon in <code>abs_r</code>.</b> When two edges are parallel their cross product
+        is the zero vector, and the corresponding axis test compares 0 &gt; 0 with catastrophic
+        cancellation. Adding <code>EPS</code> to the absolute rotation biases those tests toward
+        "not separated", which is the safe direction: a false positive costs a wasted narrow-phase
+        call, a false negative costs a tunnel.
+      </div>
+      <div class="note">
+        <b>Getting depth out of SAT</b> means tracking the smallest <code>(ra + rb) - projection</code>
+        across all 15 axes instead of early-returning, then normalising that axis. Cross-product axes
+        must be normalised before comparing depths, since they are not unit length.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h3>OBB vs point, sphere, and AABB</h3><button class="copy">copy</button></div>
+      <pre class="code" data-src="obb-misc"></pre>
+    </div>
+  </section>
+
+  <!-- ============================================================ TRIANGLE -->
+  <section class="sec" id="tri">
+    <p class="kicker">Mesh soup</p>
+    <h2>Triangle</h2>
+    <p class="intro">
+      The shape your level geometry is actually made of. Two functions carry nearly all the weight:
+      <code>closest_point</code> (Ericson's Voronoi-region version, which handles the seven cases of
+      face, three edges and three vertices) and Möller–Trumbore for raycasts, further down.
+    </p>
+
+    <div class="card">
+      <div class="card-head"><h3>Normal, area, barycentric</h3><button class="copy">copy</button></div>
+      <pre class="code" data-src="tri-core"></pre>
+      <div class="note warn">
+        <b>Degenerate triangles are everywhere</b> in imported meshes — zero area, duplicated verts,
+        slivers. <code>normalize()</code> on a zero cross product yields NaN and the NaN propagates
+        silently through every test that touches it. Filter at load time with
+        <code>area_sq &lt; EPS * EPS</code>, not at query time.
+      </div>
+    </div>
+
+    <div class="card">
+      <figure class="fig">
+        <svg viewBox="0 0 480 160" role="img" aria-label="Closest point on a triangle from an external point">
+          <path d="M120,132 L250,34 L360,120 Z" class="svg-b" fill="none" stroke-width="1.5"/>
+          <path d="M120,132 L250,34 L360,120 Z" fill="#F0A93B" opacity=".07"/>
+          <circle cx="416" cy="52" r="4" class="fill-a"/>
+          <circle cx="313" cy="79" r="4" class="fill-r"/>
+          <line x1="416" y1="52" x2="313" y2="79" class="svg-r" stroke-width="1.2" stroke-dasharray="4 3"/>
+          <text class="lbl" x="424" y="46">p</text>
+          <text class="lbl" x="292" y="98">q = closest_point(p)</text>
+          <text class="lbl" x="352" y="66">‖p−q‖ ≤ r ⇒ hit</text>
+        </svg>
+        <figcaption>every sphere-vs-triangle question reduces to this</figcaption>
+      </figure>
+      <div class="card-head"><h3>Closest point on a triangle</h3><span class="pill">7 regions</span><button class="copy">copy</button></div>
+      <pre class="code" data-src="tri-closest"></pre>
+      <div class="note">
+        <b>Use it for capsules too.</b> Capsule vs triangle is "closest point between segment and
+        triangle" compared against the radius; the segment version is the same case analysis with one
+        more dimension. For a character controller, sphere-vs-triangle plus a vertical segment sweep
+        gets you surprisingly far.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h3>Triangle vs sphere · vs AABB · vs OBB</h3><span class="pill hot">13 axes</span><button class="copy">copy</button></div>
+      <pre class="code" data-src="tri-box"></pre>
+      <div class="note">
+        <b>Triangle vs OBB</b> has no separate implementation: transform the three vertices into the
+        box's local space with <code>obb.to_local</code>, then run <code>tri_vs_aabb</code> against
+        the box <code>{ min: -half, max: half }</code>. Same for triangle vs any oriented volume.
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ PLANE -->
+  <section class="sec" id="plane">
+    <p class="kicker">Half-spaces</p>
+    <h2>Plane</h2>
+    <p class="intro">
+      A plane is a unit normal and a distance, and the only operation is a signed dot product. What
+      makes it powerful is the <em>projection radius</em>: for any convex volume you can compute how
+      far it extends along the normal, then compare one scalar. That single idea gives you box
+      classification, frustum culling and sphere sweeps.
+    </p>
+
+    <div class="card">
+      <div class="card-head"><h3>Representation and signed distance</h3><button class="copy">copy</button></div>
+      <pre class="code" data-src="plane-core"></pre>
+      <div class="note">
+        <b>Two conventions exist</b> and mixing them flips every sign in your codebase.
+        Here <code>n·x = d</code>, so <code>signed_distance = n·p − d</code>. The other camp writes
+        <code>n·x + d = 0</code>, where the same quantity is <code>n·p + d</code>. Bevy's
+        <code>InfinitePlane3d</code> sidesteps this by storing only a normal and taking an origin
+        point as a separate argument.
+      </div>
+    </div>
+
+    <div class="card">
+      <figure class="fig">
+        <svg viewBox="0 0 480 150" role="img" aria-label="Projection radius of a box onto a plane normal">
+          <line x1="24" y1="118" x2="456" y2="86" class="svg-b" stroke-width="1.5"/>
+          <line x1="240" y1="102" x2="264" y2="42" class="svg-b" stroke-width="1" marker-end="url(#ar2)"/>
+          <defs><marker id="ar2" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 z" fill="#F0A93B"/></marker></defs>
+          <g transform="rotate(-14 150 60)">
+            <rect x="98" y="26" width="104" height="66" class="svg-a" fill="none" stroke-width="1.5"/>
+          </g>
+          <circle cx="150" cy="60" r="3" class="fill-a"/>
+          <line x1="150" y1="60" x2="161" y2="104" class="svg-r" stroke-width="1.2" stroke-dasharray="3 3"/>
+          <text class="lbl" x="268" y="38">n</text>
+          <text class="lbl" x="166" y="88">sd(centre)</text>
+          <text class="lbl" x="30" y="136">|sd| ≤ r ⇒ straddling, else sign gives the side</text>
+        </svg>
+        <figcaption>r = Σ half·|n·axis| — the box's reach along n</figcaption>
+      </figure>
+      <div class="card-head"><h3>Sphere, AABB, OBB and triangle against a plane</h3><button class="copy">copy</button></div>
+      <pre class="code" data-src="plane-tests"></pre>
+      <div class="note">
+        <b>Frustum culling is six of these.</b> Extract the planes with inward normals, reject the
+        moment any test returns <code>Behind</code>. Testing an AABB against the near plane first
+        rejects most of what a camera cannot see, for the cost of four dot products.
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ RAYCAST -->
+  <section class="sec" id="ray">
+    <p class="kicker">One dimension, many hits</p>
+    <h2>Raycasting</h2>
+    <p class="intro">
+      Each of these returns the same <code>Hit</code>: distance along the ray, the world point, an
+      outward-facing surface normal flipped to oppose the ray, and whether the ray came from behind.
+      Keep the return type uniform and callers stop caring which shape they hit.
+    </p>
+
+    <div class="card">
+      <div class="card-head"><h3>Ray vs sphere</h3><span class="pill">geometric, no divides</span><button class="copy">copy</button></div>
+      <pre class="code" data-src="ray-sphere"></pre>
+    </div>
+
+    <div class="card">
+      <figure class="fig">
+        <svg viewBox="0 0 480 158" role="img" aria-label="Slab method: per-axis entry and exit intervals along a ray">
+          <rect x="150" y="42" width="170" height="86" class="svg-b" fill="none" stroke-width="1.5"/>
+          <line x1="150" y1="16" x2="150" y2="140" stroke="#272C38" stroke-dasharray="3 4"/>
+          <line x1="320" y1="16" x2="320" y2="140" stroke="#272C38" stroke-dasharray="3 4"/>
+          <line x1="110" y1="42" x2="400" y2="42" stroke="#272C38" stroke-dasharray="3 4"/>
+          <line x1="110" y1="128" x2="400" y2="128" stroke="#272C38" stroke-dasharray="3 4"/>
+          <line x1="36" y1="132" x2="440" y2="34" class="svg-a" stroke-width="1.5" marker-end="url(#ar3)"/>
+          <defs><marker id="ar3" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 z" fill="#B38CF5"/></marker></defs>
+          <circle cx="172" cy="99" r="4" class="fill-r"/>
+          <circle cx="320" cy="63" r="4" class="fill-r"/>
+          <text class="lbl" x="126" y="118">t_enter</text>
+          <text class="lbl" x="330" y="58">t_exit</text>
+          <text class="lbl" x="36" y="146">enter = max of per-axis mins · exit = min of per-axis maxes</text>
+        </svg>
+        <figcaption>the axis that produced t_enter is the face you hit</figcaption>
+      </figure>
+      <div class="card-head"><h3>Ray vs AABB — slabs, with the face normal</h3><span class="pill hot">branchless core</span><button class="copy">copy</button></div>
+      <pre class="code" data-src="ray-aabb"></pre>
+      <div class="note warn">
+        <b>The NaN case.</b> If a direction component is exactly 0 and the origin lies exactly on that
+        slab plane, <code>0 * inf</code> produces NaN. glam's <code>min</code>/<code>max</code> forward
+        to <code>f32::min</code>/<code>max</code>, which discard NaN in favour of the other operand, so
+        the common path survives — but if you port this to raw arrays, handle it explicitly. Nudging
+        zero components to <code>±1e-8</code> before <code>recip()</code> is the cheap fix.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h3>Ray vs OBB · ray vs plane</h3><span class="pill">transform, don't reimplement</span><button class="copy">copy</button></div>
+      <pre class="code" data-src="ray-obb"></pre>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h3>Ray vs triangle — Möller–Trumbore</h3><span class="pill hot">gives barycentrics</span><button class="copy">copy</button></div>
+      <pre class="code" data-src="ray-tri"></pre>
+      <div class="note">
+        <b>The <code>u, v</code> are the point of the algorithm</b>, not a side effect. They let you
+        interpolate anything stored per-vertex — smooth normals, UVs, vertex colours, material blend
+        weights — at the exact hit position. Weights are <code>(1−u−v, u, v)</code> for
+        <code>(a, b, c)</code>. Throwing them away means a second, redundant barycentric solve later.
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ HIT INFO -->
+  <section class="sec" id="hit">
+    <p class="kicker">The part that actually gets used</p>
+    <h2>Getting information out of a hit</h2>
+    <p class="intro">
+      A <code>bool</code> tells you a collision happened; a game needs to know where, which way, and
+      how deep. These are the conversions between the four things every hit can produce.
+    </p>
+
+    <div class="card">
+      <div class="card-head"><h3>From t to everything else</h3><button class="copy">copy</button></div>
+      <pre class="code" data-src="hit-info"></pre>
+      <div class="note">
+        <b>Pick one normal convention and enforce it at the boundary.</b> This page uses "the normal
+        opposes the incoming ray" for raycasts and "the normal points from B toward A" for contacts,
+        so <code>a.translation += hit.normal * hit.depth</code> always separates. Physics crates vary:
+        check whether <code>normal1</code> is expressed on the first or the second collider before you
+        wire it into a resolver.
+      </div>
+      <div class="note warn">
+        <b>Interpolated normals are not contact normals.</b> A smooth-shaded normal is right for
+        lighting and wrong for collision response — it will let a character slide along a wall that
+        the geometric normal says is flat. Keep both: <code>normal</code> from the plane of the
+        triangle, <code>shading_normal</code> from the barycentric blend.
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ SPHERE CAST -->
+  <section class="sec" id="cast">
+    <p class="kicker">Swept volumes</p>
+    <h2>Sphere casting</h2>
+    <p class="intro">
+      A sphere cast is a raycast against a shape that has been inflated by the sphere's radius — the
+      Minkowski sum. That reframing solves it exactly for planes and spheres, and it is why the
+      naive box version is subtly wrong: inflating a box gives you a
+      <em>rounded</em> box, not a bigger box.
+    </p>
+
+    <div class="card">
+      <figure class="fig">
+        <svg viewBox="0 0 480 156" role="img" aria-label="A box inflated by a sphere radius forms a rounded box">
+          <rect x="176" y="52" width="128" height="66" class="svg-b" fill="none" stroke-width="1.5"/>
+          <rect x="148" y="24" width="184" height="122" rx="28" class="svg-r" fill="none" stroke-width="1.2" stroke-dasharray="5 4"/>
+          <rect x="148" y="24" width="184" height="122" class="svg-a" fill="none" stroke-width="1" stroke-dasharray="2 4" opacity=".55"/>
+          <circle cx="76" cy="128" r="16" class="svg-a" fill="none" stroke-width="1.5"/>
+          <line x1="88" y1="118" x2="150" y2="66" class="svg-a" stroke-width="1.2" marker-end="url(#ar4)"/>
+          <defs><marker id="ar4" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 z" fill="#B38CF5"/></marker></defs>
+          <text class="lbl" x="352" y="34">expanded box — too eager at corners</text>
+          <text class="lbl" x="352" y="50">rounded box — correct</text>
+          <text class="lbl" x="52" y="156">cast centre as a ray</text>
+        </svg>
+        <figcaption>the corner is where a naive expanded-AABB cast reports a phantom hit</figcaption>
+      </figure>
+      <div class="card-head"><h3>Sphere vs plane, sphere vs sphere</h3><span class="pill hot">exact</span><button class="copy">copy</button></div>
+      <pre class="code" data-src="cast-simple"></pre>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h3>Sphere vs AABB — expand, then refine the corner</h3><button class="copy">copy</button></div>
+      <pre class="code" data-src="cast-aabb"></pre>
+      <div class="note">
+        <b>Two-phase is the practical shape of this.</b> The expanded-box raycast is a cheap
+        conservative bound: it never misses a real hit, it only over-reports near corners and edges.
+        Refine those cases against the three edge capsules meeting at that corner and take the
+        smallest <code>t</code>. If the hit lands on a face region, it is already exact.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h3>Sphere vs triangle — plane, 3 edges, 3 vertices</h3><span class="pill">character controllers</span><button class="copy">copy</button></div>
+      <pre class="code" data-src="cast-tri"></pre>
+      <div class="note">
+        <b>This is the whole Minkowski sum, enumerated.</b> Offsetting the face plane handles the
+        interior, capsules along each edge handle the borders, spheres at each vertex handle the
+        corners. Take the minimum <code>t</code> across all seven and you have an exact swept-sphere
+        result — the core of every "move and slide" controller.
+      </div>
+      <div class="note warn">
+        <b>Depenetrate before you sweep.</b> If the sphere starts already touching, <code>t = 0</code>
+        and the sweep tells you nothing about which way to go. Run a static
+        <code>tri_vs_sphere</code> contact first, push out along its normal, then sweep the remainder
+        of the motion.
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ BEVY -->
+  <section class="sec" id="bevy">
+    <p class="kicker">bevy_math::bounding · bevy 0.19</p>
+    <h2>What Bevy already gives you</h2>
+    <p class="intro">
+      <code>bevy_math::bounding</code> ships AABBs, bounding spheres, raycasts and shape casts, with a
+      uniform <code>IntersectsVolume</code> trait over all of them. It is deliberately a
+      <em>bounding-volume</em> library: fast booleans and distances, no contact points, no OBB, no
+      penetration depth. Everything above still applies for narrow phase.
+    </p>
+
+    <div class="card">
+      <div class="card-head"><h3>Volumes and intersection</h3><span class="pill">Aabb3d · BoundingSphere</span><button class="copy">copy</button></div>
+      <pre class="code" data-src="bevy-bounding"></pre>
+      <div class="note">
+        <b>Note the two different <code>Aabb</code>s.</b> <code>bevy_math::bounding::Aabb3d</code>
+        is the one you compute with. <code>bevy_render</code>'s <code>Aabb</code> component
+        (centre + half-extents, in <em>mesh local space</em>) is what the renderer attaches for
+        culling — useful as a source, but transform it before comparing against world-space volumes.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h3>RayCast3d, AabbCast3d, BoundingSphereCast</h3><span class="pill hot">returns Option&lt;f32&gt;</span><button class="copy">copy</button></div>
+      <pre class="code" data-src="bevy-raycast"></pre>
+      <div class="note">
+        <b>These give you <code>t</code> and nothing else.</b> There is no normal and no entity in the
+        return value — reconstruct the point with <code>ray.get_point(t)</code> and the normal with
+        the face-selection code from the AABB section, or with
+        <code>(point − sphere.center()).normalize()</code> for spheres.
+      </div>
+      <div class="note warn">
+        <b><code>RayCast3d</code> stores <code>Vec3A</code> and <code>Dir3A</code>.</b> The
+        constructors take <code>impl Into&lt;_&gt;</code> so <code>Vec3</code> and <code>Dir3</code>
+        pass through fine, but reading <code>cast.origin</code> back gives you a <code>Vec3A</code>.
+        Convert with <code>Vec3::from(..)</code> before mixing it into <code>Transform</code> maths.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h3>Ray3d, InfinitePlane3d, and picking a mesh</h3><button class="copy">copy</button></div>
+      <pre class="code" data-src="bevy-ray"></pre>
+      <div class="note">
+        <b>Mesh-level raycasting</b> lives in <code>bevy_picking</code> as the <code>MeshRayCast</code>
+        system parameter, which walks actual triangles and hands back a point, a normal, barycentric
+        coordinates and the triangle index. Bevy's API surface here has moved between releases more
+        than the bounding module has — check the docs for your exact version before copying signatures.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h3>Draw everything, always</h3><span class="pill">gizmos</span><button class="copy">copy</button></div>
+      <pre class="code" data-src="bevy-gizmos"></pre>
+      <div class="note">
+        <b>Collision bugs are visual bugs.</b> An inverted normal, a stale transform or a
+        half-extent used as a full extent are all obvious in one frame of gizmos and nearly invisible
+        in a debugger. Draw the volume, the hit point, and the normal as a short ray from it.
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ PHYSICS -->
+  <section class="sec" id="physics">
+    <p class="kicker">When you want it done for you</p>
+    <h2>Avian and Rapier</h2>
+    <p class="intro">
+      Both wrap <code>parry</code>, so both give you the full narrow phase — convex shapes, exact
+      shape casts, contact manifolds, a BVH over the whole scene. Reach for these the moment you need
+      penetration depth against arbitrary geometry, or a shape cast that has to be exact at corners.
+    </p>
+
+    <div class="card">
+      <div class="card-head"><h3>Spatial queries and their hit types</h3><span class="pill">check versions</span><button class="copy">copy</button></div>
+      <pre class="code" data-src="physics"></pre>
+      <div class="note warn">
+        <b>These APIs move fast.</b> Field and method names in physics crates change with almost every
+        Bevy release, and the two crates disagree about naming (<code>time_of_impact</code> vs
+        <code>distance</code>, <code>normal1</code>/<code>normal2</code> vs one <code>normal</code>).
+        Treat the block above as the shape of the API, not as a signature to paste.
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ TRAPS -->
+  <section class="sec" id="traps">
+    <p class="kicker">Field notes</p>
+    <h2>Things that will cost you an afternoon</h2>
+
+    <div class="card">
+      <table class="plain">
+        <thead><tr><th style="width:32%">Symptom</th><th>Cause and fix</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Hits register at half the real distance</td>
+            <td><code>t</code> is only a distance when the direction is unit length. A raw
+              <code>target − origin</code> makes <code>t ∈ [0,1]</code> instead. Use <code>Dir3</code>,
+              which cannot hold a non-normalised value.</td>
+          </tr>
+          <tr>
+            <td>Fast objects pass through walls</td>
+            <td>Discrete tests sample positions, not paths. Sweep the motion with a sphere cast, or
+              cap the per-step distance below the thinnest collider.</td>
+          </tr>
+          <tr>
+            <td>Rays hit the surface they started on</td>
+            <td>Self-intersection at <code>t ≈ 0</code>. Start the ray at
+              <code>point + normal * 1e-3</code>, or require <code>t &gt; EPS</code>. Scale the offset
+              with distance for long rays.</td>
+          </tr>
+          <tr>
+            <td>Everything works until the object rotates</td>
+            <td>An AABB was cached in local space and never re-fitted, or an OBB's
+              <code>rot</code> came from <code>Transform.rotation</code> while <code>center</code> came
+              from <code>GlobalTransform</code>. Read both from the same source, in the same frame.</td>
+          </tr>
+          <tr>
+            <td>Boxes stick together at corners</td>
+            <td>Minimum-translation resolution picks a face axis and pushes there. With gravity and two
+              contacts, that alternates between axes and jitters. Resolve both contacts against one
+              accumulated impulse, or use a solver.</td>
+          </tr>
+          <tr>
+            <td>Rare NaN in the transform, never reproducible</td>
+            <td>A degenerate triangle, a zero-length normalise, or <code>0 * inf</code> in a slab test.
+              Assert <code>is_finite()</code> on hit output in debug builds — NaN spreads far from
+              where it was born.</td>
+          </tr>
+          <tr>
+            <td>Sphere cast reports a hit in empty space</td>
+            <td>An expanded AABB has square corners; the real Minkowski sum is rounded. Refine corner
+              hits against edge capsules, or hand it to parry.</td>
+          </tr>
+          <tr>
+            <td>Works near origin, drifts far from it</td>
+            <td>Absolute epsilons against large coordinates. Compare relative to magnitude, or keep
+              gameplay near the origin and shift the world instead.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  </main>
+</div>
+
+<footer class="foot">
+  <div class="wrap">
+    Bevy API names verified against <code>bevy 0.19.1</code>. Everything outside the Bevy and physics
+    sections is plain <code>glam</code> and version-independent. The SAT, closest-point and swept-sphere
+    routines follow Ericson, <em>Real-Time Collision Detection</em>; the triangle raycast follows
+    Möller–Trumbore; the triangle–box test follows Akenine-Möller.
+  </div>
+</footer>
+
+<script>
+const CODE = {
+
+prelude: `use bevy::math::{Vec3, Vec2, Quat, Mat3};
+// or, outside Bevy:  use glam::{Vec3, Vec2, Quat, Mat3};
+
+pub const EPS: f32 = 1e-5;
+
+/// Axis-aligned box, stored as extremes.
+#[derive(Clone, Copy, Debug)]
+pub struct Aabb { pub min: Vec3, pub max: Vec3 }
+
+/// Oriented box: AABB in its own frame, then rotated and placed.
+#[derive(Clone, Copy, Debug)]
+pub struct Obb { pub center: Vec3, pub half: Vec3, pub rot: Quat }
+
+#[derive(Clone, Copy, Debug)]
+pub struct Sphere { pub center: Vec3, pub radius: f32 }
+
+/// Counter-clockwise winding when viewed from the front face.
+#[derive(Clone, Copy, Debug)]
+pub struct Tri { pub a: Vec3, pub b: Vec3, pub c: Vec3 }
+
+/// Convention on this page: n is unit, and the plane is  n · x = d
+#[derive(Clone, Copy, Debug)]
+pub struct Plane { pub n: Vec3, pub d: f32 }
+
+/// Everything a raycast can tell you.
+#[derive(Clone, Copy, Debug)]
+pub struct Hit {
+    pub t: f32,          // distance along the ray (dir is unit ⇒ world units)
+    pub point: Vec3,     // origin + dir * t
+    pub normal: Vec3,    // unit, always flipped to oppose the incoming ray
+    pub back_face: bool, // ray started inside, or hit the back of a face
+}
+
+/// Everything a static overlap can tell you.
+#[derive(Clone, Copy, Debug)]
+pub struct Contact {
+    pub point: Vec3,   // on the surface of B
+    pub normal: Vec3,  // unit, points from B toward A
+    pub depth: f32,    // move A by normal * depth to separate
+}`,
+
+'aabb-build': `impl Aabb {
+    pub fn from_center_half(c: Vec3, h: Vec3) -> Self {
+        Self { min: c - h, max: c + h }
+    }
+
+    pub fn from_points(points: &[Vec3]) -> Option<Self> {
+        let mut it = points.iter().copied();
+        let first = it.next()?;
+        Some(it.fold(Self { min: first, max: first }, |acc, p| Self {
+            min: acc.min.min(p),
+            max: acc.max.max(p),
+        }))
+    }
+
+    pub fn center(&self) -> Vec3 { (self.min + self.max) * 0.5 }
+    pub fn half(&self)   -> Vec3 { (self.max - self.min) * 0.5 }
+    pub fn size(&self)   -> Vec3 { self.max - self.min }
+
+    pub fn contains_point(&self, p: Vec3) -> bool {
+        p.cmpge(self.min).all() && p.cmple(self.max).all()
+    }
+
+    /// Point on (or inside) the box nearest to p. The workhorse.
+    pub fn closest_point(&self, p: Vec3) -> Vec3 {
+        p.clamp(self.min, self.max)
+    }
+
+    pub fn distance_sq(&self, p: Vec3) -> f32 {
+        (self.closest_point(p) - p).length_squared()
+    }
+
+    pub fn merge(&self, o: &Aabb) -> Aabb {
+        Aabb { min: self.min.min(o.min), max: self.max.max(o.max) }
+    }
+
+    /// Grow by a margin — the Minkowski sum with a box.
+    pub fn expand(&self, m: Vec3) -> Aabb {
+        Aabb { min: self.min - m, max: self.max + m }
+    }
+
+    pub fn surface_area(&self) -> f32 {
+        let s = self.size();
+        2.0 * (s.x * s.y + s.y * s.z + s.z * s.x)
+    }
+}`,
+
+'aabb-aabb': `/// Overlap test. Touching faces count as overlapping.
+pub fn aabb_vs_aabb(a: &Aabb, b: &Aabb) -> bool {
+    a.min.cmple(b.max).all() && a.max.cmpge(b.min).all()
+}
+
+/// Overlap plus the minimum translation that separates them.
+/// Returned normal points from B toward A: move A by normal * depth.
+pub fn aabb_vs_aabb_contact(a: &Aabb, b: &Aabb) -> Option<Contact> {
+    // Per-axis overlap; any component <= 0 means a separating axis exists.
+    let overlap = a.max.min(b.max) - a.min.max(b.min);
+    if overlap.cmple(Vec3::ZERO).any() {
+        return None;
+    }
+
+    // Axis of least penetration.
+    let (axis, depth) = if overlap.x <= overlap.y && overlap.x <= overlap.z {
+        (Vec3::X, overlap.x)
+    } else if overlap.y <= overlap.z {
+        (Vec3::Y, overlap.y)
+    } else {
+        (Vec3::Z, overlap.z)
+    };
+
+    // Orient the axis away from B.
+    let delta = a.center() - b.center();
+    let sign  = if delta.dot(axis) < 0.0 { -1.0 } else { 1.0 };
+    let normal = axis * sign;
+
+    Some(Contact {
+        normal,
+        depth,
+        point: b.closest_point(a.center()),
+    })
+}
+
+/// Fully contained: does a swallow b?
+pub fn aabb_contains_aabb(a: &Aabb, b: &Aabb) -> bool {
+    a.min.cmple(b.min).all() && a.max.cmpge(b.max).all()
+}`,
+
+'aabb-sphere': `pub fn aabb_vs_sphere(a: &Aabb, s: &Sphere) -> bool {
+    a.distance_sq(s.center) <= s.radius * s.radius
+}
+
+pub fn aabb_vs_sphere_contact(a: &Aabb, s: &Sphere) -> Option<Contact> {
+    let q = a.closest_point(s.center);
+    let delta = s.center - q;
+    let dist_sq = delta.length_squared();
+    if dist_sq > s.radius * s.radius {
+        return None;
+    }
+
+    if dist_sq > EPS * EPS {
+        // Normal case: centre is outside the box.
+        let dist = dist_sq.sqrt();
+        Some(Contact {
+            point: q,
+            normal: delta / dist,
+            depth: s.radius - dist,
+        })
+    } else {
+        // Centre is inside: pick the nearest face and push out through it.
+        let local = s.center - a.center();
+        let gap   = a.half() - local.abs();   // distance to each face
+        let (axis, face_gap) = if gap.x <= gap.y && gap.x <= gap.z {
+            (Vec3::X, gap.x)
+        } else if gap.y <= gap.z {
+            (Vec3::Y, gap.y)
+        } else {
+            (Vec3::Z, gap.z)
+        };
+        let sign = if local.dot(axis) < 0.0 { -1.0 } else { 1.0 };
+        let normal = axis * sign;
+        Some(Contact {
+            point: s.center - normal * face_gap,
+            normal,
+            depth: s.radius + face_gap,
+        })
+    }
+}
+
+pub fn sphere_vs_sphere(a: &Sphere, b: &Sphere) -> bool {
+    let r = a.radius + b.radius;
+    (a.center - b.center).length_squared() <= r * r
+}
+
+pub fn sphere_vs_sphere_contact(a: &Sphere, b: &Sphere) -> Option<Contact> {
+    let delta = a.center - b.center;
+    let r = a.radius + b.radius;
+    let d_sq = delta.length_squared();
+    if d_sq > r * r { return None; }
+
+    // Concentric spheres have no defined normal — pick one.
+    let normal = if d_sq > EPS * EPS { delta / d_sq.sqrt() } else { Vec3::Y };
+    Some(Contact {
+        point: b.center + normal * b.radius,
+        normal,
+        depth: r - d_sq.sqrt(),
+    })
+}`,
+
+'obb-core': `impl Obb {
+    /// World-space direction of local axis i (0 = X, 1 = Y, 2 = Z).
+    pub fn axis(&self, i: usize) -> Vec3 {
+        Mat3::from_quat(self.rot).col(i)
+    }
+
+    pub fn to_local(&self, p: Vec3) -> Vec3 {
+        self.rot.inverse() * (p - self.center)
+    }
+
+    pub fn to_world(&self, p: Vec3) -> Vec3 {
+        self.center + self.rot * p
+    }
+
+    pub fn contains_point(&self, p: Vec3) -> bool {
+        self.to_local(p).abs().cmple(self.half).all()
+    }
+
+    /// Clamp in local space, transform back. Same shape as the AABB version.
+    pub fn closest_point(&self, p: Vec3) -> Vec3 {
+        let local = self.to_local(p).clamp(-self.half, self.half);
+        self.to_world(local)
+    }
+
+    pub fn corners(&self) -> [Vec3; 8] {
+        let mut out = [Vec3::ZERO; 8];
+        for i in 0..8 {
+            let s = Vec3::new(
+                if i & 1 == 0 { -1.0 } else { 1.0 },
+                if i & 2 == 0 { -1.0 } else { 1.0 },
+                if i & 4 == 0 { -1.0 } else { 1.0 },
+            );
+            out[i] = self.to_world(s * self.half);
+        }
+        out
+    }
+
+    /// Tight AABB around the rotated box, without touching all 8 corners.
+    /// The extent along each world axis is |R| * half.
+    pub fn enclosing_aabb(&self) -> Aabb {
+        let m = Mat3::from_quat(self.rot);
+        let ext = m.x_axis.abs() * self.half.x
+                + m.y_axis.abs() * self.half.y
+                + m.z_axis.abs() * self.half.z;
+        Aabb { min: self.center - ext, max: self.center + ext }
+    }
+
+    /// How far the box reaches along an arbitrary unit direction.
+    pub fn projection_radius(&self, dir: Vec3) -> f32 {
+        self.half.x * dir.dot(self.axis(0)).abs()
+      + self.half.y * dir.dot(self.axis(1)).abs()
+      + self.half.z * dir.dot(self.axis(2)).abs()
+    }
+}
+
+impl From<Aabb> for Obb {
+    fn from(a: Aabb) -> Self {
+        Obb { center: a.center(), half: a.half(), rot: Quat::IDENTITY }
+    }
+}`,
+
+'obb-sat': `/// Separating axis test. False means definitely apart; true means overlapping.
+/// Fifteen axes: 3 face normals of A, 3 of B, 9 edge-edge cross products.
+pub fn obb_vs_obb(a: &Obb, b: &Obb) -> bool {
+    let ma = Mat3::from_quat(a.rot);
+    let mb = Mat3::from_quat(b.rot);
+
+    // B's rotation expressed in A's frame: r[i][j] = A_i · B_j
+    let r = ma.transpose() * mb;
+    // Translation from A to B, in A's frame.
+    let t = ma.transpose() * (b.center - a.center);
+
+    // Absolute values, biased so parallel edges do not produce a 0 > 0 test.
+    let ar = Mat3::from_cols(
+        r.x_axis.abs() + Vec3::splat(EPS),
+        r.y_axis.abs() + Vec3::splat(EPS),
+        r.z_axis.abs() + Vec3::splat(EPS),
+    );
+
+    let rij = |i: usize, j: usize| r.col(j)[i];
+    let aij = |i: usize, j: usize| ar.col(j)[i];
+    let (ha, hb) = (a.half, b.half);
+
+    // --- 3 face axes of A ---
+    for i in 0..3 {
+        let ra = ha[i];
+        let rb = hb[0] * aij(i, 0) + hb[1] * aij(i, 1) + hb[2] * aij(i, 2);
+        if t[i].abs() > ra + rb { return false; }
+    }
+
+    // --- 3 face axes of B ---
+    for j in 0..3 {
+        let ra = ha[0] * aij(0, j) + ha[1] * aij(1, j) + ha[2] * aij(2, j);
+        let rb = hb[j];
+        let proj = t[0] * rij(0, j) + t[1] * rij(1, j) + t[2] * rij(2, j);
+        if proj.abs() > ra + rb { return false; }
+    }
+
+    // --- 9 edge-edge axes: A_i × B_j ---
+    for i in 0..3 {
+        let (i1, i2) = ((i + 1) % 3, (i + 2) % 3);
+        for j in 0..3 {
+            let (j1, j2) = ((j + 1) % 3, (j + 2) % 3);
+            let ra = ha[i1] * aij(i2, j) + ha[i2] * aij(i1, j);
+            let rb = hb[j1] * aij(i, j2) + hb[j2] * aij(i, j1);
+            let proj = t[i2] * rij(i1, j) - t[i1] * rij(i2, j);
+            if proj.abs() > ra + rb { return false; }
+        }
+    }
+
+    // No separating axis found.
+    true
+}`,
+
+'obb-misc': `pub fn obb_vs_sphere(o: &Obb, s: &Sphere) -> bool {
+    (o.closest_point(s.center) - s.center).length_squared() <= s.radius * s.radius
+}
+
+pub fn obb_vs_sphere_contact(o: &Obb, s: &Sphere) -> Option<Contact> {
+    // Do it in local space so the AABB version applies verbatim,
+    // then rotate the result back out.
+    let local_center = o.to_local(s.center);
+    let local_box = Aabb { min: -o.half, max: o.half };
+    let c = aabb_vs_sphere_contact(&local_box, &Sphere {
+        center: local_center,
+        radius: s.radius,
+    })?;
+    Some(Contact {
+        point: o.to_world(c.point),
+        normal: o.rot * c.normal,
+        depth: c.depth,
+    })
+}
+
+/// AABB vs OBB is just OBB vs OBB with an identity rotation.
+pub fn aabb_vs_obb(a: &Aabb, o: &Obb) -> bool {
+    obb_vs_obb(&Obb::from(*a), o)
+}
+
+/// Cheap early-out before the 15-axis test: compare enclosing AABBs first.
+pub fn obb_vs_obb_broad(a: &Obb, b: &Obb) -> bool {
+    aabb_vs_aabb(&a.enclosing_aabb(), &b.enclosing_aabb()) && obb_vs_obb(a, b)
+}`,
+
+'tri-core': `impl Tri {
+    pub fn edges(&self) -> (Vec3, Vec3, Vec3) {
+        (self.b - self.a, self.c - self.b, self.a - self.c)
+    }
+
+    /// Unnormalised normal; its length is twice the area.
+    pub fn normal_raw(&self) -> Vec3 {
+        (self.b - self.a).cross(self.c - self.a)
+    }
+
+    pub fn area(&self) -> f32 { self.normal_raw().length() * 0.5 }
+
+    pub fn is_degenerate(&self) -> bool {
+        self.normal_raw().length_squared() < EPS * EPS
+    }
+
+    /// None for slivers and duplicated vertices — do not paper over this.
+    pub fn normal(&self) -> Option<Vec3> {
+        let n = self.normal_raw();
+        (n.length_squared() > EPS * EPS).then(|| n.normalize())
+    }
+
+    pub fn plane(&self) -> Option<Plane> {
+        let n = self.normal()?;
+        Some(Plane { n, d: n.dot(self.a) })
+    }
+
+    pub fn centroid(&self) -> Vec3 { (self.a + self.b + self.c) / 3.0 }
+
+    /// Barycentric weights (u, v, w) with p ≈ u*a + v*b + w*c.
+    /// Valid for any p; inside the triangle iff all three are in [0, 1].
+    pub fn barycentric(&self, p: Vec3) -> Vec3 {
+        let (v0, v1, v2) = (self.b - self.a, self.c - self.a, p - self.a);
+        let d00 = v0.dot(v0);
+        let d01 = v0.dot(v1);
+        let d11 = v1.dot(v1);
+        let d20 = v2.dot(v0);
+        let d21 = v2.dot(v1);
+        let denom = d00 * d11 - d01 * d01;
+        if denom.abs() < EPS { return Vec3::new(1.0, 0.0, 0.0); }
+        let v = (d11 * d20 - d01 * d21) / denom;
+        let w = (d00 * d21 - d01 * d20) / denom;
+        Vec3::new(1.0 - v - w, v, w)
+    }
+
+    /// Blend any per-vertex attribute at a barycentric position.
+    pub fn interpolate(&self, bary: Vec3, va: Vec3, vb: Vec3, vc: Vec3) -> Vec3 {
+        va * bary.x + vb * bary.y + vc * bary.z
+    }
+}`,
+
+'tri-closest': `impl Tri {
+    /// Nearest point on the triangle to p — face, one of three edges,
+    /// or one of three vertices. Ericson's Voronoi-region formulation.
+    pub fn closest_point(&self, p: Vec3) -> Vec3 {
+        let (a, b, c) = (self.a, self.b, self.c);
+        let ab = b - a;
+        let ac = c - a;
+
+        // Vertex region A
+        let ap = p - a;
+        let d1 = ab.dot(ap);
+        let d2 = ac.dot(ap);
+        if d1 <= 0.0 && d2 <= 0.0 { return a; }
+
+        // Vertex region B
+        let bp = p - b;
+        let d3 = ab.dot(bp);
+        let d4 = ac.dot(bp);
+        if d3 >= 0.0 && d4 <= d3 { return b; }
+
+        // Edge region AB
+        let vc = d1 * d4 - d3 * d2;
+        if vc <= 0.0 && d1 >= 0.0 && d3 <= 0.0 {
+            let v = d1 / (d1 - d3);
+            return a + ab * v;
+        }
+
+        // Vertex region C
+        let cp = p - c;
+        let d5 = ab.dot(cp);
+        let d6 = ac.dot(cp);
+        if d6 >= 0.0 && d5 <= d6 { return c; }
+
+        // Edge region AC
+        let vb = d5 * d2 - d1 * d6;
+        if vb <= 0.0 && d2 >= 0.0 && d6 <= 0.0 {
+            let w = d2 / (d2 - d6);
+            return a + ac * w;
+        }
+
+        // Edge region BC
+        let va = d3 * d6 - d5 * d4;
+        if va <= 0.0 && (d4 - d3) >= 0.0 && (d5 - d6) >= 0.0 {
+            let w = (d4 - d3) / ((d4 - d3) + (d5 - d6));
+            return b + (c - b) * w;
+        }
+
+        // Face region: convert the barycentric numerators to a point.
+        let denom = 1.0 / (va + vb + vc);
+        let v = vb * denom;
+        let w = vc * denom;
+        a + ab * v + ac * w
+    }
+}`,
+
+'tri-box': `pub fn tri_vs_sphere(t: &Tri, s: &Sphere) -> bool {
+    (t.closest_point(s.center) - s.center).length_squared() <= s.radius * s.radius
+}
+
+pub fn tri_vs_sphere_contact(t: &Tri, s: &Sphere) -> Option<Contact> {
+    let q = t.closest_point(s.center);
+    let delta = s.center - q;
+    let d_sq = delta.length_squared();
+    if d_sq > s.radius * s.radius { return None; }
+
+    // Prefer the face normal when the sphere sits over the face; fall back to
+    // the delta direction on edges and vertices.
+    let normal = if d_sq > EPS * EPS {
+        delta / d_sq.sqrt()
+    } else {
+        t.normal()?
+    };
+    Some(Contact { point: q, normal, depth: s.radius - d_sq.sqrt() })
+}
+
+/// Triangle vs AABB by SAT — Akenine-Möller's 13 axes:
+/// 9 edge cross products, 3 box faces, 1 triangle plane.
+pub fn tri_vs_aabb(t: &Tri, box_: &Aabb) -> bool {
+    let c = box_.center();
+    let h = box_.half();
+
+    // Move the box to the origin.
+    let v = [t.a - c, t.b - c, t.c - c];
+    let f = [v[1] - v[0], v[2] - v[1], v[0] - v[2]];
+
+    // --- 9 axes: e_i × f_j, expanded because e_i are the unit axes ---
+    for j in 0..3 {
+        let fj = f[j];
+        let axes = [
+            Vec3::new(0.0, -fj.z, fj.y),   // X × f
+            Vec3::new(fj.z, 0.0, -fj.x),   // Y × f
+            Vec3::new(-fj.y, fj.x, 0.0),   // Z × f
+        ];
+        for ax in axes {
+            let p0 = v[0].dot(ax);
+            let p1 = v[1].dot(ax);
+            let p2 = v[2].dot(ax);
+            let r = h.x * ax.x.abs() + h.y * ax.y.abs() + h.z * ax.z.abs();
+            if p0.min(p1).min(p2) > r || p0.max(p1).max(p2) < -r {
+                return false;
+            }
+        }
+    }
+
+    // --- 3 box face axes ---
+    for i in 0..3 {
+        let lo = v[0][i].min(v[1][i]).min(v[2][i]);
+        let hi = v[0][i].max(v[1][i]).max(v[2][i]);
+        if lo > h[i] || hi < -h[i] { return false; }
+    }
+
+    // --- 1 triangle plane ---
+    let n = f[0].cross(f[1]);
+    let dist = n.dot(v[0]);
+    let r = h.x * n.x.abs() + h.y * n.y.abs() + h.z * n.z.abs();
+    dist.abs() <= r
+}
+
+/// Triangle vs OBB: move the triangle into the box's frame.
+pub fn tri_vs_obb(t: &Tri, o: &Obb) -> bool {
+    let local = Tri {
+        a: o.to_local(t.a),
+        b: o.to_local(t.b),
+        c: o.to_local(t.c),
+    };
+    tri_vs_aabb(&local, &Aabb { min: -o.half, max: o.half })
+}`,
+
+'plane-core': `#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Side { Front, Behind, Straddling }
+
+impl Plane {
+    pub fn from_point_normal(p: Vec3, n: Vec3) -> Self {
+        let n = n.normalize();
+        Self { n, d: n.dot(p) }
+    }
+
+    /// Plane through three points, CCW winding facing the front.
+    pub fn from_points(a: Vec3, b: Vec3, c: Vec3) -> Option<Self> {
+        let raw = (b - a).cross(c - a);
+        (raw.length_squared() > EPS * EPS).then(|| {
+            let n = raw.normalize();
+            Self { n, d: n.dot(a) }
+        })
+    }
+
+    /// Positive in front of the plane, negative behind. Because n is unit,
+    /// this is a true Euclidean distance, not just a sign.
+    pub fn signed_distance(&self, p: Vec3) -> f32 {
+        self.n.dot(p) - self.d
+    }
+
+    pub fn project(&self, p: Vec3) -> Vec3 {
+        p - self.n * self.signed_distance(p)
+    }
+
+    pub fn reflect(&self, v: Vec3) -> Vec3 {
+        v - 2.0 * v.dot(self.n) * self.n
+    }
+
+    /// Remove the component of v that pushes into the plane — "slide".
+    pub fn project_vector(&self, v: Vec3) -> Vec3 {
+        v - self.n * v.dot(self.n)
+    }
+
+    pub fn classify_point(&self, p: Vec3, thickness: f32) -> Side {
+        let sd = self.signed_distance(p);
+        if sd > thickness { Side::Front }
+        else if sd < -thickness { Side::Behind }
+        else { Side::Straddling }
+    }
+
+    pub fn flipped(&self) -> Plane {
+        Plane { n: -self.n, d: -self.d }
+    }
+}`,
+
+'plane-tests': `/// Every convex volume answers one question: how far do you reach along n?
+/// Compare that projection radius against the centre's signed distance.
+pub fn sphere_vs_plane(s: &Sphere, pl: &Plane) -> Side {
+    let sd = pl.signed_distance(s.center);
+    if sd > s.radius { Side::Front }
+    else if sd < -s.radius { Side::Behind }
+    else { Side::Straddling }
+}
+
+pub fn aabb_vs_plane(a: &Aabb, pl: &Plane) -> Side {
+    // Projection radius of an AABB: half · |n|, since its axes are the world axes.
+    let r = a.half().dot(pl.n.abs());
+    let sd = pl.signed_distance(a.center());
+    if sd > r { Side::Front }
+    else if sd < -r { Side::Behind }
+    else { Side::Straddling }
+}
+
+pub fn obb_vs_plane(o: &Obb, pl: &Plane) -> Side {
+    let r = o.projection_radius(pl.n);
+    let sd = pl.signed_distance(o.center);
+    if sd > r { Side::Front }
+    else if sd < -r { Side::Behind }
+    else { Side::Straddling }
+}
+
+/// Triangle vs plane: classify the three vertices and look at the signs.
+pub fn tri_vs_plane(t: &Tri, pl: &Plane) -> Side {
+    let d = [
+        pl.signed_distance(t.a),
+        pl.signed_distance(t.b),
+        pl.signed_distance(t.c),
+    ];
+    if d.iter().all(|&x| x > EPS) { Side::Front }
+    else if d.iter().all(|&x| x < -EPS) { Side::Behind }
+    else { Side::Straddling }
+}
+
+/// Contact for a sphere resting on or sunk into a plane.
+pub fn sphere_vs_plane_contact(s: &Sphere, pl: &Plane) -> Option<Contact> {
+    let sd = pl.signed_distance(s.center);
+    (sd.abs() <= s.radius).then(|| Contact {
+        point: s.center - pl.n * sd,
+        normal: if sd >= 0.0 { pl.n } else { -pl.n },
+        depth: s.radius - sd.abs(),
+    })
+}
+
+/// Frustum culling: six planes with inward normals, reject on the first miss.
+pub fn aabb_in_frustum(a: &Aabb, planes: &[Plane; 6]) -> bool {
+    planes.iter().all(|pl| aabb_vs_plane(a, pl) != Side::Behind)
+}
+
+/// Where three planes meet — used to build frustum corners.
+pub fn three_plane_intersection(p1: &Plane, p2: &Plane, p3: &Plane) -> Option<Vec3> {
+    let m = Mat3::from_cols(p1.n, p2.n, p3.n).transpose();
+    let det = m.determinant();
+    if det.abs() < EPS { return None; }   // parallel or coincident
+    Some(m.inverse() * Vec3::new(p1.d, p2.d, p3.d))
+}`,
+
+'ray-sphere': `/// dir must be unit length. Returns the first hit in [0, t_max].
+/// If the origin is inside the sphere, returns the exit point with an
+/// inward-facing normal and back_face = true.
+pub fn ray_vs_sphere(origin: Vec3, dir: Vec3, s: &Sphere, t_max: f32) -> Option<Hit> {
+    let m = origin - s.center;
+    let b = m.dot(dir);
+    let c = m.length_squared() - s.radius * s.radius;
+
+    // Outside and pointing away: no chance.
+    if c > 0.0 && b > 0.0 { return None; }
+
+    let disc = b * b - c;
+    if disc < 0.0 { return None; }
+
+    let sq = disc.sqrt();
+    let mut t = -b - sq;
+    let back_face = t < 0.0;
+    if back_face { t = -b + sq; }          // origin inside ⇒ take the exit
+    if t < 0.0 || t > t_max { return None; }
+
+    let point = origin + dir * t;
+    let mut normal = (point - s.center) / s.radius;
+    if back_face { normal = -normal; }
+
+    Some(Hit { t, point, normal, back_face })
+}`,
+
+'ray-aabb': `/// Slab method. Also recovers which face was hit, which the usual
+/// "return a bool" version throws away.
+pub fn ray_vs_aabb(origin: Vec3, dir: Vec3, b: &Aabb, t_max: f32) -> Option<Hit> {
+    // Division by zero gives ±inf here, which the min/max below handle.
+    let inv = dir.recip();
+    let t1 = (b.min - origin) * inv;
+    let t2 = (b.max - origin) * inv;
+
+    let t_lo = t1.min(t2);   // per-axis entry
+    let t_hi = t1.max(t2);   // per-axis exit
+
+    let t_enter = t_lo.max_element();
+    let t_exit  = t_hi.min_element();
+
+    if t_exit < t_enter.max(0.0) || t_enter > t_max { return None; }
+
+    if t_enter < 0.0 {
+        // Origin started inside the box.
+        if t_exit > t_max { return None; }
+        return Some(Hit {
+            t: 0.0,
+            point: origin,
+            normal: -dir,
+            back_face: true,
+        });
+    }
+
+    // The axis whose entry was largest is the face we crossed last.
+    let axis = if t_lo.x > t_lo.y {
+        if t_lo.x > t_lo.z { 0 } else { 2 }
+    } else if t_lo.y > t_lo.z { 1 } else { 2 };
+
+    let mut normal = Vec3::ZERO;
+    normal[axis] = if dir[axis] > 0.0 { -1.0 } else { 1.0 };
+
+    Some(Hit {
+        t: t_enter,
+        point: origin + dir * t_enter,
+        normal,
+        back_face: false,
+    })
+}
+
+/// Bool-only version for broad phase — no branches, no normal.
+pub fn ray_hits_aabb(origin: Vec3, inv_dir: Vec3, b: &Aabb, t_max: f32) -> bool {
+    let t1 = (b.min - origin) * inv_dir;
+    let t2 = (b.max - origin) * inv_dir;
+    let t_enter = t1.min(t2).max_element().max(0.0);
+    let t_exit  = t1.max(t2).min_element().min(t_max);
+    t_exit >= t_enter
+}`,
+
+'ray-obb': `/// Rotate the ray into the box's frame, run the AABB test, rotate the
+/// answer back out. t is unchanged because rotation preserves length.
+pub fn ray_vs_obb(origin: Vec3, dir: Vec3, o: &Obb, t_max: f32) -> Option<Hit> {
+    let inv_rot = o.rot.inverse();
+    let local_origin = inv_rot * (origin - o.center);
+    let local_dir    = inv_rot * dir;
+
+    let local_box = Aabb { min: -o.half, max: o.half };
+    let hit = ray_vs_aabb(local_origin, local_dir, &local_box, t_max)?;
+
+    Some(Hit {
+        t: hit.t,
+        point: o.to_world(hit.point),
+        normal: o.rot * hit.normal,
+        back_face: hit.back_face,
+    })
+}
+
+/// Ray vs plane. Parallel rays miss, even if they lie exactly in the plane —
+/// an infinitely thin grazing hit is never the answer a caller wants.
+pub fn ray_vs_plane(origin: Vec3, dir: Vec3, pl: &Plane, t_max: f32) -> Option<Hit> {
+    let denom = pl.n.dot(dir);
+    if denom.abs() < EPS { return None; }
+
+    let t = (pl.d - pl.n.dot(origin)) / denom;
+    if t < 0.0 || t > t_max { return None; }
+
+    // denom > 0 means we are hitting the back of the plane.
+    let back_face = denom > 0.0;
+    Some(Hit {
+        t,
+        point: origin + dir * t,
+        normal: if back_face { -pl.n } else { pl.n },
+        back_face,
+    })
+}`,
+
+'ray-tri': `/// Möller–Trumbore. Returns the hit and the barycentric pair (u, v),
+/// where the weights are (1-u-v, u, v) for (a, b, c).
+/// Set cull_back to skip triangles facing away — roughly a 2× speedup
+/// on closed meshes, and wrong for anything you can see from both sides.
+pub fn ray_vs_tri(
+    origin: Vec3,
+    dir: Vec3,
+    tri: &Tri,
+    t_max: f32,
+    cull_back: bool,
+) -> Option<(Hit, Vec2)> {
+    let e1 = tri.b - tri.a;
+    let e2 = tri.c - tri.a;
+    let pvec = dir.cross(e2);
+    let det = e1.dot(pvec);
+
+    if cull_back {
+        if det < EPS { return None; }          // back-facing or parallel
+    } else if det.abs() < EPS {
+        return None;                            // parallel or degenerate
+    }
+
+    let inv_det = 1.0 / det;
+    let tvec = origin - tri.a;
+
+    let u = tvec.dot(pvec) * inv_det;
+    if !(0.0..=1.0).contains(&u) { return None; }
+
+    let qvec = tvec.cross(e1);
+    let v = dir.dot(qvec) * inv_det;
+    if v < 0.0 || u + v > 1.0 { return None; }
+
+    let t = e2.dot(qvec) * inv_det;
+    if t < 0.0 || t > t_max { return None; }
+
+    let back_face = det < 0.0;
+    let mut normal = e1.cross(e2).normalize();
+    if back_face { normal = -normal; }
+
+    Some((
+        Hit { t, point: origin + dir * t, normal, back_face },
+        Vec2::new(u, v),
+    ))
+}
+
+/// Nearest hit across a mesh, keeping the barycentrics of the winner.
+pub fn ray_vs_mesh(
+    origin: Vec3,
+    dir: Vec3,
+    tris: &[Tri],
+    t_max: f32,
+) -> Option<(usize, Hit, Vec2)> {
+    let mut best: Option<(usize, Hit, Vec2)> = None;
+    let mut closest = t_max;
+    for (i, tri) in tris.iter().enumerate() {
+        if let Some((hit, bary)) = ray_vs_tri(origin, dir, tri, closest, false) {
+            closest = hit.t;               // shrink the window as we go
+            best = Some((i, hit, bary));
+        }
+    }
+    best
+}`,
+
+'hit-info': `// ---- t is the only primitive; everything else derives from it ----
+
+let point = origin + dir * hit.t;          // world position of the hit
+let travelled = hit.t;                      // distance, because dir is unit
+let remaining = t_max - hit.t;              // budget left for a slide step
+
+// ---- normals ----
+
+// Always oppose the incoming ray, so reflection and sliding just work.
+let normal = if hit.normal.dot(dir) > 0.0 { -hit.normal } else { hit.normal };
+
+let bounce = dir - 2.0 * dir.dot(normal) * normal;   // reflect
+let slide  = dir - normal * dir.dot(normal);         // project onto surface
+let is_walkable = normal.dot(Vec3::Y) > 0.7;         // ≈ 45° slope limit
+
+// ---- per-vertex attributes at the hit, from Möller–Trumbore ----
+
+let (hit, uv) = ray_vs_tri(origin, dir, &tri, 100.0, false)?;
+let (u, v) = (uv.x, uv.y);
+let bary = Vec3::new(1.0 - u - v, u, v);
+
+let shading_normal = (n_a * bary.x + n_b * bary.y + n_c * bary.z).normalize();
+let texcoord       = uv_a * bary.x + uv_b * bary.y + uv_c * bary.z;
+
+// ---- offsetting to avoid re-hitting the surface you started on ----
+
+let next_origin = hit.point + normal * 1e-3;
+
+// ---- resolving a static contact ----
+
+// normal points from B toward A, so this always separates.
+transform_a.translation += contact.normal * contact.depth;
+
+// Split the correction by mass for two dynamic bodies.
+let total = inv_mass_a + inv_mass_b;
+transform_a.translation += contact.normal * contact.depth * (inv_mass_a / total);
+transform_b.translation -= contact.normal * contact.depth * (inv_mass_b / total);
+
+// ---- debug assertion worth keeping in every hit constructor ----
+
+debug_assert!(hit.point.is_finite() && hit.normal.is_finite());
+debug_assert!((hit.normal.length() - 1.0).abs() < 1e-3);`,
+
+'cast-simple': `/// Sphere of radius r, centre travelling from c along unit dir.
+/// Exact: a plane offset by r is still a plane.
+pub fn cast_sphere_plane(
+    c: Vec3, r: f32, dir: Vec3, t_max: f32, pl: &Plane,
+) -> Option<Hit> {
+    let dist = pl.signed_distance(c);
+    if dist.abs() <= r {
+        // Already touching — report an immediate hit rather than a miss.
+        return Some(Hit {
+            t: 0.0,
+            point: c - pl.n * dist,
+            normal: if dist >= 0.0 { pl.n } else { -pl.n },
+            back_face: false,
+        });
+    }
+
+    let denom = pl.n.dot(dir);
+    if denom * dist >= 0.0 { return None; }   // moving away, or parallel
+
+    // Stop when the centre is exactly r from the plane, on the side it started.
+    let t = (dist.signum() * r - dist) / denom;
+    if t < 0.0 || t > t_max { return None; }
+
+    let hit_center = c + dir * t;
+    let normal = if dist > 0.0 { pl.n } else { -pl.n };
+    Some(Hit {
+        t,
+        point: hit_center - normal * r,
+        normal,
+        back_face: false,
+    })
+}
+
+/// Moving sphere vs static sphere: inflate the target by r and raycast
+/// the moving centre. Exact, because a sphere ⊕ a sphere is a sphere.
+pub fn cast_sphere_sphere(
+    c: Vec3, r: f32, dir: Vec3, t_max: f32, target: &Sphere,
+) -> Option<Hit> {
+    let inflated = Sphere { center: target.center, radius: target.radius + r };
+    let h = ray_vs_sphere(c, dir, &inflated, t_max)?;
+
+    // h.point is on the inflated surface; walk back to the real one.
+    Some(Hit {
+        t: h.t,
+        point: target.center + h.normal * target.radius,
+        normal: h.normal,
+        back_face: h.back_face,
+    })
+}
+
+/// Two moving spheres: subtract velocities and cast the relative motion.
+pub fn cast_sphere_vs_moving_sphere(
+    a: &Sphere, va: Vec3, b: &Sphere, vb: Vec3, dt: f32,
+) -> Option<f32> {
+    let rel = (va - vb) * dt;
+    let dist = rel.length();
+    if dist < EPS { return None; }
+    cast_sphere_sphere(a.center, a.radius, rel / dist, dist, b).map(|h| h.t / dist)
+}`,
+
+'cast-aabb': `/// Conservative first pass: raycast against the box grown by r.
+/// Never misses a real hit; over-reports near edges and corners, because
+/// the true swept volume has rounded ones.
+pub fn cast_sphere_aabb_conservative(
+    c: Vec3, r: f32, dir: Vec3, t_max: f32, b: &Aabb,
+) -> Option<Hit> {
+    ray_vs_aabb(c, dir, &b.expand(Vec3::splat(r)), t_max)
+}
+
+/// Exact version. If the conservative hit lands in a face region it is
+/// already correct; otherwise refine against the capsules on the edges
+/// meeting at that corner.
+pub fn cast_sphere_aabb(
+    c: Vec3, r: f32, dir: Vec3, t_max: f32, b: &Aabb,
+) -> Option<Hit> {
+    let coarse = cast_sphere_aabb_conservative(c, r, dir, t_max, b)?;
+
+    // Where did the centre stop, relative to the original box?
+    let centre_at_hit = c + dir * coarse.t;
+    let local = centre_at_hit - b.center();
+    let outside = local.abs() - b.half();
+
+    // How many axes stick out past the original box?
+    let over = [outside.x > 0.0, outside.y > 0.0, outside.z > 0.0];
+    let count = over.iter().filter(|&&x| x).count();
+
+    if count <= 1 {
+        // Face region: the flat part of the expanded box is exact.
+        return Some(Hit {
+            t: coarse.t,
+            point: centre_at_hit - coarse.normal * r,
+            normal: coarse.normal,
+            back_face: coarse.back_face,
+        });
+    }
+
+    // Edge or corner: test the real rounded geometry.
+    // The three edges meeting at the nearest corner, as capsules of radius r.
+    let corner = Vec3::new(
+        if local.x > 0.0 { b.max.x } else { b.min.x },
+        if local.y > 0.0 { b.max.y } else { b.min.y },
+        if local.z > 0.0 { b.max.z } else { b.min.z },
+    );
+    let opposite = Vec3::new(
+        if local.x > 0.0 { b.min.x } else { b.max.x },
+        if local.y > 0.0 { b.min.y } else { b.max.y },
+        if local.z > 0.0 { b.min.z } else { b.max.z },
+    );
+
+    let mut best: Option<f32> = None;
+    for axis in 0..3 {
+        let mut far = corner;
+        far[axis] = opposite[axis];
+        if let Some(t) = ray_vs_capsule(c, dir, corner, far, r, t_max) {
+            best = Some(best.map_or(t, |x: f32| x.min(t)));
+        }
+    }
+
+    let t = best?;
+    let centre_at_hit = c + dir * t;
+    let surface = b.closest_point(centre_at_hit);
+    let normal = (centre_at_hit - surface).normalize_or_zero();
+    Some(Hit { t, point: surface, normal, back_face: false })
+}`,
+
+'cast-tri': `/// Ray vs capsule (segment p→q, radius r). Infinite cylinder first,
+/// then the two end caps. dir must be unit length.
+pub fn ray_vs_capsule(
+    o: Vec3, dir: Vec3, p: Vec3, q: Vec3, r: f32, t_max: f32,
+) -> Option<f32> {
+    let ba = q - p;
+    let oa = o - p;
+    let baba = ba.dot(ba);
+    let bard = ba.dot(dir);
+    let baoa = ba.dot(oa);
+    let rdoa = dir.dot(oa);
+    let oaoa = oa.dot(oa);
+
+    let a = baba - bard * bard;                       // 0 if ray ∥ axis
+    let b = baba * rdoa - baoa * bard;
+    let c = baba * oaoa - baoa * baoa - r * r * baba;
+    let h = b * b - a * c;
+
+    let mut best: Option<f32> = None;
+
+    // --- cylindrical body, valid only between the two caps ---
+    if h >= 0.0 && a.abs() > EPS {
+        let t = (-b - h.sqrt()) / a;
+        let y = baoa + t * bard;                      // where along the axis
+        if y > 0.0 && y < baba && (0.0..=t_max).contains(&t) {
+            best = Some(t);
+        }
+    }
+
+    // --- the two hemispherical caps ---
+    for cap in [p, q] {
+        let oc = o - cap;
+        let b2 = dir.dot(oc);
+        let c2 = oc.dot(oc) - r * r;
+        let h2 = b2 * b2 - c2;
+        if h2 >= 0.0 {
+            let t = -b2 - h2.sqrt();
+            if (0.0..=t_max).contains(&t) {
+                best = Some(best.map_or(t, |x: f32| x.min(t)));
+            }
+        }
+    }
+
+    best
+}
+
+/// Exact swept sphere vs triangle: the Minkowski sum enumerated as
+/// one offset plane, three edge capsules and three vertex spheres.
+pub fn cast_sphere_tri(
+    c: Vec3, r: f32, dir: Vec3, t_max: f32, tri: &Tri,
+) -> Option<Hit> {
+    let n = tri.normal()?;
+    // Face the plane toward the incoming sphere.
+    let n = if n.dot(c - tri.a) < 0.0 { -n } else { n };
+
+    let mut best_t = t_max;
+    let mut found = false;
+
+    // --- 1. the face, offset by r along the normal ---
+    let denom = n.dot(dir);
+    if denom < -EPS {
+        let t = (n.dot(tri.a) + r - n.dot(c)) / denom;
+        if (0.0..=best_t).contains(&t) {
+            // Only counts if the contact lands inside the triangle proper.
+            let contact = c + dir * t - n * r;
+            let bary = tri.barycentric(contact);
+            if bary.min_element() >= -EPS {
+                best_t = t;
+                found = true;
+            }
+        }
+    }
+
+    // --- 2. three edge capsules ---
+    for (p, q) in [(tri.a, tri.b), (tri.b, tri.c), (tri.c, tri.a)] {
+        if let Some(t) = ray_vs_capsule(c, dir, p, q, r, best_t) {
+            best_t = t;
+            found = true;
+        }
+    }
+
+    // --- 3. three vertex spheres ---
+    for v in [tri.a, tri.b, tri.c] {
+        let s = Sphere { center: v, radius: r };
+        if let Some(h) = ray_vs_sphere(c, dir, &s, best_t) {
+            best_t = h.t;
+            found = true;
+        }
+    }
+
+    if !found { return None; }
+
+    let centre_at_hit = c + dir * best_t;
+    let surface = tri.closest_point(centre_at_hit);
+    Some(Hit {
+        t: best_t,
+        point: surface,
+        normal: (centre_at_hit - surface).normalize_or_zero(),
+        back_face: false,
+    })
+}`,
+
+'bevy-bounding': `use bevy::math::bounding::{
+    Aabb3d, BoundingSphere, BoundingVolume, IntersectsVolume, Bounded3d,
+};
+use bevy::math::{Isometry3d, Vec3, Vec3A};
+use bevy::prelude::*;
+
+// --- construction ---
+let a = Aabb3d::new(Vec3::ZERO, Vec3::splat(0.5));         // centre, half-size
+let s = BoundingSphere::new(Vec3::X * 0.9, 0.5);           // centre, radius
+
+// From a primitive placed by an isometry (translation + rotation).
+let iso = Isometry3d::new(transform.translation, transform.rotation);
+let a2 = Cuboid::new(1.0, 2.0, 1.0).aabb_3d(iso);
+let s2 = Sphere::new(0.75).bounding_sphere(iso);
+
+// From a point cloud — panics on an empty slice, so check first.
+let hull = Aabb3d::from_point_cloud(Isometry3d::IDENTITY, points.iter().copied());
+
+// --- BoundingVolume: the shared surface ---
+let c: Vec3A = a.center();
+let h: Vec3A = a.half_size();
+let merged  = a.merge(&other);          // smallest volume containing both
+let padded  = a.grow(Vec3::splat(0.1)); // and .shrink(..)
+let area    = a.visible_area();         // surface-area heuristic, for BVHs
+let nearest = a.closest_point(p);
+let round   = a.bounding_sphere();      // Aabb3d → BoundingSphere
+let boxed   = s.aabb_3d();              // and back
+
+// --- IntersectsVolume: one trait, every pair ---
+if a.intersects(&s) { /* … */ }
+if a.intersects(&other_aabb) { /* … */ }
+if a.contains(&other_aabb) { /* fully inside */ }
+
+// Broad phase over a query, before your own narrow-phase test.
+fn broad_phase(q: Query<(Entity, &Aabb3d)>, player: Single<&Aabb3d, With<Player>>) {
+    for (entity, volume) in &q {
+        if player.intersects(volume) {
+            // hand off to obb_vs_obb, tri_vs_aabb, …
+        }
+    }
+}`,
+
+'bevy-raycast': `use bevy::math::bounding::{
+    RayCast3d, AabbCast3d, BoundingSphereCast, Aabb3d, BoundingSphere, IntersectsVolume,
+};
+use bevy::math::{Dir3, Ray3d, Vec3};
+
+// --- raycast ---
+let ray = Ray3d::new(Vec3::new(0.0, 5.0, 0.0), Dir3::NEG_Y);
+let cast = RayCast3d::from_ray(ray, 100.0);
+// or: RayCast3d::new(origin, Dir3::NEG_Y, 100.0)
+
+if let Some(t) = cast.aabb_intersection_at(&aabb) {
+    let point = ray.get_point(t);
+}
+if let Some(t) = cast.sphere_intersection_at(&sphere) {
+    let point = ray.get_point(t);
+    let normal = (point - Vec3::from(sphere.center())).normalize();
+}
+
+// Boolean form, through the same trait as everything else.
+if cast.intersects(&aabb) { /* … */ }
+
+// Cached reciprocal, if you are casting one ray at many volumes.
+let inv = cast.direction_recip();
+
+// --- shape casts: sweep a volume along the ray ---
+let sphere_cast = BoundingSphereCast::from_ray(
+    BoundingSphere::new(Vec3::ZERO, 0.5),   // the volume being swept
+    ray,
+    50.0,
+);
+if let Some(t) = sphere_cast.sphere_collision_at(target_sphere) {
+    // t is the distance travelled before the two spheres touch
+}
+
+let aabb_cast = AabbCast3d::from_ray(Aabb3d::new(Vec3::ZERO, Vec3::splat(0.5)), ray, 50.0);
+if let Some(t) = aabb_cast.aabb_collision_at(target_aabb) {
+    // note: AABB-vs-AABB sweep, so no rounded corners to worry about here
+}
+
+// Nearest of many, the usual pattern.
+let nearest = volumes
+    .iter()
+    .filter_map(|(e, v)| cast.aabb_intersection_at(v).map(|t| (e, t)))
+    .min_by(|a, b| a.1.total_cmp(&b.1));`,
+
+'bevy-ray': `use bevy::math::{Dir3, InfinitePlane3d, Ray3d, Vec3};
+
+// Ray3d holds a Dir3, so the direction cannot be un-normalised.
+let ray = Ray3d::new(origin, Dir3::new(target - origin).unwrap());
+let p = ray.get_point(12.5);
+
+// Plane intersection: the plane is a normal, positioned by a separate origin.
+let ground = InfinitePlane3d::new(Vec3::Y);
+if let Some(t) = ray.intersect_plane(Vec3::ZERO, ground) {
+    let hit = ray.get_point(t);
+}
+
+// Screen point → world ray, the basis of every click-to-place system.
+fn cursor_ray(
+    camera: Single<(&Camera, &GlobalTransform)>,
+    window: Single<&Window>,
+) -> Option<Ray3d> {
+    let (camera, cam_transform) = *camera;
+    let cursor = window.cursor_position()?;
+    camera.viewport_to_world(cam_transform, cursor).ok()
+}
+
+// Click on the ground plane.
+fn place_on_ground(ray: Ray3d) -> Option<Vec3> {
+    let t = ray.intersect_plane(Vec3::ZERO, InfinitePlane3d::new(Vec3::Y))?;
+    Some(ray.get_point(t))
+}`,
+
+'bevy-gizmos': `fn debug_collision(mut gizmos: Gizmos, q: Query<(&GlobalTransform, &Aabb3d)>) {
+    for (t, volume) in &q {
+        // Volumes
+        gizmos.cuboid(
+            Transform::from_translation(Vec3::from(volume.center()))
+                .with_scale(Vec3::from(volume.half_size()) * 2.0),
+            Color::srgb(0.70, 0.55, 0.96),
+        );
+        gizmos.sphere(t.translation(), 0.5, Color::srgb(0.94, 0.66, 0.23));
+    }
+}
+
+fn debug_hit(mut gizmos: Gizmos, hit: Option<Res<LastHit>>) {
+    let Some(hit) = hit else { return };
+    let teal = Color::srgb(0.27, 0.85, 0.71);
+
+    // The three things that are always worth seeing:
+    gizmos.sphere(hit.point, 0.05, teal);                       // where
+    gizmos.arrow(hit.point, hit.point + hit.normal * 0.5, teal); // which way
+    gizmos.line(hit.origin, hit.point, teal.with_alpha(0.4));    // how far
+}
+
+// A grid on the collision plane makes plane-sign errors obvious.
+fn debug_plane(mut gizmos: Gizmos) {
+    gizmos.grid(
+        Isometry3d::new(Vec3::ZERO, Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+        UVec2::splat(20),
+        Vec2::splat(1.0),
+        Color::srgb(0.15, 0.17, 0.22),
+    );
+}`,
+
+physics: `// ---------------- avian3d ----------------
+use avian3d::prelude::*;
+
+fn queries(spatial: SpatialQuery) {
+    // Ray: nearest hit, with a filter.
+    if let Some(hit) = spatial.cast_ray(
+        Vec3::new(0.0, 5.0, 0.0),
+        Dir3::NEG_Y,
+        100.0,
+        true,                                  // solid: count starting inside as a hit
+        &SpatialQueryFilter::from_mask(Layer::Ground),
+    ) {
+        // hit.entity, hit.distance, hit.normal
+        let point = origin + Vec3::NEG_Y * hit.distance;
+    }
+
+    // Shape cast: sweep any collider, not just a sphere.
+    if let Some(hit) = spatial.cast_shape(
+        &Collider::sphere(0.5),
+        origin,
+        Quat::IDENTITY,
+        Dir3::NEG_Y,
+        &ShapeCastConfig::from_max_distance(10.0),
+        &SpatialQueryFilter::default(),
+    ) {
+        // hit.point1 (on the cast shape), hit.point2 (on the hit collider),
+        // hit.normal1, hit.normal2, hit.distance, hit.entity
+    }
+
+    // Static overlap, no sweep.
+    let overlapping = spatial.shape_intersections(
+        &Collider::sphere(2.0), origin, Quat::IDENTITY, &default(),
+    );
+}
+
+// Contact manifolds from the solver, for gameplay reactions.
+fn on_contact(mut events: MessageReader<CollisionStart>) {
+    for event in events.read() {
+        // event.collider1, event.collider2 — then read the manifold
+        // for points, normals and penetration depth.
+    }
+}
+
+// ---------------- bevy_rapier3d ----------------
+use bevy_rapier3d::prelude::*;
+
+fn rapier_queries(rapier: ReadRapierContext) -> Result {
+    let ctx = rapier.single()?;
+
+    if let Some((entity, hit)) = ctx.cast_ray_and_get_normal(
+        origin, Vec3::NEG_Y, 100.0, true, QueryFilter::default(),
+    ) {
+        // hit.point, hit.normal, hit.time_of_impact
+    }
+
+    if let Some((entity, hit)) = ctx.cast_shape(
+        origin, Quat::IDENTITY, Vec3::NEG_Y,
+        &Collider::ball(0.5),
+        ShapeCastOptions::with_max_time_of_impact(10.0),
+        QueryFilter::default(),
+    ) {
+        // hit.time_of_impact, hit.details → witness points and normals
+    }
+    Ok(())
+}`,
+
+};
+
+// ---------- rendering ----------
+const KEYWORDS = new Set(['fn','let','mut','const','static','struct','impl','pub','for','in','if','else','return','match','use','self','Self','true','false','as','where','enum','trait','type','while','loop','break','continue','move','ref','dyn','crate','super','mod','unsafe','async','await']);
+
+function esc(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+const RE = new RegExp([
+  '(\\/\\/[^\\n]*)',                                        // 1 comment
+  '("(?:[^"\\\\]|\\\\.)*")',                                // 2 string
+  '\\b(0x[0-9a-fA-F_]+|\\d[\\d_]*\\.?\\d*(?:[eE][+-]?\\d+)?(?:f32|f64|usize|u32|i32|u8)?)\\b', // 3 number
+  '\\b([a-zA-Z_][a-zA-Z0-9_]*)\\b(\\s*\\()?'               // 4 word, 5 open paren
+].join('|'), 'g');
+
+function highlight(src){
+  return esc(src).replace(RE, (m, com, str, num, word, paren) => {
+    if (com !== undefined) return '<span class="t-com">' + com + '</span>';
+    if (str !== undefined) return '<span class="t-str">' + str + '</span>';
+    if (num !== undefined) return '<span class="t-num">' + num + '</span>';
+    if (word !== undefined){
+      const tail = paren || '';
+      if (KEYWORDS.has(word)) return '<span class="t-kw">' + word + '</span>' + tail;
+      if (/^[A-Z]/.test(word)) return '<span class="t-typ">' + word + '</span>' + tail;
+      if (tail) return '<span class="t-fn">' + word + '</span>' + tail;
+      return word;
+    }
+    return m;
+  });
+}
+
+document.querySelectorAll('pre.code[data-src]').forEach(pre => {
+  const key = pre.getAttribute('data-src');
+  const src = CODE[key];
+  if (src === undefined){ pre.textContent = '// missing: ' + key; return; }
+  pre.innerHTML = highlight(src);
+});
+
+// ---------- copy ----------
+document.querySelectorAll('button.copy').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const card = btn.closest('.card');
+    const pre = card && card.querySelector('pre.code');
+    if (!pre) return;
+    const original = btn.textContent;
+    try {
+      await navigator.clipboard.writeText(pre.textContent);
+      btn.textContent = 'copied';
+    } catch (e) {
+      btn.textContent = 'select manually';
+    }
+    setTimeout(() => { btn.textContent = original; }, 1400);
+  });
+});
+</script>
+</body>
+</html>
