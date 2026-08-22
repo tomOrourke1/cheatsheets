@@ -1,0 +1,1630 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Delaunay triangulation in Bevy &mdash; a build-along</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --board: #0e1216;
+  --panel: #141a20;
+  --sunk:  #0a0e11;
+  --rule:  #223039;
+  --ink:   #d6dfe6;
+  --dim:   #96a4b0;
+  --muted: #6f7d8a;
+  --edge:  #62d2c3;
+  --circ:  #e8a33d;
+  --bad:   #e05a6b;
+  --display: "IBM Plex Sans Condensed", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Serif", Georgia, serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; scroll-padding-top: 2rem; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  margin: 0;
+  background-color: var(--board);
+  background-image:
+    linear-gradient(rgba(98, 210, 195, .028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(98, 210, 195, .028) 1px, transparent 1px);
+  background-size: 28px 28px;
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 17px;
+  line-height: 1.68;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--edge); text-decoration-color: rgba(98, 210, 195, .35); text-underline-offset: 3px; }
+a:hover { text-decoration-color: var(--edge); }
+:focus-visible { outline: 2px solid var(--circ); outline-offset: 3px; }
+
+code { font-family: var(--mono); font-size: .855em; }
+p code, li code, td code, aside code {
+  background: rgba(255,255,255,.045);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  padding: .06em .34em;
+  color: #e6eef4;
+}
+var { font-family: var(--mono); font-style: normal; color: var(--dim); font-size: .92em; }
+
+/* ---------- hero ---------- */
+.hero {
+  border-bottom: 1px solid var(--rule);
+  padding: clamp(2.5rem, 7vw, 5rem) 0 0;
+}
+.wrap { width: min(1180px, 92vw); margin: 0 auto; }
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 1.1rem;
+  display: flex; gap: .9rem; flex-wrap: wrap; align-items: center;
+}
+.eyebrow b { color: var(--edge); font-weight: 400; }
+.eyebrow i { color: var(--rule); font-style: normal; }
+
+h1 {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(2.6rem, 8vw, 5.1rem);
+  line-height: .96;
+  letter-spacing: -.02em;
+  margin: 0 0 1rem;
+  max-width: 20ch;
+}
+h1 em { font-style: normal; color: var(--edge); }
+
+.standfirst {
+  max-width: 62ch; color: var(--dim); font-size: 1.08rem; margin: 0 0 2.4rem;
+}
+
+/* ---------- demo ---------- */
+.bench { margin-bottom: -1px; }
+.bench-bar {
+  display: flex; flex-wrap: wrap; gap: .55rem; align-items: center;
+  padding: .6rem .8rem;
+  border: 1px solid var(--rule); border-bottom: none;
+  background: var(--panel);
+  font-family: var(--mono); font-size: 11px;
+  letter-spacing: .1em; text-transform: uppercase;
+}
+.bench-bar .title { color: var(--muted); margin-right: auto; }
+button.bc {
+  font: inherit; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--ink); background: transparent;
+  border: 1px solid var(--rule); border-radius: 2px;
+  padding: .34rem .7rem; cursor: pointer;
+}
+button.bc:hover { border-color: var(--edge); color: var(--edge); }
+label.bc {
+  display: inline-flex; align-items: center; gap: .4rem;
+  border: 1px solid var(--rule); border-radius: 2px; padding: .34rem .7rem;
+  cursor: pointer; color: var(--dim);
+}
+label.bc input { accent-color: var(--circ); margin: 0; }
+
+#demo { display: block; width: 100%; height: 440px; background: var(--sunk);
+        border: 1px solid var(--rule); cursor: crosshair; touch-action: manipulation; }
+@media (max-width: 700px) { #demo { height: 320px; } }
+
+.legend {
+  display: flex; flex-wrap: wrap; gap: 1.2rem;
+  padding: .65rem .8rem;
+  border: 1px solid var(--rule); border-top: none;
+  background: var(--panel);
+  font-family: var(--mono); font-size: 11px; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--muted);
+}
+.legend span { display: inline-flex; align-items: center; gap: .45rem; }
+.sw { width: 15px; height: 2px; display: inline-block; }
+.hint { margin: .9rem 0 clamp(2.5rem,6vw,4rem); font-family: var(--mono);
+        font-size: 12px; color: var(--muted); letter-spacing: .02em; }
+
+/* ---------- layout ---------- */
+.shell { display: grid; grid-template-columns: 232px minmax(0, 1fr); gap: clamp(2rem, 5vw, 5rem);
+         align-items: start; padding: clamp(2.5rem, 6vw, 4.5rem) 0 6rem; }
+@media (max-width: 1000px) { .shell { grid-template-columns: minmax(0, 1fr); } nav.toc { display: none; } }
+
+nav.toc { position: sticky; top: 2rem; }
+nav.toc p { font-family: var(--mono); font-size: 10px; letter-spacing: .22em;
+            text-transform: uppercase; color: var(--muted); margin: 0 0 .9rem;
+            padding-bottom: .6rem; border-bottom: 1px solid var(--rule); }
+nav.toc ol { list-style: none; margin: 0; padding: 0; }
+nav.toc a { display: flex; gap: .65rem; padding: .3rem 0; font-family: var(--display);
+            font-size: 14px; color: var(--dim); text-decoration: none; line-height: 1.35; }
+nav.toc a:hover { color: var(--edge); }
+nav.toc .n { font-family: var(--mono); font-size: 10px; color: var(--muted);
+             padding-top: .28em; min-width: 1.3em; }
+nav.toc a.on { color: var(--edge); }
+nav.toc a.on .n { color: var(--edge); }
+
+main { max-width: 74ch; }
+section { padding-top: 3.6rem; }
+section:first-child { padding-top: 0; }
+
+.sh { display: flex; align-items: baseline; gap: 1rem; margin: 0 0 .2rem;
+      border-top: 1px solid var(--rule); padding-top: 1.1rem; }
+section:first-child .sh { border-top: none; padding-top: 0; }
+.sh .num { font-family: var(--mono); font-size: 11px; letter-spacing: .16em;
+           color: var(--edge); flex: none; padding-top: .4em; }
+h2 { font-family: var(--display); font-weight: 700; letter-spacing: -.012em;
+     font-size: clamp(1.65rem, 3.6vw, 2.3rem); line-height: 1.08; margin: 0; }
+h3 { font-family: var(--display); font-weight: 600; font-size: 1.15rem;
+     letter-spacing: .01em; margin: 2.2rem 0 .6rem; color: #eaf1f6; }
+.kicker { font-family: var(--display); font-size: 1.06rem; color: var(--dim);
+          margin: .55rem 0 1.6rem; max-width: 58ch; line-height: 1.42; }
+p { margin: 0 0 1.1rem; }
+em { color: #eaf1f6; font-style: italic; }
+strong { color: #f2f7fa; font-weight: 600; }
+
+/* ---------- code ---------- */
+figure.code { margin: 1.6rem 0; position: relative; border: 1px solid var(--rule);
+              border-left: 2px solid var(--edge); border-radius: 2px; background: var(--sunk); }
+figure.code .cap { font-family: var(--mono); font-size: 10px; letter-spacing: .16em;
+                   text-transform: uppercase; color: var(--muted);
+                   padding: .55rem .9rem; border-bottom: 1px solid var(--rule); }
+figure.code .lang { position: absolute; top: .5rem; right: .75rem; font-family: var(--mono);
+                    font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+                    color: var(--rule); pointer-events: none; }
+figure.code pre { margin: 0; padding: 1rem .95rem; overflow-x: auto; }
+figure.code code { font-size: 12.8px; line-height: 1.62; color: #c3d1db; white-space: pre; }
+@media (max-width: 620px) { figure.code code { font-size: 11.6px; } }
+
+/* ---------- callouts ---------- */
+aside.cal { margin: 1.5rem 0; padding: .95rem 1.1rem; background: var(--panel);
+            border: 1px solid var(--rule); border-left: 2px solid var(--dim);
+            border-radius: 2px; font-size: .96rem; }
+aside.cal .tag { display: block; font-family: var(--mono); font-size: 10px;
+                 letter-spacing: .18em; text-transform: uppercase; margin-bottom: .4rem; }
+aside.cal div > :last-child { margin-bottom: 0; }
+aside.cal p { margin-bottom: .7rem; }
+.cal.note { border-left-color: var(--dim); } .cal.note .tag { color: var(--dim); }
+.cal.tip  { border-left-color: var(--edge); } .cal.tip .tag  { color: var(--edge); }
+.cal.warn { border-left-color: var(--bad); }  .cal.warn .tag { color: var(--bad); }
+.cal.drift{ border-left-color: var(--circ); } .cal.drift .tag{ color: var(--circ); }
+.cal.port { border-left-color: var(--circ); } .cal.port .tag { color: var(--circ); }
+
+/* ---------- tables ---------- */
+.tw { overflow-x: auto; margin: 1.5rem 0; }
+table { border-collapse: collapse; width: 100%; font-size: .93rem; }
+th { font-family: var(--mono); font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+     color: var(--muted); text-align: left; font-weight: 400;
+     padding: .5rem .8rem .5rem 0; border-bottom: 1px solid var(--rule); }
+td { padding: .7rem .8rem .7rem 0; border-bottom: 1px solid rgba(34,48,57,.6);
+     vertical-align: top; color: var(--dim); }
+td:first-child { color: var(--ink); }
+td.keep { color: var(--edge); } td.warnc { color: var(--circ); } td.badc { color: var(--bad); }
+
+/* ---------- misc ---------- */
+ol.steps { counter-reset: s; list-style: none; margin: 1.3rem 0; padding: 0; }
+ol.steps li { counter-increment: s; position: relative; padding-left: 2.3rem; margin-bottom: .9rem; }
+ol.steps li::before { content: counter(s, decimal-leading-zero); position: absolute; left: 0;
+                      top: .18em; font-family: var(--mono); font-size: 11px; color: var(--edge);
+                      letter-spacing: .06em; }
+p.eq { font-family: var(--mono); font-size: .93rem; text-align: center; color: var(--ink);
+       background: var(--sunk); border: 1px solid var(--rule); border-radius: 2px;
+       padding: .95rem .8rem; margin: 1.3rem 0; overflow-x: auto; }
+
+footer { border-top: 1px solid var(--rule); padding: 2rem 0 4rem; font-family: var(--mono);
+         font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+footer a { color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <p class="eyebrow"><b>Bevy 0.19</b><i>/</i>Rust 2021<i>/</i>2D Delaunay<i>/</i>ported from Unity</p>
+    <h1>Delaunay triangulation, <em>the Bevy way</em></h1>
+    <p class="standfirst">A build-along from an empty <code>cargo new</code> to a triangulated,
+    click-editable ground plane &mdash; circumcircles included, with the door left open to
+    tetrahedralisation.</p>
+
+    <div class="bench">
+      <div class="bench-bar">
+        <span class="title">Live &mdash; the algorithm from &sect;&thinsp;08</span>
+        <button class="bc" id="b-scatter">Scatter</button>
+        <button class="bc" id="b-grid">Grid 5&times;5</button>
+        <button class="bc" id="b-clear">Clear</button>
+        <label class="bc"><input type="checkbox" id="showall"> All circles</label>
+      </div>
+      <canvas id="demo"></canvas>
+      <div class="legend">
+        <span><i class="sw" style="background:var(--edge)"></i> Delaunay edges</span>
+        <span><i class="sw" style="background:var(--circ)"></i> circumcircle</span>
+        <span><i class="sw" style="background:#e9f2f7"></i> sites</span>
+        <span>hover a triangle &middot; click to add a point</span>
+      </div>
+    </div>
+    <p class="hint">Try Grid 5&times;5 and hover along a row: every square's four corners sit on one
+    circle, so the diagonal is a coin flip. That ambiguity is real, and &sect;&thinsp;08 explains why
+    it's harmless.</p>
+  </div>
+</header>
+
+<div class="wrap shell">
+  <nav class="toc">
+    <p>Contents</p>
+    <ol><li><a href="#decision"><span class="n">01</span>The one decision</a></li><li><a href="#audit"><span class="n">02</span>What to keep</a></li><li><a href="#setup"><span class="n">03</span>Project setup</a></li><li><a href="#types"><span class="n">04</span>Points, edges, triangles</a></li><li><a href="#circumcircle"><span class="n">05</span>The circumcircle</a></li><li><a href="#predicates"><span class="n">06</span>Predicates</a></li><li><a href="#super"><span class="n">07</span>The super triangle</a></li><li><a href="#bowyer"><span class="n">08</span>Bowyer&ndash;Watson</a></li><li><a href="#input"><span class="n">09</span>Cleaning the input</a></li><li><a href="#tests"><span class="n">10</span>Tests</a></li><li><a href="#plugin"><span class="n">11</span>Wiring into Bevy</a></li><li><a href="#drawing"><span class="n">12</span>Drawing it</a></li><li><a href="#mesh"><span class="n">13</span>Turning it into a Mesh</a></li><li><a href="#graph"><span class="n">14</span>Graph and MST</a></li><li><a href="#perf"><span class="n">15</span>When it gets slow</a></li><li><a href="#three-d"><span class="n">16</span>The jump to 3D</a></li></ol>
+  </nav>
+  <main>
+    <section id="decision"><header class="sh"><span class="num">§&thinsp;01</span><h2>The one decision that changes everything</h2></header><p class="kicker">Your Rust file has a comment in it that already knows the answer. Start there.</p>
+<p>The C# version stores <em>positions</em> inside triangles and edges. Every comparison is a
+float comparison, every set lookup is a hash of three floats, and every &ldquo;is this the same
+triangle&rdquo; question is answered approximately. It works in Unity because
+<code>Vector3.==</code> quietly compares with a tolerance and structs hash by value. It works
+right up until it doesn't.</p>
+
+<p>Rust refuses to play along. <code>Vec3</code> has no <code>Eq</code> and no <code>Hash</code>,
+because <code>f32</code> has neither, because <code>NaN != NaN</code>. You cannot write
+<code>HashSet&lt;DelEdge&gt;</code>. That is not Rust being difficult &mdash; it is Rust pointing at
+a bug your C# already has:</p>
+
+<figure class="code"><div class="lang">csharp</div><pre><code>// C#: Equals says these are the same edge...
+new DelEdge { p1 = a, p2 = b }.Equals(new DelEdge { p1 = b, p2 = a })  // true
+
+// ...but there is no GetHashCode override, so the default hashes p1 and p2
+// in order. The two edges land in different buckets and your HashSet&lt;DelEdge&gt;
+// happily stores both. The cavity boundary silently gets duplicate edges.</code></pre></figure>
+
+<p>So take the note you already left yourself:</p>
+
+<aside class="cal tip"><span class="tag">the decision</span><div><strong>Store points once, in a flat <code>Vec&lt;Vec2&gt;</code>. Everywhere else,
+refer to them by <code>u32</code> index.</strong> Indices are <code>Copy</code>,
+<code>Eq</code>, <code>Hash</code>, and 4 bytes. Two vertices are the same vertex when the numbers
+match &mdash; no epsilon, no ambiguity, no <code>abs_diff_eq</code> chains.</div></aside>
+
+<p>The second decision is smaller but worth making now: <strong>triangulate in 2D and lift to 3D at
+the very end.</strong> Your Rust already leans this way with <code>plannar</code> /
+<code>unplannar</code>, but it keeps carrying <code>Vec3</code> around and flattening repeatedly.
+Flatten once, on the way in. The whole geometry core then works in <code>Vec2</code> and you never
+again wonder which component is being ignored.</p>
+</section><section id="audit"><header class="sh"><span class="num">§&thinsp;02</span><h2>What to keep from the C#</h2></header><p class="kicker">Most of it. The algorithm is right; the data model is what needs replacing.</p>
+<div class="tw"><table>
+<thead><tr><th>From the Unity version</th><th>Verdict</th></tr></thead>
+<tbody>
+<tr><td><code>BoyerWatson</code> loop structure &mdash; bad triangles, boundary polygon, retriangulate</td>
+    <td class="keep">Keep. This is textbook Bowyer&ndash;Watson and it is correct.</td></tr>
+<tr><td><code>CalcSuperTri</code> from the bounding box</td>
+    <td class="keep">Keep the idea, change the shape (&sect;&thinsp;07).</td></tr>
+<tr><td>The <code>notShared</code> double loop over <code>BadTriangles</code></td>
+    <td class="warnc">Replace. It's O(n&sup2;) per insertion and a two-line hash map does it exactly.</td></tr>
+<tr><td><code>DelEdge.Equals</code> without <code>GetHashCode</code></td>
+    <td class="badc">Bug. Ordered indices make it disappear.</td></tr>
+<tr><td><code>List.Remove(triangle)</code> using default struct equality</td>
+    <td class="badc">Bug. Removes by field-wise match, not by identity &mdash; wrong triangle, or none.</td></tr>
+<tr><td><code>CalculateCircumcircle</code> reading <code>p.x</code> / <code>p.y</code></td>
+    <td class="badc">Plane mismatch. Your super-triangle and circumcircle both use XY while the game world is XZ.</td></tr>
+<tr><td><code>NodeGraph</code> / <code>Node3D</code> with <code>HashSet&lt;Node3D&gt;</code> of copies</td>
+    <td class="warnc">Rewrite as an adjacency list of indices (&sect;&thinsp;14). Don't build a pointer graph in Rust.</td></tr>
+<tr><td><code>CircumSphere.radiusSqr</code></td>
+    <td class="badc">Never assigned. <code>CalculateCircumSphere</code> sets <code>radius</code> and leaves <code>radiusSqr</code> at zero.</td></tr>
+</tbody></table></div>
+
+<p>And two things in the Rust you've already written:</p>
+
+<aside class="cal warn"><span class="tag">gotcha</span><div><code>CircumSphere::new</code> has <code>let n1 = r2.cross(v3);</code> &mdash; that
+should be <code>r2.cross(r3)</code>. <code>v3</code> is an absolute position,
+<code>r3</code> is the edge vector. Everything downstream (the determinant, the offset, the
+early-out) is computed against the wrong normal, so the function returns plausible-looking garbage
+instead of failing loudly. Worth fixing before you get to &sect;&thinsp;16.</div></aside>
+
+<aside class="cal warn"><span class="tag">gotcha</span><div><code>if d.abs() &lt; EPS_6</code> compares an <em>area</em> against a fixed number.
+Scale your world up by 1000 and every triangle looks degenerate; scale it down and none do. Compare
+against something with the same units instead &mdash; the code in &sect;&thinsp;05 divides through by the
+edge lengths, which turns the test into &ldquo;is the angle between these edges tiny&rdquo;, and that
+is scale-free.</div></aside>
+
+<p>Your <code>CircumCircle::new</code>, on the other hand, is correct, including
+<code>rad_sqr: offset.length_squared()</code> &mdash; which looks suspicious but isn't, because
+<code>offset</code> is measured from <code>a</code>, a point on the circle. &sect;&thinsp;05 derives it
+so you can see why.</p>
+</section><section id="setup"><header class="sh"><span class="num">§&thinsp;03</span><h2>Project setup</h2></header><p class="kicker">A blank binary crate, one dependency, and a module layout that keeps the maths away from the ECS.</p><figure class="code"><div class="lang">shell</div><pre><code>cargo new delaunay_bevy
+cd delaunay_bevy
+cargo add bevy</code></pre></figure>
+
+<p>Then set up build profiles, or you will spend the tutorial waiting. Bevy in a debug profile with
+unoptimised dependencies is genuinely painful:</p>
+
+<figure class="code"><div class="cap">Cargo.toml</div><div class="lang">toml</div><pre><code>[profile.dev]
+opt-level = 1          # your code: fast enough to run, fast enough to compile
+
+[profile.dev.package.&quot;*&quot;]
+opt-level = 3          # dependencies: compiled once, so make them fast</code></pre></figure>
+
+<p>Lay the files out so the geometry never imports <code>bevy::prelude</code>:</p>
+
+<figure class="code"><div class="lang">text</div><pre><code>src/
+  main.rs
+  delaunay/
+    mod.rs             # Edge, Tri, Triangulation, re-exports
+    predicates.rs      # orient2d, in_circle
+    circumcircle.rs    # Circumcircle
+    bowyer_watson.rs   # triangulate()
+    plugin.rs          # the only file that knows Bevy exists</code></pre></figure>
+
+<aside class="cal note"><span class="tag">the shape</span><div><code>mod.rs</code> through <code>bowyer_watson.rs</code> import
+<code>bevy::math</code> only &mdash; that's glam, plain vector maths, no ECS, no app, no rendering.
+That means the whole core is testable with <code>cargo test</code> in milliseconds without spinning up
+an <code>App</code>, and it stays portable if you ever want it in a headless tool. This split is most
+of what &ldquo;the Bevy way&rdquo; means in practice: plain Rust data structures in the middle, a thin
+plugin at the edge.</div></aside>
+
+<figure class="code"><div class="lang">rust</div><pre><code>// src/delaunay/mod.rs
+mod bowyer_watson;
+mod circumcircle;
+mod predicates;
+pub mod plugin;
+
+pub use bowyer_watson::triangulate;
+pub use circumcircle::Circumcircle;
+pub use predicates::{in_circle, orient2d};</code></pre></figure>
+
+<aside class="cal drift"><span class="tag">version drift</span><div>Written against <strong>Bevy 0.19</strong>. Bevy makes breaking changes roughly every
+three months, and the parts most likely to have moved under you are gizmo call signatures,
+<code>RenderAssetUsages</code>'s module path, and whether <code>Query::single</code> returns a
+<code>Result</code>. The geometry core in &sect;&thinsp;04&ndash;&sect;&thinsp;09 touches none of that
+&mdash; it only uses glam types, which are stable. If something in &sect;&thinsp;11&ndash;&sect;&thinsp;13
+doesn't compile, check the migration guide for your version rather than fighting the snippet.</div></aside></section><section id="types"><header class="sh"><span class="num">§&thinsp;04</span><h2>Points, edges, triangles</h2></header><p class="kicker">Three small types. None of them contain a coordinate.</p>
+<p>An edge is an unordered pair. Canonicalising the order at construction is what makes
+<code>Eq</code> and <code>Hash</code> agree with each other &mdash; the thing the C# version got
+wrong:</p>
+
+<figure class="code"><div class="lang">rust</div><pre><code>// src/delaunay/mod.rs
+use bevy::math::Vec2;
+use crate::delaunay::predicates::orient2d;
+
+/// An undirected edge between two vertex indices.
+///
+/// `Edge::new(3, 7)` and `Edge::new(7, 3)` are the same value: they compare
+/// equal *and* hash equal, so `HashMap&lt;Edge, _&gt;` behaves the way you expect.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct Edge {
+    pub a: u32,
+    pub b: u32,
+}
+
+impl Edge {
+    #[inline]
+    pub fn new(a: u32, b: u32) -&gt; Self {
+        if a &lt;= b { Self { a, b } } else { Self { a: b, b: a } }
+    }
+}</code></pre></figure>
+
+<p>A triangle is three indices, always stored counter-clockwise. That invariant is not decoration:
+the in-circle predicate in &sect;&thinsp;06 returns a signed value whose sign flips with winding, so if
+some triangles are clockwise, half your point-in-circle tests come back backwards and you get a mesh
+full of overlapping garbage.</p>
+
+<figure class="code"><div class="lang">rust</div><pre><code>/// Three vertex indices, guaranteed counter-clockwise in the working plane.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Tri {
+    pub a: u32,
+    pub b: u32,
+    pub c: u32,
+}
+
+impl Tri {
+    /// Builds a triangle, swapping two vertices if needed to make it CCW.
+    /// Every predicate downstream assumes this has happened.
+    pub fn new(points: &amp;[Vec2], a: u32, b: u32, c: u32) -&gt; Self {
+        let (pa, pb, pc) = (
+            points[a as usize],
+            points[b as usize],
+            points[c as usize],
+        );
+        if orient2d(pa, pb, pc) &lt; 0.0 {
+            Self { a, b: c, c: b }
+        } else {
+            Self { a, b, c }
+        }
+    }
+
+    #[inline]
+    pub fn vertices(&amp;self) -&gt; [u32; 3] {
+        [self.a, self.b, self.c]
+    }
+
+    #[inline]
+    pub fn edges(&amp;self) -&gt; [Edge; 3] {
+        [
+            Edge::new(self.a, self.b),
+            Edge::new(self.b, self.c),
+            Edge::new(self.c, self.a),
+        ]
+    }
+
+    #[inline]
+    pub fn contains_vertex(&amp;self, v: u32) -&gt; bool {
+        self.a == v || self.b == v || self.c == v
+    }
+
+    #[inline]
+    pub fn positions(&amp;self, points: &amp;[Vec2]) -&gt; [Vec2; 3] {
+        [
+            points[self.a as usize],
+            points[self.b as usize],
+            points[self.c as usize],
+        ]
+    }
+}</code></pre></figure>
+
+<p>Note what <code>Tri</code> gets for free. <code>#[derive(PartialEq, Eq)]</code> is now a real,
+exact equality &mdash; no <code>abs_diff_eq</code>, no tolerance. Your Rust
+<code>impl PartialEq for DelTri</code> compared <code>v1 == other.v1 &amp;&amp; ...</code> in order,
+so a triangle wasn't equal to the same triangle rotated. With indices, if you want rotation-invariant
+identity you sort the three numbers and compare; usually you don't need to at all.</p>
+
+<p>And the container, which is the only thing that holds coordinates:</p>
+
+<figure class="code"><div class="lang">rust</div><pre><code>#[derive(Clone, Debug, Default)]
+pub struct Triangulation {
+    /// Input sites, in input order. Index i is site i.
+    pub points: Vec&lt;Vec2&gt;,
+    pub tris: Vec&lt;Tri&gt;,
+}</code></pre></figure>
+
+<p>Finally, the plane. Pick XZ (ground plane, Y up) and write the two conversions once:</p>
+
+<figure class="code"><div class="lang">rust</div><pre><code>// src/delaunay/plugin.rs -- these are the only place 2D meets 3D.
+use bevy::math::{Vec2, Vec3};
+
+#[inline]
+pub fn flatten(v: Vec3) -&gt; Vec2 {
+    v.xz()
+}
+
+#[inline]
+pub fn lift(v: Vec2) -&gt; Vec3 {
+    Vec3::new(v.x, 0.0, v.y)
+}</code></pre></figure>
+
+<aside class="cal warn"><span class="tag">gotcha</span><div>Projecting Y-up 3D onto (x,&nbsp;z) <em>flips handedness</em>. A loop that is
+counter-clockwise in your <code>Vec2</code> space appears clockwise when you look down at the ground
+from above. This does not affect the triangulation at all &mdash; the algorithm only needs to be
+internally consistent &mdash; but it absolutely affects mesh face winding, and it is why the mesh in
+&sect;&thinsp;13 emits its indices as <code>(a,&nbsp;c,&nbsp;b)</code>. If your generated ground plane
+is invisible from above and visible from below, this is why.</div></aside></section><section id="circumcircle"><header class="sh"><span class="num">§&thinsp;05</span><h2>The circumcircle</h2></header><p class="kicker">The circle through three points. Delaunay is defined entirely in terms of it, and you'll want it on screen.</p>
+<p>A triangulation is Delaunay when <strong>no site lies inside the circumcircle of any
+triangle</strong>. That single property is the whole definition, and it's what makes Delaunay useful:
+among all possible triangulations of a point set it's the one that maximises the smallest angle, so
+you get the least-slivery triangles available.</p>
+
+<h3>Deriving it</h3>
+
+<p>The centre <var>o</var> is equidistant from all three points. Translate so
+<var>a</var> sits at the origin and let <var>u</var>&nbsp;=&nbsp;<var>b</var>&minus;<var>a</var>,
+<var>v</var>&nbsp;=&nbsp;<var>c</var>&minus;<var>a</var>. Then
+|<var>o</var>|&sup2;&nbsp;=&nbsp;|<var>o</var>&minus;<var>u</var>|&sup2; expands to</p>
+
+<p class="eq">2&thinsp;<var>o</var>&thinsp;&middot;&thinsp;<var>u</var> = |<var>u</var>|&sup2;
+&nbsp;&nbsp;&nbsp;and&nbsp;&nbsp;&nbsp;
+2&thinsp;<var>o</var>&thinsp;&middot;&thinsp;<var>v</var> = |<var>v</var>|&sup2;</p>
+
+<p>which is a 2&times;2 linear system. Its determinant is
+<var>u<sub>x</sub>v<sub>y</sub></var>&nbsp;&minus;&nbsp;<var>u<sub>y</sub>v<sub>x</sub></var>
+&mdash; twice the signed area of the triangle &mdash; and it is zero exactly when the three points are
+collinear, which is exactly when there is no circumcircle. Solving gives the code, and because
+<var>a</var> is on the circle, the radius is just |<var>o</var>|.</p>
+
+<figure class="code"><div class="lang">rust</div><pre><code>// src/delaunay/circumcircle.rs
+use bevy::math::Vec2;
+
+#[derive(Clone, Copy, Debug)]
+pub struct Circumcircle {
+    pub center: Vec2,
+    pub radius_sq: f32,
+}
+
+impl Circumcircle {
+    /// `None` when the three points are collinear (no finite circle exists).
+    pub fn new(a: Vec2, b: Vec2, c: Vec2) -&gt; Option&lt;Self&gt; {
+        let u = b - a;
+        let v = c - a;
+
+        // Twice the signed area of (a, b, c).
+        let d = 2.0 * (u.x * v.y - u.y * v.x);
+
+        // Scale-relative tolerance. Dividing by the edge lengths turns this
+        // into a test on the *angle* between u and v, which means it behaves
+        // the same whether your world is in millimetres or kilometres.
+        if d.abs() &lt;= 1e-6 * u.length() * v.length() {
+            return None;
+        }
+
+        let offset = Vec2::new(
+            v.y * u.length_squared() - u.y * v.length_squared(),
+            u.x * v.length_squared() - v.x * u.length_squared(),
+        ) / d;
+
+        Some(Self {
+            center: a + offset,
+            // `a` lies on the circle and `offset` runs from `a` to the centre,
+            // so |offset| is the radius.
+            radius_sq: offset.length_squared(),
+        })
+    }
+
+    #[inline]
+    pub fn radius(&amp;self) -&gt; f32 {
+        self.radius_sq.sqrt()
+    }
+
+    #[inline]
+    pub fn contains(&amp;self, p: Vec2) -&gt; bool {
+        self.center.distance_squared(p) &lt;= self.radius_sq
+    }
+}
+
+impl TryFrom&lt;(&amp;[Vec2], crate::delaunay::Tri)&gt; for Circumcircle {
+    type Error = ();
+
+    fn try_from((points, t): (&amp;[Vec2], crate::delaunay::Tri)) -&gt; Result&lt;Self, ()&gt; {
+        let [a, b, c] = t.positions(points);
+        Self::new(a, b, c).ok_or(())
+    }
+}</code></pre></figure>
+
+<aside class="cal tip"><span class="tag">shortcut</span><div>It is tempting to use <code>Circumcircle::contains</code> as the in-circle test in the
+main loop. Don't &mdash; use &sect;&thinsp;06 instead. Building the circle costs a division, and near-degenerate
+triangles push the centre off toward infinity, so you end up comparing two enormous nearly-equal
+floats and the answer is noise. The determinant in &sect;&thinsp;06 answers the same question with no
+division at all. Keep <code>Circumcircle</code> for drawing, for debugging, and for the
+Voronoi dual (its centres <em>are</em> the Voronoi vertices) &mdash; all of which are worth having.</div></aside></section><section id="predicates"><header class="sh"><span class="num">§&thinsp;06</span><h2>Predicates that don't lie</h2></header><p class="kicker">Two determinants. Everything the algorithm decides, it decides with these.</p>
+<p><code>orient2d</code> returns twice the signed area of a triangle: positive for
+counter-clockwise, negative for clockwise, zero for collinear. <code>in_circle</code> returns a
+positive value when <var>d</var> falls inside the circle through a counter-clockwise
+<var>a</var>,&nbsp;<var>b</var>,&nbsp;<var>c</var>. Both are exact expressions &mdash; the only error
+is floating-point rounding.</p>
+
+<figure class="code"><div class="lang">rust</div><pre><code>// src/delaunay/predicates.rs
+use bevy::math::Vec2;
+
+/// Twice the signed area of (a, b, c).
+///   &gt; 0  counter-clockwise
+///   &lt; 0  clockwise
+///  == 0  collinear
+///
+/// Computed in f64: the inputs are f32, so widening is free of information
+/// loss, and it buys about 29 extra bits of headroom in the subtraction --
+/// which is where all the cancellation happens.
+#[inline]
+pub fn orient2d(a: Vec2, b: Vec2, c: Vec2) -&gt; f64 {
+    let (a, b, c) = (a.as_dvec2(), b.as_dvec2(), c.as_dvec2());
+    (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)
+}
+
+/// The classic in-circle determinant:
+///
+///     | ax-dx  ay-dy  (ax-dx)^2 + (ay-dy)^2 |
+///     | bx-dx  by-dy  (bx-dx)^2 + (by-dy)^2 |
+///     | cx-dx  cy-dy  (cx-dx)^2 + (cy-dy)^2 |
+///
+///   &gt; 0  `d` is strictly inside the circumcircle of (a, b, c)
+///   &lt; 0  strictly outside
+///  == 0  exactly on the circle (four cocircular points)
+///
+/// Assumes (a, b, c) is counter-clockwise. If it isn&#x27;t, the sign is inverted
+/// and every decision you make from it is backwards -- which is what
+/// `Tri::new` is for.
+#[inline]
+pub fn in_circle(a: Vec2, b: Vec2, c: Vec2, d: Vec2) -&gt; f64 {
+    let (a, b, c, d) = (a.as_dvec2(), b.as_dvec2(), c.as_dvec2(), d.as_dvec2());
+
+    let ad = a - d;
+    let bd = b - d;
+    let cd = c - d;
+
+    let a2 = ad.length_squared();
+    let b2 = bd.length_squared();
+    let c2 = cd.length_squared();
+
+    ad.x * (bd.y * c2 - b2 * cd.y)
+        - ad.y * (bd.x * c2 - b2 * cd.x)
+        + a2 * (bd.x * cd.y - bd.y * cd.x)
+}</code></pre></figure>
+
+<p>Widening to <code>f64</code> is the highest-value line in this file. Your points are
+<code>f32</code>, so the conversion is exact &mdash; you lose nothing &mdash; and the subtractions
+and products that follow, which are where catastrophic cancellation lives, get an enormous amount of
+extra room. It costs almost nothing and it removes most of the flaky-degenerate-input class of bug
+outright.</p>
+
+<aside class="cal note"><span class="tag">note</span><div>It doesn't remove <em>all</em> of it. These are still floating-point predicates, and
+the true fix is exact arithmetic &mdash; Shewchuk's adaptive predicates, available on crates.io as
+<code>robust</code>. Swapping them in later is a two-function change because you've kept the
+predicates isolated in their own module. For scattered points in 2D, <code>f64</code> is almost always
+enough. For a regular grid in 3D, it is not (&sect;&thinsp;16).</div></aside></section><section id="super"><header class="sh"><span class="num">§&thinsp;07</span><h2>The super triangle</h2></header><p class="kicker">A triangle big enough to swallow every input point, deleted again at the end.</p>
+<p>Bowyer&ndash;Watson inserts points one at a time into an existing triangulation, which raises the
+question of what to insert the first point into. The standard trick is a temporary triangle that
+contains everything; at the end you throw away any triangle still touching one of its three
+corners.</p>
+
+<p>Your C# version builds a lopsided triangle from the bounding box, scaled by 10 and 30 in
+different directions. That works, but it's hard to reason about. An equilateral triangle around the
+bounding circle is easier to get right: an equilateral triangle with circumradius <var>R</var> has an
+inradius of <var>R</var>&thinsp;/&thinsp;2, so a triangle with circumradius 2<var>r</var> is
+guaranteed to contain any circle of radius <var>r</var> at its centre.</p>
+
+<figure class="code"><div class="lang">rust</div><pre><code>// src/delaunay/bowyer_watson.rs
+use bevy::math::Vec2;
+
+/// Three points forming a CCW equilateral triangle that strictly contains
+/// every site. `None` if `sites` is empty.
+fn super_triangle(sites: &amp;[Vec2]) -&gt; Option&lt;[Vec2; 3]&gt; {
+    let (min, max) = sites.iter().fold(
+        (Vec2::INFINITY, Vec2::NEG_INFINITY),
+        |(lo, hi), &amp;p| (lo.min(p), hi.max(p)),
+    );
+
+    // `min` stays infinite iff the iterator was empty. It also catches
+    // NaN sites, which would otherwise poison everything downstream.
+    if !min.is_finite() || !max.is_finite() {
+        return None;
+    }
+
+    let center = (min + max) * 0.5;
+    // + 1.0 handles the degenerate cases: one site, or all sites identical.
+    let bound = (max - min).length() * 0.5 + 1.0;
+
+    // Circumradius of the super triangle. The margin is deliberate -- see below.
+    let r = 2.0 * bound * 100.0;
+
+    const COS30: f32 = 0.866_025_4; // sqrt(3) / 2
+
+    Some([
+        center + Vec2::new(0.0, r),                  //  90 degrees
+        center + Vec2::new(-COS30 * r, -0.5 * r),    // 210 degrees
+        center + Vec2::new(COS30 * r, -0.5 * r),     // 330 degrees
+    ])
+}</code></pre></figure>
+
+<p>The <code>&times;&thinsp;100</code> is a trade-off with a failure mode on each side, and it's
+worth knowing both because the symptoms look nothing alike:</p>
+
+<div class="tw"><table>
+<thead><tr><th>Super triangle too small</th><th>Super triangle too large</th></tr></thead>
+<tbody><tr>
+<td>Triangles near the convex hull keep a super-vertex, get deleted in cleanup, and leave <strong>notches missing from the hull</strong>. Looks like the algorithm failed.</td>
+<td>Its vertices are so far away that hull triangles become extremely thin. Their circumcircles are astronomically large and precision degrades. Looks like <strong>occasional wrong edges near the boundary</strong>.</td>
+</tr></tbody></table></div>
+
+<aside class="cal note"><span class="tag">if you care</span><div>A margin of 100&times; the bounding radius, with <code>f64</code> predicates
+underneath, is comfortable for anything game-shaped. If you ever need to be rigorous rather than
+comfortable, the real answer is <em>ghost vertices</em>: treat the three super-vertices as symbolic
+points at infinity and special-case the predicates for them, so no numeric margin is involved at all.
+That's a meaningful rewrite and almost certainly not worth it for procedural level generation.</div></aside></section><section id="bowyer"><header class="sh"><span class="num">§&thinsp;08</span><h2>Bowyer&ndash;Watson</h2></header><p class="kicker">Insert a point. Delete every triangle that now fails the empty-circle test. Fill the hole. Repeat.</p>
+<p>Deleting the bad triangles leaves a star-shaped hole around the new point. The hole's boundary is
+exactly the set of edges that belonged to <strong>one</strong> bad triangle &mdash; edges shared by
+two bad triangles are interior to the hole and get deleted with it. Your C# finds those with a nested
+loop over <code>BadTriangles</code>; a <code>HashMap&lt;Edge, u32&gt;</code> counter does it in one
+pass, and the canonical <code>Edge</code> from &sect;&thinsp;04 is what makes the counting correct.</p>
+
+<figure class="code"><div class="lang">rust</div><pre><code>// src/delaunay/bowyer_watson.rs
+use std::collections::HashMap;
+
+use bevy::math::Vec2;
+
+use crate::delaunay::predicates::in_circle;
+use crate::delaunay::{Tri, Triangulation};
+
+pub fn triangulate(sites: &amp;[Vec2]) -&gt; Triangulation {
+    let Some(super_verts) = super_triangle(sites) else {
+        return Triangulation::default();
+    };
+
+    let mut points: Vec&lt;Vec2&gt; = Vec::with_capacity(sites.len() + 3);
+    points.extend_from_slice(sites);
+
+    // Super-vertices go on the END, so site i keeps index i all the way
+    // through and callers can map results back to their own input array.
+    let first_super = points.len() as u32;
+    points.extend_from_slice(&amp;super_verts);
+
+    let mut tris = vec![Tri::new(
+        &amp;points,
+        first_super,
+        first_super + 1,
+        first_super + 2,
+    )];
+
+    // Allocated once, reused every insertion.
+    let mut cavity: HashMap&lt;Edge, u32&gt; = HashMap::new();
+    let mut kept: Vec&lt;Tri&gt; = Vec::new();
+
+    for i in 0..sites.len() as u32 {
+        let p = points[i as usize];
+
+        cavity.clear();
+        kept.clear();
+
+        // 1. Partition: bad triangles contribute their edges to the cavity,
+        //    good triangles survive. `drain` empties `tris` as we go.
+        for t in tris.drain(..) {
+            let [a, b, c] = t.positions(&amp;points);
+            if in_circle(a, b, c, p) &gt; 0.0 {
+                for e in t.edges() {
+                    *cavity.entry(e).or_insert(0) += 1;
+                }
+            } else {
+                kept.push(t);
+            }
+        }
+
+        // `tris` is empty after the drain; swapping reuses both allocations.
+        std::mem::swap(&amp;mut tris, &amp;mut kept);
+
+        // 2. Fill: an edge seen exactly once is on the boundary of the hole.
+        for (&amp;edge, &amp;count) in cavity.iter() {
+            if count == 1 {
+                tris.push(Tri::new(&amp;points, edge.a, edge.b, i));
+            }
+        }
+    }
+
+    // 3. Cleanup: drop anything still touching the scaffolding, then drop
+    //    the scaffolding itself so `points` is exactly the caller&#x27;s input.
+    tris.retain(|t| t.vertices().iter().all(|&amp;v| v &lt; first_super));
+    points.truncate(first_super as usize);
+
+    // HashMap iteration order is not deterministic, so triangle order isn&#x27;t
+    // either. Sorting costs microseconds and makes seeded generation
+    // reproducible -- which you want the first time a level fails to repeat.
+    tris.sort_unstable_by_key(|t| (t.a, t.b, t.c));
+
+    Triangulation { points, tris }
+}</code></pre></figure>
+
+<h3>What each step is doing</h3>
+
+<ol class="steps">
+<li><strong>Partition, don't search.</strong> The C# builds a <code>HashSet</code> of bad triangles
+and then removes them from the list one by one, which is a linear scan per removal on top of broken
+equality. Draining into two buckets does the same work in one pass with no lookups.</li>
+<li><strong>Count, don't compare.</strong> Every edge of every bad triangle goes into the map. Count
+2 means the edge is interior to the hole. Count 1 means it's on the rim, and it becomes a triangle
+with the new point.</li>
+<li><strong>Trust the invariant.</strong> The hole is always star-shaped with respect to the inserted
+point, so joining the new point to each rim edge always produces a valid triangulation. You never need
+a point-in-polygon test or a sort around the rim.</li>
+</ol>
+
+<aside class="cal note"><span class="tag">note</span><div>Points that land exactly on an existing circumcircle make <code>in_circle</code> return
+zero, and <code>&gt; 0.0</code> treats them as outside. That's the right call &mdash; it keeps the
+triangulation valid, it just means a cocircular set (four corners of a square, say) resolves its
+diagonal arbitrarily. Both diagonals are legitimately Delaunay. If your level generator produces
+grid-aligned rooms you will hit this constantly and it is fine; if you need a specific choice, break
+the tie on index order rather than nudging the geometry.</div></aside></section><section id="input"><header class="sh"><span class="num">§&thinsp;09</span><h2>Cleaning the input</h2></header><p class="kicker">Two duplicate points will produce a zero-area triangle and quietly corrupt everything after it.</p>
+<p>Bowyer&ndash;Watson has no defence against a repeated site: the second copy sees itself as already
+present, finds no bad triangles, contributes no cavity edges, and inserts nothing &mdash; or worse,
+produces a degenerate triangle depending on where rounding lands. Scattered random points rarely
+collide, but points snapped to a grid or read from a tilemap collide constantly.</p>
+
+<figure class="code"><div class="lang">rust</div><pre><code>/// Removes sites closer together than `tol`. O(n^2) -- fine up to a few
+/// thousand points, which covers most level generation.
+pub fn dedup(sites: &amp;[Vec2], tol: f32) -&gt; Vec&lt;Vec2&gt; {
+    let tol_sq = tol * tol;
+    let mut out: Vec&lt;Vec2&gt; = Vec::with_capacity(sites.len());
+
+    for &amp;p in sites {
+        if !out.iter().any(|&amp;q| q.distance_squared(p) &lt; tol_sq) {
+            out.push(p);
+        }
+    }
+
+    out
+}</code></pre></figure>
+
+<p>When that becomes the bottleneck, bucket by cell and only compare within the 3&times;3 neighbourhood:</p>
+
+<figure class="code"><div class="lang">rust</div><pre><code>use std::collections::HashMap;
+
+pub fn dedup_grid(sites: &amp;[Vec2], tol: f32) -&gt; Vec&lt;Vec2&gt; {
+    let cell = tol.max(f32::EPSILON);
+    let tol_sq = tol * tol;
+
+    // The key is a pair of integers, so it hashes -- another place where
+    // &quot;make it an integer&quot; is the answer to &quot;f32 has no Hash&quot;.
+    let mut grid: HashMap&lt;(i32, i32), Vec&lt;Vec2&gt;&gt; = HashMap::new();
+    let mut out = Vec::with_capacity(sites.len());
+
+    for &amp;p in sites {
+        let (cx, cy) = ((p.x / cell).floor() as i32, (p.y / cell).floor() as i32);
+
+        let clash = (-1..=1).any(|dx| {
+            (-1..=1).any(|dy| {
+                grid.get(&amp;(cx + dx, cy + dy)).is_some_and(|bucket| {
+                    bucket.iter().any(|&amp;q| q.distance_squared(p) &lt; tol_sq)
+                })
+            })
+        });
+
+        if !clash {
+            grid.entry((cx, cy)).or_default().push(p);
+            out.push(p);
+        }
+    }
+
+    out
+}</code></pre></figure>
+
+<aside class="cal warn"><span class="tag">gotcha</span><div>Deduplicating changes indices, so do it <em>before</em> anything else records a site
+index. If other parts of your generator hold onto &ldquo;room 7&rdquo;, dedup the point list first and
+build those references from the cleaned array.</div></aside></section><section id="tests"><header class="sh"><span class="num">§&thinsp;10</span><h2>Tests that catch real bugs</h2></header><p class="kicker">The empty-circumcircle property is machine-checkable, and it catches every class of mistake in this algorithm.</p>
+<p>Counting triangles proves almost nothing. Checking the defining property proves almost
+everything: if a winding is backwards, a cavity edge is miscounted, or a predicate sign is flipped,
+some triangle ends up with a site inside its circumcircle and this test finds it.</p>
+
+<figure class="code"><div class="lang">rust</div><pre><code>#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::math::Vec2;
+
+    /// A deterministic scatter -- no rand dependency, same points every run.
+    fn scatter(n: u32) -&gt; Vec&lt;Vec2&gt; {
+        (0..n)
+            .map(|i| {
+                let a = i as f32 * 2.399_963_2; // golden angle, radians
+                let r = (i as f32 + 0.5).sqrt() * 8.0;
+                Vec2::new(r * a.cos(), r * a.sin())
+            })
+            .collect()
+    }
+
+    #[test]
+    fn square_is_two_triangles() {
+        let t = triangulate(&amp;[Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]);
+        assert_eq!(t.tris.len(), 2);
+    }
+
+    #[test]
+    fn collinear_input_yields_nothing() {
+        let sites: Vec&lt;Vec2&gt; = (0..6).map(|i| Vec2::new(i as f32, 0.0)).collect();
+        // There is no triangulation of collinear points. If this fails you
+        // are producing zero-area slivers somewhere.
+        assert!(triangulate(&amp;sites).tris.is_empty());
+    }
+
+    #[test]
+    fn euler_holds() {
+        // For n points with h on the convex hull: triangles = 2n - 2 - h.
+        // The scatter above is a spiral, so compute h rather than hardcode it.
+        let sites = scatter(64);
+        let t = triangulate(&amp;sites);
+        let hull = hull_size(&amp;t);
+        assert_eq!(t.tris.len(), 2 * t.points.len() - 2 - hull);
+    }
+
+    /// Boundary edges belong to exactly one triangle.
+    fn hull_size(t: &amp;Triangulation) -&gt; usize {
+        let mut counts: HashMap&lt;Edge, u32&gt; = HashMap::new();
+        for tri in &amp;t.tris {
+            for e in tri.edges() {
+                *counts.entry(e).or_insert(0) += 1;
+            }
+        }
+        counts.values().filter(|&amp;&amp;c| c == 1).count()
+    }
+
+    #[test]
+    fn every_circumcircle_is_empty() {
+        let t = triangulate(&amp;scatter(300));
+        assert!(!t.tris.is_empty());
+
+        for tri in &amp;t.tris {
+            let [a, b, c] = tri.positions(&amp;t.points);
+            for (i, &amp;p) in t.points.iter().enumerate() {
+                if tri.contains_vertex(i as u32) {
+                    continue;
+                }
+                assert!(
+                    in_circle(a, b, c, p) &lt;= 1e-9,
+                    &quot;site {i} is inside the circumcircle of {tri:?}&quot;,
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn all_triangles_are_ccw() {
+        let t = triangulate(&amp;scatter(120));
+        for tri in &amp;t.tris {
+            let [a, b, c] = tri.positions(&amp;t.points);
+            assert!(orient2d(a, b, c) &gt; 0.0, &quot;{tri:?} is wound backwards&quot;);
+        }
+    }
+}</code></pre></figure>
+
+<aside class="cal tip"><span class="tag">shortcut</span><div><code>every_circumcircle_is_empty</code> is O(n&nbsp;&times;&nbsp;triangles) and 300
+points is plenty &mdash; it runs in well under a second and it will catch the bug. Run it with a few
+different scatter sizes when you change anything in &sect;&thinsp;08.</div></aside></section><section id="plugin"><header class="sh"><span class="num">§&thinsp;11</span><h2>Wiring it into Bevy</h2></header><p class="kicker">Sites in a resource, the result in another, and change detection deciding when to recompute.</p>
+<p>The geometry is a pure function: points in, triangulation out. That maps onto Bevy as two
+resources and a system that runs only when the input actually changed.</p>
+
+<figure class="code"><div class="lang">rust</div><pre><code>// src/delaunay/plugin.rs
+use bevy::prelude::*;
+
+use crate::delaunay::{triangulate, Triangulation};
+
+/// The input points, in the XZ plane.
+#[derive(Resource, Default, Debug, Deref, DerefMut)]
+pub struct Sites(pub Vec&lt;Vec2&gt;);
+
+/// The output. Rebuilt whenever `Sites` changes.
+#[derive(Resource, Default, Debug, Deref)]
+pub struct DelaunayMesh(pub Triangulation);
+
+pub struct DelaunayPlugin;
+
+impl Plugin for DelaunayPlugin {
+    fn build(&amp;self, app: &amp;mut App) {
+        app.init_resource::&lt;Sites&gt;()
+            .init_resource::&lt;DelaunayMesh&gt;()
+            .add_systems(
+                Update,
+                (
+                    retriangulate.run_if(resource_changed::&lt;Sites&gt;),
+                    draw_delaunay,
+                )
+                    .chain(),
+            );
+    }
+}
+
+fn retriangulate(sites: Res&lt;Sites&gt;, mut out: ResMut&lt;DelaunayMesh&gt;) {
+    out.0 = triangulate(&amp;sites.0);
+}</code></pre></figure>
+
+<aside class="cal note"><span class="tag">change detection</span><div><code>resource_changed::&lt;Sites&gt;</code> fires on any mutable
+<em>access</em>, not on an actual value change &mdash; taking a <code>ResMut&lt;Sites&gt;</code> and
+only reading from it will retrigger the whole triangulation every frame. If you have a system that
+needs mutable access but usually doesn't write, reach for
+<code>sites.bypass_change_detection()</code>. This is the single most common source of &ldquo;why is
+my game doing this work every frame&rdquo; in Bevy.</div></aside>
+
+<p>A minimal <code>main.rs</code> to see something on screen:</p>
+
+<figure class="code"><div class="lang">rust</div><pre><code>// src/main.rs
+mod delaunay;
+
+use bevy::prelude::*;
+
+use delaunay::plugin::{DelaunayPlugin, Sites};
+
+fn main() {
+    App::new()
+        .add_plugins((DefaultPlugins, DelaunayPlugin))
+        .add_systems(Startup, setup)
+        .run();
+}
+
+fn setup(mut commands: Commands, mut sites: ResMut&lt;Sites&gt;) {
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 40.0, 0.1).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
+
+    // A deterministic scatter so you have something to look at immediately.
+    sites.0 = (0..40)
+        .map(|i| {
+            let a = i as f32 * 2.399_963_2;
+            let r = (i as f32 + 0.5).sqrt() * 3.0;
+            Vec2::new(r * a.cos(), r * a.sin())
+        })
+        .collect();
+}</code></pre></figure>
+
+<p>Now let the mouse feed it. Casting the cursor ray onto the ground plane is the same trick you'd
+use for any click-to-place mechanic:</p>
+
+<figure class="code"><div class="lang">rust</div><pre><code>fn add_site_on_click(
+    buttons: Res&lt;ButtonInput&lt;MouseButton&gt;&gt;,
+    window: Single&lt;&amp;Window&gt;,
+    camera: Single&lt;(&amp;Camera, &amp;GlobalTransform)&gt;,
+    mut sites: ResMut&lt;Sites&gt;,
+) {
+    if !buttons.just_pressed(MouseButton::Left) {
+        return;
+    }
+
+    let Some(cursor) = window.cursor_position() else {
+        return;
+    };
+
+    let (camera, cam_transform) = *camera;
+
+    let Ok(ray) = camera.viewport_to_world(cam_transform, cursor) else {
+        return;
+    };
+
+    let Some(dist) = ray.intersect_plane(Vec3::ZERO, InfinitePlane3d::new(Vec3::Y)) else {
+        return;
+    };
+
+    // Only touched on an actual click, so change detection stays honest.
+    sites.0.push(ray.get_point(dist).xz());
+}</code></pre></figure>
+
+<aside class="cal drift"><span class="tag">version drift</span><div><code>Single&lt;T&gt;</code>, <code>viewport_to_world</code> returning a
+<code>Result</code>, and <code>Camera3d</code> as a bare component rather than a bundle are all
+relatively recent. On an older Bevy this is <code>Query&lt;&amp;Window&gt;</code> with
+<code>.single()</code>, an <code>Option</code> return, and <code>Camera3dBundle</code>. The
+<code>let&nbsp;else</code> shape stays the same either way.</div></aside></section><section id="drawing"><header class="sh"><span class="num">§&thinsp;12</span><h2>Drawing it</h2></header><p class="kicker">Gizmos are immediate-mode, retained nothing, and exactly right for debugging geometry.</p>
+<p>No entities, no meshes, no materials &mdash; you call a function every frame and lines appear.
+For iterating on a triangulation this beats building a mesh every time by a wide margin.</p>
+
+<figure class="code"><div class="lang">rust</div><pre><code>use std::f32::consts::FRAC_PI_2;
+
+use bevy::color::palettes::css;
+use bevy::prelude::*;
+
+use crate::delaunay::Circumcircle;
+
+fn draw_delaunay(mesh: Res&lt;DelaunayMesh&gt;, mut gizmos: Gizmos) {
+    for tri in &amp;mesh.tris {
+        let [a, b, c] = tri.positions(&amp;mesh.points);
+        gizmos.line(lift(a), lift(b), css::TURQUOISE);
+        gizmos.line(lift(b), lift(c), css::TURQUOISE);
+        gizmos.line(lift(c), lift(a), css::TURQUOISE);
+    }
+
+    for &amp;p in &amp;mesh.points {
+        gizmos.sphere(lift(p), 0.15, css::WHITE);
+    }
+}</code></pre></figure>
+
+<p>And the circumcircles &mdash; which are worth putting on a key, because seeing them is how you
+develop an intuition for why an edge flipped:</p>
+
+<figure class="code"><div class="lang">rust</div><pre><code>fn draw_circumcircles(mesh: Res&lt;DelaunayMesh&gt;, mut gizmos: Gizmos) {
+    for tri in &amp;mesh.tris {
+        let [a, b, c] = tri.positions(&amp;mesh.points);
+
+        let Some(circle) = Circumcircle::new(a, b, c) else {
+            continue;
+        };
+
+        // Gizmo circles are drawn in their local XY plane, so rotate the
+        // isometry to lay it flat on the ground.
+        gizmos
+            .circle(
+                Isometry3d::new(lift(circle.center), Quat::from_rotation_x(FRAC_PI_2)),
+                circle.radius(),
+                css::ORANGE.with_alpha(0.35),
+            )
+            .resolution(64);
+
+        // The centre is a Voronoi vertex. Worth marking.
+        gizmos.sphere(lift(circle.center), 0.08, css::ORANGE);
+    }
+}</code></pre></figure>
+
+<p>Put it behind a key so you can toggle it while the app runs:</p>
+
+<figure class="code"><div class="lang">rust</div><pre><code>#[derive(Resource, Default)]
+struct ShowCircumcircles(bool);
+
+fn toggle_circumcircles(keys: Res&lt;ButtonInput&lt;KeyCode&gt;&gt;, mut show: ResMut&lt;ShowCircumcircles&gt;) {
+    if keys.just_pressed(KeyCode::KeyC) {
+        show.0 = !show.0;
+    }
+}
+
+// in Plugin::build:
+//   .init_resource::&lt;ShowCircumcircles&gt;()
+//   .add_systems(Update, (
+//       toggle_circumcircles,
+//       draw_circumcircles.run_if(|s: Res&lt;ShowCircumcircles&gt;| s.0),
+//   ))</code></pre></figure>
+
+<aside class="cal drift"><span class="tag">version drift</span><div><code>Gizmos::circle</code> takes an <code>Isometry3d</code> in current Bevy; older
+versions took <code>(position, normal, radius, color)</code>. If your compiler disagrees with the
+snippet, that's the line.</div></aside></section><section id="mesh"><header class="sh"><span class="num">§&thinsp;13</span><h2>Turning it into a Mesh</h2></header><p class="kicker">When you want an actual surface rather than debug lines.</p>
+<p>The index-based representation pays off here: <code>Tri</code> is <em>already</em> an index
+buffer. You emit the points as positions and flatten the triangle list straight into
+<code>Indices::U32</code>.</p>
+
+<figure class="code"><div class="lang">rust</div><pre><code>use bevy::asset::RenderAssetUsages;
+use bevy::prelude::*;
+use bevy::render::mesh::{Indices, PrimitiveTopology};
+
+use crate::delaunay::Triangulation;
+
+pub fn to_mesh(t: &amp;Triangulation) -&gt; Mesh {
+    let positions: Vec&lt;[f32; 3]&gt; = t.points.iter().map(|p| [p.x, 0.0, p.y]).collect();
+    let normals = vec![[0.0, 1.0, 0.0]; positions.len()];
+    let uvs: Vec&lt;[f32; 2]&gt; = t.points.iter().map(|p| [p.x, p.y]).collect();
+
+    // Our triangles are CCW in (x, z). Looked at from +Y that reads as
+    // clockwise, and Bevy&#x27;s default back-face culling throws those away.
+    // Emitting (a, c, b) flips the winding so the surface faces up.
+    let indices: Vec&lt;u32&gt; = t.tris.iter().flat_map(|tri| [tri.a, tri.c, tri.b]).collect();
+
+    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default())
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+        .with_inserted_indices(Indices::U32(indices))
+}</code></pre></figure>
+
+<p>If you displace the vertices in Y &mdash; terrain, a heightmapped floor &mdash; the shared normals
+above stop being correct. For flat shading, split the vertices and let Bevy compute per-face normals:</p>
+
+<figure class="code"><div class="lang">rust</div><pre><code>    mesh.duplicate_vertices();
+    mesh.compute_flat_normals();</code></pre></figure>
+
+<aside class="cal warn"><span class="tag">gotcha</span><div>Debugging a surface that isn't there: if you see nothing from above but the mesh
+appears when you fly the camera below the ground, it's winding. Set
+<code>cull_mode:&nbsp;None</code> on the material to confirm, then fix the index order rather than
+leaving culling off.</div></aside>
+
+<p>Spawning it, and rebuilding it only when the triangulation changed:</p>
+
+<figure class="code"><div class="lang">rust</div><pre><code>#[derive(Component)]
+struct DelaunaySurface;
+
+fn sync_surface(
+    mesh_data: Res&lt;DelaunayMesh&gt;,
+    mut meshes: ResMut&lt;Assets&lt;Mesh&gt;&gt;,
+    query: Query&lt;&amp;Mesh3d, With&lt;DelaunaySurface&gt;&gt;,
+) {
+    if !mesh_data.is_changed() {
+        return;
+    }
+
+    for handle in &amp;query {
+        // Mutating the asset in place beats spawning a new entity: the
+        // handle stays valid and nothing else has to be re-linked.
+        if let Some(mesh) = meshes.get_mut(&amp;handle.0) {
+            *mesh = to_mesh(&amp;mesh_data.0);
+        }
+    }
+}</code></pre></figure></section><section id="graph"><header class="sh"><span class="num">§&thinsp;14</span><h2>Graph, MST, and the dungeon</h2></header><p class="kicker">Your NodeGraph again, minus the pointers. This is where the triangulation actually earns its keep.</p>
+<p>The C# <code>NodeGraph</code> stores <code>HashSet&lt;Node3D&gt;</code> of freshly allocated
+copies, so the &ldquo;connections&rdquo; are nodes that aren't the nodes in the graph. Porting that
+shape to Rust means <code>Rc&lt;RefCell&lt;Node&gt;&gt;</code> and a bad time. The index-based
+version is a nested <code>Vec</code>:</p>
+
+<figure class="code"><div class="lang">rust</div><pre><code>use std::collections::HashSet;
+
+use crate::delaunay::{Edge, Triangulation};
+
+/// adjacency[i] lists every vertex sharing an edge with vertex i.
+pub fn adjacency(t: &amp;Triangulation) -&gt; Vec&lt;Vec&lt;u32&gt;&gt; {
+    let mut adj = vec![Vec::new(); t.points.len()];
+
+    for edge in unique_edges(t) {
+        adj[edge.a as usize].push(edge.b);
+        adj[edge.b as usize].push(edge.a);
+    }
+
+    adj
+}
+
+pub fn unique_edges(t: &amp;Triangulation) -&gt; Vec&lt;Edge&gt; {
+    let mut set: HashSet&lt;Edge&gt; = HashSet::new();
+    for tri in &amp;t.tris {
+        set.extend(tri.edges());
+    }
+
+    let mut edges: Vec&lt;Edge&gt; = set.into_iter().collect();
+    edges.sort_unstable(); // deterministic output for seeded generation
+    edges
+}</code></pre></figure>
+
+<p>For a dungeon you want the minimum spanning tree of those edges: a connected layout with no
+redundant corridors. Kruskal with union-find, over an edge set that's already small because Delaunay
+gave you only the sensible connections:</p>
+
+<figure class="code"><div class="lang">rust</div><pre><code>use bevy::math::Vec2;
+
+pub fn minimum_spanning_tree(points: &amp;[Vec2], edges: &amp;[Edge]) -&gt; Vec&lt;Edge&gt; {
+    let length_sq = |e: &amp;Edge| points[e.a as usize].distance_squared(points[e.b as usize]);
+
+    let mut sorted = edges.to_vec();
+    sorted.sort_by(|x, y| {
+        length_sq(x)
+            .partial_cmp(&amp;length_sq(y))
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| x.cmp(y)) // ties broken by index: deterministic
+    });
+
+    let mut parent: Vec&lt;u32&gt; = (0..points.len() as u32).collect();
+
+    fn find(parent: &amp;mut [u32], mut i: u32) -&gt; u32 {
+        while parent[i as usize] != i {
+            parent[i as usize] = parent[parent[i as usize] as usize]; // path halving
+            i = parent[i as usize];
+        }
+        i
+    }
+
+    let mut tree = Vec::with_capacity(points.len().saturating_sub(1));
+
+    for edge in sorted {
+        let (ra, rb) = (find(&amp;mut parent, edge.a), find(&amp;mut parent, edge.b));
+        if ra != rb {
+            parent[ra as usize] = rb;
+            tree.push(edge);
+        }
+    }
+
+    tree
+}</code></pre></figure>
+
+<aside class="cal tip"><span class="tag">level design</span><div>A pure MST dungeon is a tree, which means no loops and a lot of backtracking. The usual
+fix is to add back a small fraction of the discarded Delaunay edges &mdash; something like 10&ndash;15%
+&mdash; chosen with your seeded RNG. Because you kept determinism through
+<code>unique_edges</code> and the tie-break above, the same seed gives the same dungeon.</div></aside></section><section id="perf"><header class="sh"><span class="num">§&thinsp;15</span><h2>When it gets slow</h2></header><p class="kicker">The loop above is O(n&sup2;). That is completely fine until suddenly it isn't.</p>
+<p>Every insertion scans every triangle. At a few hundred sites you won't notice; at ten thousand you
+will. In rough order of effort-to-payoff:</p>
+
+<ol class="steps">
+<li><strong>Check you aren't retriangulating every frame.</strong> Ninety percent of the time this is
+the actual problem, and it's a change-detection bug (&sect;&thinsp;11), not an algorithmic one.</li>
+<li><strong>Move it off the main thread.</strong> <code>AsyncComputeTaskPool</code> plus a component
+holding the <code>Task</code>, polled each frame. Because <code>triangulate</code> is a pure function
+over owned data with no ECS references, it moves to another thread with no restructuring &mdash;
+which is the concrete payoff for the module split in &sect;&thinsp;03.</li>
+<li><strong>Spatially sort the input.</strong> Insert points in Hilbert-curve or Morton order and
+consecutive insertions touch nearby triangles, which makes the caching in the next step actually
+work.</li>
+<li><strong>Stop scanning.</strong> The real fix is a triangle adjacency structure plus point
+location by walking from the last inserted triangle toward the new point. That's O(n&nbsp;log&nbsp;n)
+overall and it's a substantial rewrite of &sect;&thinsp;08.</li>
+</ol>
+
+<aside class="cal tip"><span class="tag">shortcut</span><div>If you get to step 4 and you're only doing 2D, look at the <code>spade</code> crate
+first &mdash; it's a mature Delaunay implementation with constrained triangulation and Voronoi built
+in. Writing your own is worth it for understanding and for control over the data layout; it is not
+worth it if you just need the answer. Nothing about the rest of this tutorial changes: you'd still
+convert its output into your own <code>Tri</code> indices and everything downstream stays put.</div></aside></section><section id="three-d"><header class="sh"><span class="num">§&thinsp;16</span><h2>The jump to 3D</h2></header><p class="kicker">Hints only, as requested. The algorithm is identical; the arithmetic and the failure modes are not.</p>
+<p>Bowyer&ndash;Watson generalises to any dimension without changing shape. Everything gets one
+dimension bigger and the cavity-boundary trick still works &mdash; the boundary of the hole is now the
+set of <em>faces</em> belonging to exactly one bad tetrahedron.</p>
+
+<div class="tw"><table>
+<thead><tr><th>2D</th><th>3D</th></tr></thead>
+<tbody>
+<tr><td><code>Tri { a, b, c }</code></td><td><code>Tet { a, b, c, d }</code></td></tr>
+<tr><td><code>Edge</code>, sorted pair</td><td><code>Face</code>, sorted triple</td></tr>
+<tr><td>cavity boundary = edges with count 1</td><td>cavity boundary = faces with count 1</td></tr>
+<tr><td>super triangle</td><td>super tetrahedron</td></tr>
+<tr><td><code>orient2d</code>, 3&times;3 determinant</td><td><code>orient3d</code>, 4&times;4 determinant</td></tr>
+<tr><td><code>in_circle</code>, 4&times;4 determinant</td><td><code>in_sphere</code>, 5&times;5 determinant</td></tr>
+<tr><td>fill the hole: 1 tri per boundary edge</td><td>fill the hole: 1 tet per boundary face</td></tr>
+</tbody></table></div>
+
+<h3>The two predicates</h3>
+
+<p><code>orient3d(a, b, c, d)</code> is six times the signed volume, and it's just the scalar triple
+product of the three edge vectors from <code>a</code>. Use it in <code>Tet::new</code> exactly the way
+<code>orient2d</code> is used in <code>Tri::new</code> &mdash; swap two vertices when it's negative,
+so every tetrahedron has consistent orientation and <code>in_sphere</code> returns a sign you can
+trust.</p>
+
+<p><code>in_sphere(a, b, c, d, e)</code> is the same construction one dimension up: subtract
+<code>e</code> from the other four, and take the 4&times;4 determinant whose rows are
+<code>(x, y, z, x&sup2;+y&sup2;+z&sup2;)</code>. Positive means <code>e</code> is inside the
+circumsphere of a positively-oriented <code>(a, b, c, d)</code>.</p>
+
+<h3>The circumsphere</h3>
+
+<p>The derivation is identical to &sect;&thinsp;05 with a 3&times;3 system instead of 2&times;2. With
+<var>r<sub>i</sub></var>&nbsp;=&nbsp;<var>v<sub>i</sub></var>&nbsp;&minus;&nbsp;<var>v</var><sub>0</sub>:</p>
+
+<p class="eq">
+<var>o</var> = ( |<var>r</var><sub>1</sub>|&sup2;(<var>r</var><sub>2</sub>&times;<var>r</var><sub>3</sub>)
++ |<var>r</var><sub>2</sub>|&sup2;(<var>r</var><sub>3</sub>&times;<var>r</var><sub>1</sub>)
++ |<var>r</var><sub>3</sub>|&sup2;(<var>r</var><sub>1</sub>&times;<var>r</var><sub>2</sub>) )
+&nbsp;/&nbsp; 2&thinsp;<var>r</var><sub>1</sub>&thinsp;&middot;&thinsp;(<var>r</var><sub>2</sub>&times;<var>r</var><sub>3</sub>)
+</p>
+
+<p>which is what your existing <code>CircumSphere::new</code> computes &mdash; once
+<code>r2.cross(v3)</code> becomes <code>r2.cross(r3)</code>. Centre is
+<var>v</var><sub>0</sub>&nbsp;+&nbsp;<var>o</var>, radius is |<var>o</var>|, and the denominator is
+<code>orient3d</code>, so the degenerate case (four coplanar points, no finite sphere) is the same
+early-out.</p>
+
+<h3>Three things that will bite you</h3>
+
+<ol class="steps">
+<li><strong>Cospherical degeneracy is not an edge case in 3D.</strong> The eight corners of a cube lie
+on one sphere. So do the corners of any axis-aligned box &mdash; which is to say, so does every
+grid-aligned room in a procedural level. <code>in_sphere</code> returns something within rounding of
+zero and the tetrahedralisation becomes ambiguous. <code>f64</code> is not enough here; either jitter
+the input by a tiny random offset, or use exact predicates (<code>robust</code>). Jittering is the
+pragmatic choice for level generation.</li>
+<li><strong>Delaunay does not give you nice tetrahedra.</strong> The 2D guarantee &mdash; maximise the
+minimum angle &mdash; has no 3D analogue. 3D Delaunay routinely contains <em>slivers</em>: four
+almost-coplanar points forming a tetrahedron with near-zero volume and a perfectly valid circumsphere.
+They are mathematically correct and useless for physics or rendering. Filtering them out is a
+post-process, and it's why mesh generators are a separate field from triangulation.</li>
+<li><strong>The count grows.</strong> <var>n</var> points in 2D give O(<var>n</var>) triangles. In 3D
+the worst case is O(<var>n</var>&sup2;) tetrahedra, and adversarial-looking inputs (points near a
+curve) hit it. Budget accordingly before you tetrahedralise ten thousand points.</li>
+</ol>
+
+<aside class="cal tip"><span class="tag">worth asking</span><div>If what you actually want out of 3D is a room graph rather than a volume mesh, consider
+whether you need tetrahedralisation at all. Extracting edges from a 3D Delaunay and running the same
+MST from &sect;&thinsp;14 works and is the standard multi-floor dungeon approach &mdash; but so does
+triangulating each floor in 2D and stitching floors with explicit vertical connections, which is
+dramatically less code and has no degeneracy problems. Reach for the tetrahedra when you need the
+volume, not just the connectivity.</div></aside></section>
+    <footer>Build it, break it, put the circumcircles on a toggle key.</footer>
+  </main>
+</div>
+
+<script>
+(function () {
+  var cvs = document.getElementById('demo');
+  var ctx = cvs.getContext('2d');
+  var showAll = document.getElementById('showall');
+  var sites = [];
+  var mesh = { pts: [], tris: [] };
+  var hover = -1;
+  var W = 0, H = 0;
+
+  // ---- the same algorithm the tutorial builds, in JS ----
+  function orient2d(a, b, c) {
+    return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+  }
+
+  function inCircle(a, b, c, d) {
+    var adx = a[0] - d[0], ady = a[1] - d[1];
+    var bdx = b[0] - d[0], bdy = b[1] - d[1];
+    var cdx = c[0] - d[0], cdy = c[1] - d[1];
+    var a2 = adx * adx + ady * ady;
+    var b2 = bdx * bdx + bdy * bdy;
+    var c2 = cdx * cdx + cdy * cdy;
+    return adx * (bdy * c2 - b2 * cdy)
+         - ady * (bdx * c2 - b2 * cdx)
+         + a2 * (bdx * cdy - bdy * cdx);
+  }
+
+  function tri(pts, a, b, c) {
+    return orient2d(pts[a], pts[b], pts[c]) < 0 ? [a, c, b] : [a, b, c];
+  }
+
+  function key(a, b) { return a < b ? a + ':' + b : b + ':' + a; }
+
+  function triangulate(input) {
+    if (input.length < 3) return { pts: input.slice(), tris: [] };
+    var pts = input.slice();
+    var minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
+    for (var k = 0; k < input.length; k++) {
+      minx = Math.min(minx, input[k][0]); maxx = Math.max(maxx, input[k][0]);
+      miny = Math.min(miny, input[k][1]); maxy = Math.max(maxy, input[k][1]);
+    }
+    var cx = (minx + maxx) / 2, cy = (miny + maxy) / 2;
+    var r = 2 * (Math.hypot(maxx - minx, maxy - miny) / 2 + 1) * 100;
+    var s = pts.length;
+    pts.push([cx, cy + r], [cx - 0.8660254 * r, cy - 0.5 * r], [cx + 0.8660254 * r, cy - 0.5 * r]);
+
+    var tris = [tri(pts, s, s + 1, s + 2)];
+
+    for (var i = 0; i < input.length; i++) {
+      var p = pts[i];
+      var cavity = new Map();
+      var kept = [];
+      for (var t = 0; t < tris.length; t++) {
+        var T = tris[t];
+        if (inCircle(pts[T[0]], pts[T[1]], pts[T[2]], p) > 0) {
+          var e = [[T[0], T[1]], [T[1], T[2]], [T[2], T[0]]];
+          for (var j = 0; j < 3; j++) {
+            var kk = key(e[j][0], e[j][1]);
+            cavity.set(kk, (cavity.get(kk) || 0) + 1);
+          }
+        } else { kept.push(T); }
+      }
+      tris = kept;
+      cavity.forEach(function (count, kk) {
+        if (count === 1) {
+          var ab = kk.split(':');
+          tris.push(tri(pts, +ab[0], +ab[1], i));
+        }
+      });
+    }
+
+    tris = tris.filter(function (T) { return T[0] < s && T[1] < s && T[2] < s; });
+    return { pts: pts.slice(0, s), tris: tris };
+  }
+
+  function circum(a, b, c) {
+    var ux = b[0] - a[0], uy = b[1] - a[1];
+    var vx = c[0] - a[0], vy = c[1] - a[1];
+    var d = 2 * (ux * vy - uy * vx);
+    if (Math.abs(d) < 1e-9) return null;
+    var u2 = ux * ux + uy * uy, v2 = vx * vx + vy * vy;
+    var ox = (vy * u2 - uy * v2) / d, oy = (ux * v2 - vx * u2) / d;
+    return { x: a[0] + ox, y: a[1] + oy, r: Math.hypot(ox, oy) };
+  }
+
+  function inside(p, a, b, c) {
+    var d1 = orient2d(a, b, p), d2 = orient2d(b, c, p), d3 = orient2d(c, a, p);
+    var neg = (d1 < 0) || (d2 < 0) || (d3 < 0);
+    var pos = (d1 > 0) || (d2 > 0) || (d3 > 0);
+    return !(neg && pos);
+  }
+
+  // ---- drawing ----
+  function css(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    var pts = mesh.pts, tris = mesh.tris;
+    var teal = css('--edge'), amber = css('--circ'), rule = css('--rule');
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, W, H);
+    ctx.clip();
+
+    if (showAll.checked) {
+      ctx.strokeStyle = 'rgba(232,163,61,.22)';
+      ctx.lineWidth = 1;
+      for (var i = 0; i < tris.length; i++) {
+        var T = tris[i];
+        var c = circum(pts[T[0]], pts[T[1]], pts[T[2]]);
+        if (!c || c.r > 4000) continue;
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+
+    if (hover >= 0 && hover < tris.length) {
+      var HT = tris[hover];
+      var a = pts[HT[0]], b = pts[HT[1]], cc = pts[HT[2]];
+      ctx.fillStyle = 'rgba(98,210,195,.10)';
+      ctx.beginPath();
+      ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.lineTo(cc[0], cc[1]);
+      ctx.closePath(); ctx.fill();
+
+      var hc = circum(a, b, cc);
+      if (hc && hc.r < 6000) {
+        ctx.strokeStyle = amber;
+        ctx.lineWidth = 1.25;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.arc(hc.x, hc.y, hc.r, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.strokeStyle = amber;
+        ctx.beginPath();
+        ctx.moveTo(hc.x - 5, hc.y); ctx.lineTo(hc.x + 5, hc.y);
+        ctx.moveTo(hc.x, hc.y - 5); ctx.lineTo(hc.x, hc.y + 5);
+        ctx.stroke();
+      }
+    }
+
+    ctx.strokeStyle = teal;
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath();
+    for (var t = 0; t < tris.length; t++) {
+      var Q = tris[t];
+      var p0 = pts[Q[0]], p1 = pts[Q[1]], p2 = pts[Q[2]];
+      ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]);
+      ctx.lineTo(p2[0], p2[1]); ctx.closePath();
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = '#e9f2f7';
+    for (var k = 0; k < pts.length; k++) {
+      ctx.beginPath();
+      ctx.arc(pts[k][0], pts[k][1], 2.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    if (pts.length < 3) {
+      ctx.fillStyle = css('--muted');
+      ctx.font = '12px ui-monospace, monospace';
+      ctx.fillText('click to add points \u2014 three makes a triangle', 16, 26);
+    }
+    ctx.restore();
+  }
+
+  function rebuild() { mesh = triangulate(sites); hover = -1; draw(); }
+
+  function resize() {
+    var dpr = window.devicePixelRatio || 1;
+    var rect = cvs.getBoundingClientRect();
+    W = rect.width; H = rect.height;
+    cvs.width = Math.round(W * dpr);
+    cvs.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+
+  function scatter(n) {
+    var out = [];
+    var cx = W / 2, cy = H / 2;
+    var span = Math.min(W, H) * 0.42;
+    for (var i = 0; i < n; i++) {
+      var ang = i * 2.3999632;
+      var rad = Math.sqrt((i + 0.5) / n) * span;
+      out.push([cx + rad * Math.cos(ang), cy + rad * Math.sin(ang)]);
+    }
+    return out;
+  }
+
+  function grid(n) {
+    var out = [];
+    var step = Math.min(W, H) * 0.7 / (n - 1);
+    var ox = W / 2 - step * (n - 1) / 2, oy = H / 2 - step * (n - 1) / 2;
+    for (var y = 0; y < n; y++) for (var x = 0; x < n; x++) out.push([ox + x * step, oy + y * step]);
+    return out;
+  }
+
+  cvs.addEventListener('click', function (ev) {
+    var r = cvs.getBoundingClientRect();
+    sites.push([ev.clientX - r.left, ev.clientY - r.top]);
+    rebuild();
+  });
+
+  cvs.addEventListener('mousemove', function (ev) {
+    var r = cvs.getBoundingClientRect();
+    var p = [ev.clientX - r.left, ev.clientY - r.top];
+    var found = -1;
+    for (var i = 0; i < mesh.tris.length; i++) {
+      var T = mesh.tris[i];
+      if (inside(p, mesh.pts[T[0]], mesh.pts[T[1]], mesh.pts[T[2]])) { found = i; break; }
+    }
+    if (found !== hover) { hover = found; draw(); }
+  });
+
+  cvs.addEventListener('mouseleave', function () { hover = -1; draw(); });
+
+  document.getElementById('b-scatter').addEventListener('click', function () {
+    sites = scatter(28); rebuild();
+  });
+  document.getElementById('b-grid').addEventListener('click', function () {
+    sites = grid(5); rebuild();
+  });
+  document.getElementById('b-clear').addEventListener('click', function () {
+    sites = []; rebuild();
+  });
+  showAll.addEventListener('change', draw);
+
+  window.addEventListener('resize', function () { resize(); });
+
+  resize();
+  sites = scatter(28);
+  rebuild();
+})();
+
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav.toc a'));
+  var map = {};
+  links.forEach(function (a) { map[a.getAttribute('href').slice(1)] = a; });
+  var obs = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting) {
+        links.forEach(function (a) { a.classList.remove('on'); });
+        if (map[e.target.id]) map[e.target.id].classList.add('on');
+      }
+    });
+  }, { rootMargin: '-10% 0px -75% 0px' });
+  document.querySelectorAll('main section').forEach(function (s) { obs.observe(s); });
+})();
+</script>
+</body>
+</html>
