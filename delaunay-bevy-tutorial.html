@@ -4,9 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Delaunay triangulation in Bevy &mdash; a build-along</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
 <style>
 :root {
   --board: #0e1216;
@@ -19,9 +16,9 @@
   --edge:  #62d2c3;
   --circ:  #e8a33d;
   --bad:   #e05a6b;
-  --display: "IBM Plex Sans Condensed", "Helvetica Neue", Arial, sans-serif;
-  --body: "IBM Plex Serif", Georgia, serif;
-  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --display: "IBM Plex Sans Condensed", "Roboto Condensed", "Archivo Narrow", "Avenir Next Condensed", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Serif", Charter, "Iowan Old Style", "Source Serif 4", Georgia, serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
 * { box-sizing: border-box; }
@@ -1265,7 +1262,101 @@ pub fn minimum_spanning_tree(points: &amp;[Vec2], edges: &amp;[Edge]) -&gt; Vec&
     tree
 }</code></pre></figure>
 
-<aside class="cal tip"><span class="tag">level design</span><div>A pure MST dungeon is a tree, which means no loops and a lot of backtracking. The usual
+<h3>The same function in 3D</h3><p>Kruskal doesn't care what dimension its points live in &mdash; it only ever asks for the length of an edge. So rather than duplicating the function, put that one question behind a six-line trait and let one implementation serve both:</p><figure class="code"><div class="lang">rust</div><pre><code>use bevy::math::{Vec2, Vec3};
+
+pub trait Site: Copy {
+    fn dist_sq(self, other: Self) -&gt; f32;
+}
+
+impl Site for Vec2 {
+    #[inline]
+    fn dist_sq(self, other: Self) -&gt; f32 {
+        self.distance_squared(other)
+    }
+}
+
+impl Site for Vec3 {
+    #[inline]
+    fn dist_sq(self, other: Self) -&gt; f32 {
+        self.distance_squared(other)
+    }
+}
+
+pub fn minimum_spanning_tree&lt;P: Site&gt;(points: &amp;[P], edges: &amp;[Edge]) -&gt; Vec&lt;Edge&gt; {
+    minimum_spanning_tree_by(points, edges, |a, b| a.dist_sq(b))
+}
+
+/// Kruskal with union-find, over an arbitrary edge cost.
+pub fn minimum_spanning_tree_by&lt;P: Copy&gt;(
+    points: &amp;[P],
+    edges: &amp;[Edge],
+    cost: impl Fn(P, P) -&gt; f32,
+) -&gt; Vec&lt;Edge&gt; {
+    let weight = |e: &amp;Edge| cost(points[e.a as usize], points[e.b as usize]);
+
+    let mut sorted = edges.to_vec();
+    sorted.sort_by(|x, y| {
+        weight(x)
+            .partial_cmp(&amp;weight(y))
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| x.cmp(y))
+    });
+
+    let mut parent: Vec&lt;u32&gt; = (0..points.len() as u32).collect();
+
+    fn find(parent: &amp;mut [u32], mut i: u32) -&gt; u32 {
+        while parent[i as usize] != i {
+            parent[i as usize] = parent[parent[i as usize] as usize];
+            i = parent[i as usize];
+        }
+        i
+    }
+
+    let mut tree = Vec::with_capacity(points.len().saturating_sub(1));
+
+    for edge in sorted {
+        let (ra, rb) = (find(&amp;mut parent, edge.a), find(&amp;mut parent, edge.b));
+        if ra != rb {
+            parent[ra as usize] = rb;
+            tree.push(edge);
+        }
+    }
+
+    tree
+}</code></pre></figure><p>The actual 3D work is one level down, in the edge extraction. A triangle has three edges; a tetrahedron has <strong>six</strong> &mdash; every pair of its four vertices:</p><figure class="code"><div class="lang">rust</div><pre><code>impl Tet {
+    /// All six edges. This is not `faces()` with duplicates removed: four
+    /// triangular faces contribute twelve edge slots covering the same six
+    /// edges twice, which is why the HashSet below matters more than in 2D.
+    pub fn edges(&amp;self) -&gt; [Edge; 6] {
+        [
+            Edge::new(self.a, self.b),
+            Edge::new(self.a, self.c),
+            Edge::new(self.a, self.d),
+            Edge::new(self.b, self.c),
+            Edge::new(self.b, self.d),
+            Edge::new(self.c, self.d),
+        ]
+    }
+}
+
+pub fn unique_edges_3d(t: &amp;Tetrahedralization) -&gt; Vec&lt;Edge&gt; {
+    let mut set: HashSet&lt;Edge&gt; = HashSet::new();
+    for tet in &amp;t.tets {
+        set.extend(tet.edges());
+    }
+
+    let mut edges: Vec&lt;Edge&gt; = set.into_iter().collect();
+    edges.sort_unstable(); // deterministic output for seeded generation
+    edges
+}</code></pre></figure><aside class="cal note"><span class="tag">note</span><div>In 2D an interior edge is shared by exactly two triangles, so the set roughly halves what you insert. In 3D an interior edge is shared by however many tetrahedra fan around it &mdash; commonly five or six, sometimes many more &mdash; so you insert several times as many duplicates, and the deduplicated result is still far larger than the 2D equivalent. Kruskal is O(E&nbsp;log&nbsp;E) either way, but give the <code>HashSet</code> a <code>with_capacity</code> if this is on a hot path.</div></aside><h3>Making stairs expensive</h3><p>Euclidean distance treats a vertical connection as no different from a horizontal one of the same length, which for a multi-floor layout is rarely what you want &mdash; you get stairwells everywhere. That's what <code>minimum_spanning_tree_by</code> is for: inflate the vertical component and the tree prefers to stay on one floor, changing floors only where it must to keep the graph connected.</p><figure class="code"><div class="lang">rust</div><pre><code>/// 1.0 = stairs are free, higher = the tree avoids changing floors.
+const STAIR_PENALTY: f32 = 4.0;
+
+let edges = unique_edges_3d(&amp;tets);
+
+let tree = minimum_spanning_tree_by(&amp;tets.points, &amp;edges, |a: Vec3, b: Vec3| {
+    let d = b - a;
+    d.x * d.x + d.z * d.z + (STAIR_PENALTY * d.y).powi(2)
+});</code></pre></figure><p>Because the comparison is only ever between costs, there is no need to take a square root or keep the units meaningful &mdash; any strictly increasing function of edge length yields the same tree. Worth remembering if you want to weight by something other than geometry, like room size or a difficulty budget.</p><aside class="cal tip"><span class="tag">level design</span><div>A pure MST dungeon is a tree, which means no loops and a lot of backtracking. The usual
 fix is to add back a small fraction of the discarded Delaunay edges &mdash; something like 10&ndash;15%
 &mdash; chosen with your seeded RNG. Because you kept determinism through
 <code>unique_edges</code> and the tie-break above, the same seed gives the same dungeon.</div></aside></section><section id="perf"><header class="sh"><span class="num">§&thinsp;15</span><h2>When it gets slow</h2></header><p class="kicker">The loop above is O(n&sup2;). That is completely fine until suddenly it isn't.</p>
@@ -1291,53 +1382,395 @@ overall and it's a substantial rewrite of &sect;&thinsp;08.</li>
 first &mdash; it's a mature Delaunay implementation with constrained triangulation and Voronoi built
 in. Writing your own is worth it for understanding and for control over the data layout; it is not
 worth it if you just need the answer. Nothing about the rest of this tutorial changes: you'd still
-convert its output into your own <code>Tri</code> indices and everything downstream stays put.</div></aside></section><section id="three-d"><header class="sh"><span class="num">§&thinsp;16</span><h2>The jump to 3D</h2></header><p class="kicker">Hints only, as requested. The algorithm is identical; the arithmetic and the failure modes are not.</p>
-<p>Bowyer&ndash;Watson generalises to any dimension without changing shape. Everything gets one
-dimension bigger and the cavity-boundary trick still works &mdash; the boundary of the hole is now the
-set of <em>faces</em> belonging to exactly one bad tetrahedron.</p>
+convert its output into your own <code>Tri</code> indices and everything downstream stays put.</div></aside></section><section id="three-d"><header class="sh"><span class="num">§&thinsp;16</span><h2>The jump to 3D</h2></header><p class="kicker">The insertion loop is unchanged. Five things around it are not, and two of them are the predicates below.</p>
+<p>Short answer to &ldquo;is it just <code>Vec2</code>&nbsp;&rarr;&nbsp;<code>Vec3</code>?&rdquo;
+&mdash; no, but less changes than you'd expect. The <em>body</em> of &sect;&thinsp;08 is genuinely
+identical: drain, partition on a predicate, count boundary elements, fill the cavity, swap the
+buffers. Everything that changes is around it.</p>
 
 <div class="tw"><table>
-<thead><tr><th>2D</th><th>3D</th></tr></thead>
+<thead><tr><th>Unchanged</th><th>Needs replacing</th></tr></thead>
 <tbody>
-<tr><td><code>Tri { a, b, c }</code></td><td><code>Tet { a, b, c, d }</code></td></tr>
-<tr><td><code>Edge</code>, sorted pair</td><td><code>Face</code>, sorted triple</td></tr>
-<tr><td>cavity boundary = edges with count 1</td><td>cavity boundary = faces with count 1</td></tr>
-<tr><td>super triangle</td><td>super tetrahedron</td></tr>
-<tr><td><code>orient2d</code>, 3&times;3 determinant</td><td><code>orient3d</code>, 4&times;4 determinant</td></tr>
-<tr><td><code>in_circle</code>, 4&times;4 determinant</td><td><code>in_sphere</code>, 5&times;5 determinant</td></tr>
-<tr><td>fill the hole: 1 tri per boundary edge</td><td>fill the hole: 1 tet per boundary face</td></tr>
+<tr><td>The insertion loop &mdash; drain / partition / count / fill</td><td><code>Edge</code> (sorted pair) &rarr; <code>Face</code> (sorted triple)</td></tr>
+<tr><td>Cavity boundary = elements with count 1</td><td><code>Tri</code> (3 indices) &rarr; <code>Tet</code> (4 indices), 4 faces not 3 edges</td></tr>
+<tr><td>Super-element scaffolding, then <code>retain</code> to strip it</td><td><code>in_circle</code> &rarr; <code>in_sphere</code>, <code>orient2d</code> &rarr; <code>orient3d</code></td></tr>
+<tr><td>Indices everywhere; points stored once</td><td><code>Tri::new</code> is infallible; <code>Tet::new</code> must return <code>Option</code></td></tr>
+<tr><td>The empty-circumcircle test in &sect;&thinsp;10, now empty-circumsphere</td><td>Super <em>triangle</em> factor of 2 &rarr; super <em>tetrahedron</em> factor of 3</td></tr>
 </tbody></table></div>
 
-<h3>The two predicates</h3>
+<p>Two things in that right-hand column are worth spelling out. <code>Tet::new</code> returning
+<code>Option</code> is the real structural difference: a collinear triple in 2D is rare and mostly
+harmless, but a <em>coplanar quadruple</em> has no circumsphere at all, and coplanar quadruples are
+everywhere in level-shaped data. And the Euler check from &sect;&thinsp;10 has no clean 3D analogue, so
+the empty-circumsphere property becomes your only real test &mdash; keep it.</p>
 
-<p><code>orient3d(a, b, c, d)</code> is six times the signed volume, and it's just the scalar triple
-product of the three edge vectors from <code>a</code>. Use it in <code>Tet::new</code> exactly the way
-<code>orient2d</code> is used in <code>Tri::new</code> &mdash; swap two vertices when it's negative,
-so every tetrahedron has consistent orientation and <code>in_sphere</code> returns a sign you can
-trust.</p>
+<h3>orient3d</h3>
 
-<p><code>in_sphere(a, b, c, d, e)</code> is the same construction one dimension up: subtract
-<code>e</code> from the other four, and take the 4&times;4 determinant whose rows are
-<code>(x, y, z, x&sup2;+y&sup2;+z&sup2;)</code>. Positive means <code>e</code> is inside the
-circumsphere of a positively-oriented <code>(a, b, c, d)</code>.</p>
+<p>Six times the signed volume of a tetrahedron, which is just the scalar triple product of the
+three edge vectors from the last vertex. It's the direct analogue of <code>orient2d</code>, and it
+does the same job: force a consistent orientation at construction so the in-sphere test returns a sign
+you can trust.</p>
 
-<h3>The circumsphere</h3>
+<figure class="code"><div class="lang">rust</div><pre><code>// src/delaunay3/predicates.rs
+use bevy::math::Vec3;
 
-<p>The derivation is identical to &sect;&thinsp;05 with a 3&times;3 system instead of 2&times;2. With
-<var>r<sub>i</sub></var>&nbsp;=&nbsp;<var>v<sub>i</sub></var>&nbsp;&minus;&nbsp;<var>v</var><sub>0</sub>:</p>
+/// Six times the signed volume of the tetrahedron (a, b, c, d).
+///
+///   &gt; 0  positively oriented
+///   &lt; 0  negatively oriented -- swap any two vertices to fix
+///  == 0  all four points are coplanar: no tetrahedron, no circumsphere
+///
+/// As in 2D, widening to f64 is free (the inputs are f32) and buys a lot of
+/// headroom in the subtractions, which is where the cancellation lives.
+#[inline]
+pub fn orient3d(a: Vec3, b: Vec3, c: Vec3, d: Vec3) -&gt; f64 {
+    let (a, b, c, d) = (a.as_dvec3(), b.as_dvec3(), c.as_dvec3(), d.as_dvec3());
+    (a - d).dot((b - d).cross(c - d))
+}</code></pre></figure>
 
-<p class="eq">
-<var>o</var> = ( |<var>r</var><sub>1</sub>|&sup2;(<var>r</var><sub>2</sub>&times;<var>r</var><sub>3</sub>)
-+ |<var>r</var><sub>2</sub>|&sup2;(<var>r</var><sub>3</sub>&times;<var>r</var><sub>1</sub>)
-+ |<var>r</var><sub>3</sub>|&sup2;(<var>r</var><sub>1</sub>&times;<var>r</var><sub>2</sub>) )
-&nbsp;/&nbsp; 2&thinsp;<var>r</var><sub>1</sub>&thinsp;&middot;&thinsp;(<var>r</var><sub>2</sub>&times;<var>r</var><sub>3</sub>)
-</p>
+<h3>in_sphere</h3>
 
-<p>which is what your existing <code>CircumSphere::new</code> computes &mdash; once
-<code>r2.cross(v3)</code> becomes <code>r2.cross(r3)</code>. Centre is
-<var>v</var><sub>0</sub>&nbsp;+&nbsp;<var>o</var>, radius is |<var>o</var>|, and the denominator is
-<code>orient3d</code>, so the degenerate case (four coplanar points, no finite sphere) is the same
-early-out.</p>
+<p>The 4&times;4 determinant whose rows are
+(<var>x</var>,&nbsp;<var>y</var>,&nbsp;<var>z</var>,&nbsp;<var>x</var>&sup2;+<var>y</var>&sup2;+<var>z</var>&sup2;)
+after subtracting the query point. Expanding it along the last column turns it into four triple
+products &mdash; four <code>orient3d</code>s in disguise, weighted by the squared lengths:</p>
+
+<figure class="code"><div class="lang">rust</div><pre><code>/// Is `e` inside the circumsphere of the tetrahedron (a, b, c, d)?
+///
+///     | ax-ex  ay-ey  az-ez  |a-e|^2 |
+///     | bx-ex  by-ey  bz-ez  |b-e|^2 |
+///     | cx-ex  cy-ey  cz-ez  |c-e|^2 |
+///     | dx-ex  dy-ey  dz-ez  |d-e|^2 |
+///
+///   &gt; 0  strictly inside
+///   &lt; 0  strictly outside
+///  == 0  exactly on the sphere -- five cospherical points
+///
+/// REQUIRES orient3d(a, b, c, d) &gt; 0. With a negatively oriented tetrahedron
+/// the whole result flips sign and every decision built on it is backwards.
+/// That is what `Tet::new` guarantees, and `predicate_signs_agree` below
+/// pins the convention down so a refactor can&#x27;t quietly invert it.
+#[inline]
+pub fn in_sphere(a: Vec3, b: Vec3, c: Vec3, d: Vec3, e: Vec3) -&gt; f64 {
+    let (a, b, c, d, e) = (
+        a.as_dvec3(),
+        b.as_dvec3(),
+        c.as_dvec3(),
+        d.as_dvec3(),
+        e.as_dvec3(),
+    );
+
+    let (ae, be, ce, de) = (a - e, b - e, c - e, d - e);
+
+    let (a2, b2, c2, d2) = (
+        ae.length_squared(),
+        be.length_squared(),
+        ce.length_squared(),
+        de.length_squared(),
+    );
+
+    d2 * ae.dot(be.cross(ce)) - c2 * ae.dot(be.cross(de)) + b2 * ae.dot(ce.cross(de))
+        - a2 * be.dot(ce.cross(de))
+}</code></pre></figure>
+
+<aside class="cal warn"><span class="tag">read this first</span><div>Sign conventions for these two predicates differ between references &mdash; some
+libraries define <code>orient3d</code> with the opposite handedness, which inverts
+<code>in_sphere</code> along with it. Don't try to reason your way to which one you have. Write the
+test below, run it, and if a sign is backwards, negate the whole expression once and move on. The only
+thing that matters is that the two agree with each other and with your <code>Tet::new</code>.</div></aside>
+
+<figure class="code"><div class="lang">rust</div><pre><code>#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::math::Vec3;
+
+    #[test]
+    fn predicate_signs_agree() {
+        // Circumsphere of this tetrahedron: centre (0.5, 0.5, 0.5), r^2 = 0.75.
+        let (a, b, c, d) = (Vec3::ZERO, Vec3::Y, Vec3::X, Vec3::Z);
+
+        assert!(orient3d(a, b, c, d) &gt; 0.0, &quot;reference tet must be positive&quot;);
+
+        let s = Circumsphere::new(a, b, c, d).unwrap();
+        assert!((s.center - Vec3::splat(0.5)).length() &lt; 1e-5);
+        assert!((s.radius_sq - 0.75).abs() &lt; 1e-5);
+
+        assert!(in_sphere(a, b, c, d, Vec3::splat(0.4)) &gt; 0.0); // inside
+        assert!(in_sphere(a, b, c, d, Vec3::splat(5.0)) &lt; 0.0); // outside
+        assert!(in_sphere(a, b, c, d, Vec3::ONE).abs() &lt; 1e-6); // on the sphere
+
+        // And the invariant that makes the requirement above concrete:
+        // flipping the orientation flips the answer.
+        assert!(in_sphere(a, c, b, d, Vec3::splat(0.4)) &lt; 0.0);
+    }
+}</code></pre></figure>
+
+<h3>Circumsphere</h3>
+
+<p>Same derivation as &sect;&thinsp;05, one dimension up: the centre is equidistant from all four
+points, which gives a 3&times;3 linear system instead of 2&times;2, and Cramer's rule turns the
+solution into cross products. The denominator <em>is</em> <code>orient3d</code>, so the degenerate
+case is the same early-out &mdash; coplanar points, no finite sphere.</p>
+
+<figure class="code"><div class="lang">rust</div><pre><code>// src/delaunay3/circumsphere.rs
+use bevy::math::Vec3;
+
+#[derive(Clone, Copy, Debug)]
+pub struct Circumsphere {
+    pub center: Vec3,
+    pub radius_sq: f32,
+}
+
+impl Circumsphere {
+    /// `None` when the four points are coplanar.
+    pub fn new(v0: Vec3, v1: Vec3, v2: Vec3, v3: Vec3) -&gt; Option&lt;Self&gt; {
+        let r1 = v1 - v0;
+        let r2 = v2 - v0;
+        let r3 = v3 - v0;
+
+        // r2.cross(r3), NOT r2.cross(v3). `r3` is an edge vector; `v3` is an
+        // absolute position, and crossing with it gives a plausible-looking
+        // wrong answer rather than an obvious failure.
+        let n = r2.cross(r3);
+        let det = 2.0 * r1.dot(n);
+
+        // Scale-relative, exactly as in 2D: dividing by the edge lengths makes
+        // this a test on the shape of the tetrahedron rather than its size.
+        let scale = r1.length() * r2.length() * r3.length();
+        if det.abs() &lt;= 1e-6 * scale {
+            return None;
+        }
+
+        let offset = (r1.length_squared() * n
+            + r2.length_squared() * r3.cross(r1)
+            + r3.length_squared() * r1.cross(r2))
+            / det;
+
+        Some(Self {
+            center: v0 + offset,
+            // v0 lies on the sphere and `offset` runs from v0 to the centre.
+            radius_sq: offset.length_squared(),
+        })
+    }
+
+    #[inline]
+    pub fn radius(&amp;self) -&gt; f32 {
+        self.radius_sq.sqrt()
+    }
+
+    #[inline]
+    pub fn contains(&amp;self, p: Vec3) -&gt; bool {
+        self.center.distance_squared(p) &lt;= self.radius_sq
+    }
+}</code></pre></figure>
+
+<p>This is your existing <code>CircumSphere::new</code> with the <code>cross</code> bug fixed, the
+fixed epsilon made scale-relative, and the <code>2.0</code> folded into the determinant. Use it for
+gizmos and debugging, and use <code>in_sphere</code> in the loop &mdash; the same division-free
+argument from &sect;&thinsp;05 applies, and it applies harder here because a near-coplanar tetrahedron
+throws its circumcentre much further away than a near-collinear triangle does.</p>
+
+<h3>The pieces those two plug into</h3>
+
+<p>For completeness, the types and scaffolding they need. Nothing here is surprising if
+&sect;&thinsp;04 and &sect;&thinsp;07 made sense:</p>
+
+<figure class="code"><div class="lang">rust</div><pre><code>/// Sorted, so the same three vertices always produce the same value however
+/// they arrive -- the 3D `Edge`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct Face {
+    pub a: u32,
+    pub b: u32,
+    pub c: u32,
+}
+
+impl Face {
+    pub fn new(a: u32, b: u32, c: u32) -&gt; Self {
+        let mut v = [a, b, c];
+        v.sort_unstable();
+        Self { a: v[0], b: v[1], c: v[2] }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Tet {
+    pub a: u32,
+    pub b: u32,
+    pub c: u32,
+    pub d: u32,
+}
+
+impl Tet {
+    /// `None` for a coplanar (zero-volume) tetrahedron. Unlike `Tri::new`,
+    /// this genuinely happens -- see the gotchas below.
+    pub fn new(points: &amp;[Vec3], a: u32, b: u32, c: u32, d: u32) -&gt; Option&lt;Self&gt; {
+        let p = |i: u32| points[i as usize];
+        let (pa, pb, pc, pd) = (p(a), p(b), p(c), p(d));
+
+        let vol = orient3d(pa, pb, pc, pd);
+        let scale = ((pb - pa).length() * (pc - pa).length() * (pd - pa).length()) as f64;
+
+        if vol.abs() &lt;= 1e-9 * scale {
+            return None;
+        }
+
+        // Swap two vertices to force positive orientation, exactly as in 2D.
+        Some(if vol &lt; 0.0 {
+            Self { a, b: c, c: b, d }
+        } else {
+            Self { a, b, c, d }
+        })
+    }
+
+    pub fn faces(&amp;self) -&gt; [Face; 4] {
+        [
+            Face::new(self.a, self.b, self.c),
+            Face::new(self.a, self.b, self.d),
+            Face::new(self.a, self.c, self.d),
+            Face::new(self.b, self.c, self.d),
+        ]
+    }
+
+    pub fn vertices(&amp;self) -&gt; [u32; 4] {
+        [self.a, self.b, self.c, self.d]
+    }
+
+    pub fn positions(&amp;self, points: &amp;[Vec3]) -&gt; [Vec3; 4] {
+        [
+            points[self.a as usize],
+            points[self.b as usize],
+            points[self.c as usize],
+            points[self.d as usize],
+        ]
+    }
+}</code></pre></figure>
+
+<p>The super-element, where the only new fact is the constant. A regular tetrahedron with
+circumradius <var>R</var> has inradius <var>R</var>&thinsp;/&thinsp;3, so a circumradius of
+3<var>r</var> contains any sphere of radius <var>r</var> &mdash; the same argument as the factor of 2
+in &sect;&thinsp;07, since an equilateral triangle's inradius is <var>R</var>&thinsp;/&thinsp;2:</p>
+
+<figure class="code"><div class="lang">rust</div><pre><code>fn super_tetrahedron(sites: &amp;[Vec3]) -&gt; Option&lt;[Vec3; 4]&gt; {
+    let (min, max) = sites.iter().fold(
+        (Vec3::INFINITY, Vec3::NEG_INFINITY),
+        |(lo, hi), &amp;p| (lo.min(p), hi.max(p)),
+    );
+
+    if !min.is_finite() || !max.is_finite() {
+        return None;
+    }
+
+    let center = (min + max) * 0.5;
+    let bound = (max - min).length() * 0.5 + 1.0;
+
+    let r = 3.0 * bound * 100.0;
+    let k = r / 3.0_f32.sqrt(); // the four vertices below have length sqrt(3) * k
+
+    // Alternating corners of a cube: the standard regular tetrahedron.
+    Some([
+        center + Vec3::new(k, k, k),
+        center + Vec3::new(k, -k, -k),
+        center + Vec3::new(-k, k, -k),
+        center + Vec3::new(-k, -k, k),
+    ])
+}</code></pre></figure>
+
+<p>And the driver. This is &sect;&thinsp;08 with the nouns swapped, but note where the
+<code>Option</code> from <code>Tet::new</code> actually lands &mdash; there are exactly two places,
+and they want opposite treatment:</p>
+
+<figure class="code"><div class="lang">rust</div><pre><code>#[derive(Clone, Debug, Default)]
+pub struct Tetrahedralization {
+    pub points: Vec&lt;Vec3&gt;,
+    pub tets: Vec&lt;Tet&gt;,
+}
+
+pub fn tetrahedralize(sites: &amp;[Vec3]) -&gt; Tetrahedralization {
+    let Some(super_verts) = super_tetrahedron(sites) else {
+        return Tetrahedralization::default();
+    };
+
+    let mut points: Vec&lt;Vec3&gt; = Vec::with_capacity(sites.len() + 4);
+    points.extend_from_slice(sites);
+
+    let first_super = points.len() as u32;
+    points.extend_from_slice(&amp;super_verts);
+
+    // `Tet::new` is fallible, but THIS call cannot fail: `super_tetrahedron`
+    // returns a regular tetrahedron, whose volume is non-zero by construction.
+    // Unwrapping here is honest; unwrapping in the loop below would not be.
+    let root = Tet::new(
+        &amp;points,
+        first_super,
+        first_super + 1,
+        first_super + 2,
+        first_super + 3,
+    )
+    .expect(&quot;super tetrahedron is regular by construction&quot;);
+
+    let mut tets = vec![root];
+
+    let mut cavity: HashMap&lt;Face, u32&gt; = HashMap::new();
+    let mut kept: Vec&lt;Tet&gt; = Vec::new();
+    let mut unfilled = 0usize;
+
+    for i in 0..sites.len() as u32 {
+        let p = points[i as usize];
+
+        cavity.clear();
+        kept.clear();
+
+        // 1. Partition. Identical to 2D apart from the predicate and `faces()`.
+        for t in tets.drain(..) {
+            let [a, b, c, d] = t.positions(&amp;points);
+            if in_sphere(a, b, c, d, p) &gt; 0.0 {
+                for f in t.faces() {
+                    *cavity.entry(f).or_insert(0) += 1;
+                }
+            } else {
+                kept.push(t);
+            }
+        }
+
+        std::mem::swap(&amp;mut tets, &amp;mut kept);
+
+        // 2. Fill. A face seen once is on the boundary of the cavity.
+        for (&amp;face, &amp;count) in cavity.iter() {
+            if count != 1 {
+                continue;
+            }
+
+            match Tet::new(&amp;points, face.a, face.b, face.c, i) {
+                Some(tet) =&gt; tets.push(tet),
+                // The new point is coplanar with this boundary face, so this
+                // part of the cavity stays open and the mesh is now invalid.
+                // Counting beats ignoring: see the note below.
+                None =&gt; unfilled += 1,
+            }
+        }
+    }
+
+    debug_assert_eq!(
+        unfilled, 0,
+        &quot;coplanar input left holes in the mesh -- jitter your sites&quot;,
+    );
+
+    // 3. Cleanup. Unchanged from 2D except for the extra sort key.
+    tets.retain(|t| t.vertices().iter().all(|&amp;v| v &lt; first_super));
+    points.truncate(first_super as usize);
+    tets.sort_unstable_by_key(|t| (t.a, t.b, t.c, t.d));
+
+    Tetrahedralization { points, tets }
+}</code></pre></figure>
+
+<aside class="cal warn"><span class="tag">learn from my draft</span><div>An earlier draft of this section wrote the fill step as
+<code>tets.extend(Tet::new(..))</code>, which compiles and is tidy &mdash; <code>Option</code> is an
+iterator, so a rejected tetrahedron contributes nothing. Don't do it. Silently dropping a boundary
+face leaves an unfilled hole and the result is no longer a tetrahedralisation, with no indication
+anything went wrong. The <code>match</code> above costs three lines and turns a silent corruption into
+a failing assertion in dev builds. If a panic is too aggressive for your use, return
+<code>unfilled</code> in the struct and check it at the call site &mdash; but do not throw the
+information away.</div></aside>
 
 <h3>Three things that will bite you</h3>
 
@@ -1345,25 +1778,25 @@ early-out.</p>
 <li><strong>Cospherical degeneracy is not an edge case in 3D.</strong> The eight corners of a cube lie
 on one sphere. So do the corners of any axis-aligned box &mdash; which is to say, so does every
 grid-aligned room in a procedural level. <code>in_sphere</code> returns something within rounding of
-zero and the tetrahedralisation becomes ambiguous. <code>f64</code> is not enough here; either jitter
-the input by a tiny random offset, or use exact predicates (<code>robust</code>). Jittering is the
-pragmatic choice for level generation.</li>
+zero and the result becomes ambiguous. <code>f64</code> is not enough here; either jitter the input by
+a tiny random offset, or use exact predicates (the <code>robust</code> crate). Jittering is the
+pragmatic choice for level generation, and it also disposes of the coplanar problem above.</li>
 <li><strong>Delaunay does not give you nice tetrahedra.</strong> The 2D guarantee &mdash; maximise the
 minimum angle &mdash; has no 3D analogue. 3D Delaunay routinely contains <em>slivers</em>: four
 almost-coplanar points forming a tetrahedron with near-zero volume and a perfectly valid circumsphere.
-They are mathematically correct and useless for physics or rendering. Filtering them out is a
-post-process, and it's why mesh generators are a separate field from triangulation.</li>
+They are correct and useless for physics or rendering. Filtering them is a post-process, and it's why
+mesh generation is a separate field from triangulation.</li>
 <li><strong>The count grows.</strong> <var>n</var> points in 2D give O(<var>n</var>) triangles. In 3D
-the worst case is O(<var>n</var>&sup2;) tetrahedra, and adversarial-looking inputs (points near a
-curve) hit it. Budget accordingly before you tetrahedralise ten thousand points.</li>
+the worst case is O(<var>n</var>&sup2;) tetrahedra, and innocent-looking inputs (points near a curve)
+hit it. Budget before you tetrahedralise ten thousand points.</li>
 </ol>
 
-<aside class="cal tip"><span class="tag">worth asking</span><div>If what you actually want out of 3D is a room graph rather than a volume mesh, consider
-whether you need tetrahedralisation at all. Extracting edges from a 3D Delaunay and running the same
-MST from &sect;&thinsp;14 works and is the standard multi-floor dungeon approach &mdash; but so does
-triangulating each floor in 2D and stitching floors with explicit vertical connections, which is
-dramatically less code and has no degeneracy problems. Reach for the tetrahedra when you need the
-volume, not just the connectivity.</div></aside></section>
+<aside class="cal tip"><span class="tag">worth asking</span><div>If what you want out of 3D is a room graph rather than a volume mesh, consider whether
+you need tetrahedralisation at all. Extracting edges from a 3D Delaunay and running the MST from
+&sect;&thinsp;14 works and is the standard multi-floor dungeon approach &mdash; but so does
+triangulating each floor in 2D and stitching floors with explicit vertical connections, which is far
+less code and has no degeneracy problems. Reach for the tetrahedra when you need the volume, not just
+the connectivity.</div></aside></section>
     <footer>Build it, break it, put the circumcircles on a toggle key.</footer>
   </main>
 </div>
