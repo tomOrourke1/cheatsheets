@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Impact sparks in Godot 4.7</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#eaeef2;
+  --panel:#ffffff;
+  --panel-2:#f4f7f9;
+  --ink:#141d27;
+  --muted:#5d6e7e;
+  --line:#ced7e0;
+  --line-soft:#e0e7ed;
+  --accent:#1f6fb2;
+  --accent-soft:#dbebf7;
+  --spark:#c9720f;
+  --spark-soft:#fbeedd;
+  --code-bg:#17202a;
+  --code-ink:#d7e2ec;
+  --code-muted:#7f92a3;
+  --code-str:#9fd08a;
+  --code-kw:#7cb7e8;
+  --code-type:#e0b07a;
+  --code-num:#d99ac4;
+  --radius:10px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1319;
+    --panel:#161d25;
+    --panel-2:#1b232c;
+    --ink:#e2e9f0;
+    --muted:#94a4b4;
+    --line:#2a333d;
+    --line-soft:#222a33;
+    --accent:#63aae4;
+    --accent-soft:#16303f;
+    --spark:#eda45c;
+    --spark-soft:#2b2115;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1319;
+  --panel:#161d25;
+  --panel-2:#1b232c;
+  --ink:#e2e9f0;
+  --muted:#94a4b4;
+  --line:#2a333d;
+  --line-soft:#222a33;
+  --accent:#63aae4;
+  --accent-soft:#16303f;
+  --spark:#eda45c;
+  --spark-soft:#2b2115;
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:"Source Serif 4",Georgia,"Times New Roman",serif;
+  font-size:18px;
+  line-height:1.62;
+}
+.ui,h1,h2,h3,h4,th,td,.chip,.step-index,nav,button,figcaption,.kbd,code{
+  font-family:"IBM Plex Sans","Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif;
+}
+code,pre,.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+
+/* ---------- hero ---------- */
+header.hero{
+  border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,var(--panel) 0%,var(--panel) 62%,var(--bg) 100%);
+}
+.hero-inner{display:grid;gap:28px;padding:34px 0 30px}
+@media(min-width:880px){
+  .hero-inner{grid-template-columns:minmax(0,1fr) 340px;align-items:center;padding:52px 0 44px}
+}
+.badge{
+  display:inline-flex;align-items:center;gap:8px;
+  font-family:"IBM Plex Mono",monospace;font-size:12.5px;letter-spacing:.02em;
+  color:var(--accent);background:var(--accent-soft);
+  border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);
+  border-radius:999px;padding:4px 11px;margin-bottom:16px;
+}
+h1{
+  font-size:clamp(30px,5.4vw,46px);line-height:1.06;margin:0 0 14px;
+  font-weight:700;letter-spacing:-.022em;
+}
+.standfirst{margin:0;font-size:clamp(17px,2.4vw,20px);color:var(--muted);max-width:34ch}
+.meta{margin:20px 0 0;font-family:"IBM Plex Sans",sans-serif;font-size:14px;color:var(--muted)}
+
+/* ---------- hero animation ---------- */
+.stage{
+  background:var(--panel-2);border:1px solid var(--line-soft);
+  border-radius:var(--radius);overflow:hidden;
+}
+.stage svg{display:block;width:100%;height:auto}
+.wall{fill:color-mix(in srgb,var(--ink) 9%,transparent);stroke:var(--line);stroke-width:1}
+.wall-face{fill:color-mix(in srgb,var(--ink) 15%,transparent)}
+.gun{fill:none;stroke:var(--muted);stroke-width:2.5;stroke-linecap:round}
+.ray{
+  stroke:var(--accent);stroke-width:2;stroke-linecap:round;fill:none;
+  stroke-dasharray:420;stroke-dashoffset:420;
+  animation:draw 3.6s linear infinite;
+}
+.normal{stroke:var(--muted);stroke-width:1.5;stroke-dasharray:3 4;opacity:.75}
+.flash{fill:var(--spark);opacity:0;animation:flash 3.6s linear infinite;transform-box:fill-box;transform-origin:center}
+.spark{
+  stroke:var(--spark);stroke-width:2.4;stroke-linecap:round;opacity:0;
+  animation:fly 3.6s cubic-bezier(.12,.72,.3,1) infinite;
+}
+.label{fill:var(--muted);font-family:"IBM Plex Mono",monospace;font-size:11px}
+@keyframes draw{
+  0%{stroke-dashoffset:420;opacity:.9}
+  14%{stroke-dashoffset:0;opacity:1}
+  26%{opacity:.3}
+  60%{opacity:0}
+  100%{stroke-dashoffset:420;opacity:0}
+}
+@keyframes flash{
+  0%,13%{opacity:0;transform:scale(.2)}
+  16%{opacity:.85;transform:scale(1)}
+  30%{opacity:0;transform:scale(1.9)}
+  100%{opacity:0;transform:scale(1.9)}
+}
+@keyframes fly{
+  0%,14%{transform:translateX(0);opacity:0}
+  17%{opacity:1}
+  46%{opacity:.85}
+  62%{transform:translateX(var(--dist,64px));opacity:0}
+  100%{transform:translateX(var(--dist,64px));opacity:0}
+}
+@media(prefers-reduced-motion:reduce){
+  .ray{animation:none;stroke-dashoffset:0}
+  .flash{animation:none;opacity:.5}
+  .spark{animation:none;opacity:.9;transform:translateX(26px)}
+}
+
+/* ---------- layout ---------- */
+main{padding:38px 0 64px}
+.grid{display:block}
+@media(min-width:900px){
+  .grid{display:grid;grid-template-columns:186px minmax(0,1fr);gap:56px;align-items:start}
+}
+nav.index{display:none}
+@media(min-width:900px){
+  nav.index{display:block;position:sticky;top:26px;font-size:14px;line-height:1.5}
+  nav.index ol{list-style:none;margin:0;padding:0}
+  nav.index li{margin:0 0 12px}
+  nav.index a{
+    display:grid;grid-template-columns:22px 1fr;gap:6px;
+    color:var(--muted);text-decoration:none;border-left:2px solid transparent;padding-left:10px;margin-left:-12px;
+  }
+  nav.index a:hover,nav.index a:focus-visible{color:var(--ink);border-left-color:var(--accent)}
+  nav.index .n{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--accent)}
+}
+article{max-width:70ch}
+
+/* ---------- typography ---------- */
+h2{
+  font-size:clamp(22px,3.4vw,27px);letter-spacing:-.018em;line-height:1.2;
+  margin:52px 0 6px;font-weight:700;scroll-margin-top:20px;
+}
+h2 .n{
+  font-family:"IBM Plex Mono",monospace;font-size:14px;font-weight:500;
+  color:var(--accent);display:block;margin-bottom:8px;
+}
+h3{font-size:17px;font-weight:600;letter-spacing:-.008em;margin:32px 0 4px}
+p{margin:0 0 16px}
+article > p:first-of-type{margin-top:14px}
+ul,ol.body{margin:0 0 18px;padding-left:22px}
+li{margin:0 0 8px}
+strong{font-weight:600}
+a{color:var(--accent)}
+hr{border:0;border-top:1px solid var(--line);margin:44px 0}
+.lede{color:var(--muted)}
+
+code{
+  font-size:.86em;background:var(--panel);border:1px solid var(--line-soft);
+  border-radius:4px;padding:1px 5px;white-space:nowrap;
+}
+
+/* ---------- inspector rows ---------- */
+.props{
+  border:1px solid var(--line);border-radius:var(--radius);
+  background:var(--panel);overflow:hidden;margin:18px 0 24px;
+}
+.props .head{
+  display:flex;align-items:center;gap:8px;
+  padding:9px 14px;background:var(--panel-2);border-bottom:1px solid var(--line);
+  font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--muted);
+}
+.prop{
+  display:grid;grid-template-columns:1fr;gap:2px 14px;
+  padding:11px 14px;border-bottom:1px solid var(--line-soft);
+}
+.prop:last-child{border-bottom:0}
+@media(min-width:620px){
+  .prop{grid-template-columns:11.5rem 7.5rem minmax(0,1fr);align-items:baseline;gap:4px 14px}
+}
+.pname{font-size:14.5px;font-weight:600}
+.pval{
+  font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--accent);
+  background:var(--accent-soft);border-radius:4px;padding:1px 7px;justify-self:start;
+}
+.pval.off{color:var(--muted);background:var(--panel-2)}
+.pnote{margin:0;font-size:15px;color:var(--muted);line-height:1.5}
+@media(max-width:619px){.pnote{margin-top:4px}}
+
+/* ---------- callouts ---------- */
+aside{
+  border-left:3px solid var(--accent);background:var(--panel);
+  padding:13px 16px;margin:22px 0;border-radius:0 6px 6px 0;font-size:16.5px;
+}
+aside b{font-family:"IBM Plex Sans",sans-serif;font-weight:600;font-size:14px}
+aside.pitfall{border-left-color:var(--spark);background:var(--spark-soft)}
+aside p{margin:4px 0 0}
+
+/* ---------- code ---------- */
+figure.code{margin:22px 0;border-radius:var(--radius);overflow:hidden;background:var(--code-bg);border:1px solid #223041}
+figure.code figcaption{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+  padding:8px 8px 8px 14px;background:#111922;border-bottom:1px solid #223041;
+  font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--code-muted);
+}
+figure.code pre{
+  margin:0;padding:14px;overflow-x:auto;
+  font-size:13.5px;line-height:1.62;color:var(--code-ink);
+}
+figure.code code{background:none;border:0;padding:0;white-space:pre;font-size:inherit}
+button.copy{
+  font-size:12px;color:var(--code-muted);background:transparent;
+  border:1px solid #2c3b4c;border-radius:5px;padding:3px 9px;cursor:pointer;
+}
+button.copy:hover,button.copy:focus-visible{color:#cfe0ee;border-color:#3d5064}
+.tok-c{color:var(--code-muted);font-style:italic}
+.tok-s{color:var(--code-str)}
+.tok-k{color:var(--code-kw)}
+.tok-t{color:var(--code-type)}
+.tok-n{color:var(--code-num)}
+.tok-a{color:var(--code-num)}
+
+/* ---------- checklist ---------- */
+ul.check{list-style:none;padding:0}
+ul.check li{
+  padding-left:26px;position:relative;font-size:16.5px;
+}
+ul.check li::before{
+  content:"";position:absolute;left:0;top:.55em;
+  width:10px;height:10px;border:2px solid var(--accent);border-radius:2px;
+}
+
+footer{border-top:1px solid var(--line);padding:26px 0 60px;font-family:"IBM Plex Sans",sans-serif;font-size:14.5px;color:var(--muted)}
+footer ul{padding-left:18px;margin:10px 0 0}
+footer a{text-decoration:none}
+footer a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap hero-inner">
+    <div>
+      <span class="badge">Godot 4.7</span>
+      <h1>Impact sparks that land where you shoot</h1>
+      <p class="standfirst">Build a one-shot GPUParticles3D burst in the editor, tune it in the inspector, then spawn it at the end of a raycast.</p>
+      <p class="meta">About 15 minutes, in GDScript, on the Forward+ or Mobile renderer.</p>
+    </div>
+
+    <div class="stage" aria-hidden="true">
+      <svg viewBox="0 0 400 240" xmlns="http://www.w3.org/2000/svg">
+        <polygon class="wall" points="292,26 372,58 372,212 292,182"/>
+        <polygon class="wall-face" points="292,26 292,182 258,196 258,42"/>
+        <path class="gun" d="M34 128 h30 m-8 -7 v14"/>
+        <line class="ray" x1="64" y1="128" x2="276" y2="112"/>
+        <line class="normal" x1="276" y1="112" x2="218" y2="98"/>
+        <text class="label" x="150" y="150">raycast</text>
+        <text class="label" x="186" y="86">normal</text>
+        <g transform="translate(276,112)">
+          <circle class="flash" r="7"/>
+          <g transform="rotate(188)"><line class="spark" x1="0" y1="0" x2="16" y2="0" style="--dist:58px"/></g>
+          <g transform="rotate(205)"><line class="spark" x1="0" y1="0" x2="13" y2="0" style="--dist:44px;animation-delay:.03s"/></g>
+          <g transform="rotate(222)"><line class="spark" x1="0" y1="0" x2="18" y2="0" style="--dist:66px;animation-delay:.01s"/></g>
+          <g transform="rotate(240)"><line class="spark" x1="0" y1="0" x2="11" y2="0" style="--dist:38px;animation-delay:.05s"/></g>
+          <g transform="rotate(258)"><line class="spark" x1="0" y1="0" x2="15" y2="0" style="--dist:52px;animation-delay:.02s"/></g>
+          <g transform="rotate(276)"><line class="spark" x1="0" y1="0" x2="12" y2="0" style="--dist:46px;animation-delay:.06s"/></g>
+          <g transform="rotate(160)"><line class="spark" x1="0" y1="0" x2="14" y2="0" style="--dist:50px;animation-delay:.04s"/></g>
+          <g transform="rotate(142)"><line class="spark" x1="0" y1="0" x2="17" y2="0" style="--dist:62px;animation-delay:.02s"/></g>
+          <g transform="rotate(124)"><line class="spark" x1="0" y1="0" x2="12" y2="0" style="--dist:40px;animation-delay:.07s"/></g>
+          <g transform="rotate(106)"><line class="spark" x1="0" y1="0" x2="15" y2="0" style="--dist:54px;animation-delay:.03s"/></g>
+          <g transform="rotate(178)"><line class="spark" x1="0" y1="0" x2="19" y2="0" style="--dist:70px;animation-delay:0s"/></g>
+          <g transform="rotate(196)"><line class="spark" x1="0" y1="0" x2="10" y2="0" style="--dist:34px;animation-delay:.08s"/></g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</header>
+
+<main class="wrap grid">
+  <nav class="index" aria-label="Contents">
+    <ol>
+      <li><a href="#build"><span class="n">1</span><span>Build the emitter</span></a></li>
+      <li><a href="#node"><span class="n">2</span><span>Node properties</span></a></li>
+      <li><a href="#material"><span class="n">3</span><span>Process material</span></a></li>
+      <li><a href="#save"><span class="n">4</span><span>Save as a scene</span></a></li>
+      <li><a href="#spawn"><span class="n">5</span><span>Spawn on a hit</span></a></li>
+      <li><a href="#gotchas"><span class="n">6</span><span>Before you ship</span></a></li>
+    </ol>
+  </nav>
+
+  <article>
+    <p>A hit spark is the smallest useful particle effect in a 3D game: a dozen glowing shards that fire away from a wall for half a second and then delete themselves. It's also a complete tour of the particle workflow, because you have to get the emitter, the process material, the draw pass and the runtime spawning all working together.</p>
+    <p class="lede">Property names below match the inspector in Godot 4.7. Anything marked as new in 4.7 will be missing if you're on 4.6 or earlier — the effect still works, you just lose that dial.</p>
+
+    <h2 id="build"><span class="n">Step 1</span>Build the emitter</h2>
+    <p>Make a new 3D scene with a <code>GPUParticles3D</code> as its root and name it <strong>ImpactSpark</strong>. Giving the effect its own scene is what lets you instantiate it later.</p>
+    <p>A fresh particle node draws nothing at all. Two properties bring it to life:</p>
+    <ol class="body">
+      <li><strong>Process Material</strong> — click the empty slot and choose <em>New ParticleProcessMaterial</em>. This resource computes particle motion on the GPU; it never draws anything itself.</li>
+      <li><strong>Draw Passes → Pass 1</strong> — choose <em>New QuadMesh</em>, then click into it and set <strong>Size</strong> to <code>0.06 × 0.06</code>. You get up to four passes, each with its own mesh and material, all driven by the same process material.</li>
+    </ol>
+    <p>Now give the quad something to look like. Open the QuadMesh's <strong>Material</strong> slot, add a <em>New StandardMaterial3D</em>, and set:</p>
+
+    <div class="props">
+      <div class="head"><span>QuadMesh → Material → StandardMaterial3D</span></div>
+      <div class="prop"><span class="pname">Transparency</span><span class="pval">Alpha</span><p class="pnote">Lets the alpha curve fade each shard out instead of popping.</p></div>
+      <div class="prop"><span class="pname">Blend Mode</span><span class="pval">Add</span><p class="pnote">Overlapping sparks build up to white. This is what makes them read as hot.</p></div>
+      <div class="prop"><span class="pname">Shading Mode</span><span class="pval">Unshaded</span><p class="pnote">Sparks emit light, they don't receive it.</p></div>
+      <div class="prop"><span class="pname">Billboard Mode</span><span class="pval">Particle Billboard</span><p class="pnote">Faces the camera and honours per-particle rotation, so you don't need Rotate Y.</p></div>
+      <div class="prop"><span class="pname">Vertex Color → Use as Albedo</span><span class="pval">On</span><p class="pnote">Required, or the color ramp in the process material is ignored.</p></div>
+    </div>
+
+    <aside>
+      <b>The viewport menu</b>
+      <p>With the particle node selected, a <strong>GPUParticles3D</strong> menu appears at the top of the 3D viewport. It holds <em>Generate Visibility AABB</em>, <em>Create Emission Points From Node</em> and the conversion to CPU particles. You'll want the first one at the end of this step.</p>
+    </aside>
+
+    <h2 id="node"><span class="n">Step 2</span>Node properties: the timing</h2>
+    <p>The node itself controls <em>when</em> particles exist. The material controls how they behave. Set these on the <code>GPUParticles3D</code> root:</p>
+
+    <div class="props">
+      <div class="head"><span>GPUParticles3D</span></div>
+      <div class="prop"><span class="pname">Amount</span><span class="pval">24</span><p class="pnote">Fixed particle budget. Changing it at runtime reallocates buffers and restarts the system, so pick a ceiling now.</p></div>
+      <div class="prop"><span class="pname">Lifetime</span><span class="pval">0.45</span><p class="pnote">Seconds. Short is what sells an impact.</p></div>
+      <div class="prop"><span class="pname">One Shot</span><span class="pval">On</span><p class="pnote">Emit the whole batch once, then stop. Also what makes the <code>finished</code> signal fire.</p></div>
+      <div class="prop"><span class="pname">Explosiveness</span><span class="pval">1.0</span><p class="pnote">At 0 the 24 particles trickle out across the lifetime; at 1 they all spawn on the same frame. A burst needs 1.</p></div>
+      <div class="prop"><span class="pname">Randomness</span><span class="pval">0.2</span><p class="pnote">Jitters each particle's lifetime so they don't all wink out together.</p></div>
+      <div class="prop"><span class="pname">Fixed FPS</span><span class="pval">0</span><p class="pnote">Defaults to 30, which visibly stutters on a fast burst. 0 means simulate every rendered frame.</p></div>
+      <div class="prop"><span class="pname">Local Coords</span><span class="pval off">Off</span><p class="pnote">Off means particles are left behind in world space. If you ever parent the effect to something moving, this is the difference between sparks flying and sparks riding along.</p></div>
+      <div class="prop"><span class="pname">Draw Order</span><span class="pval">Lifetime</span><p class="pnote">Irrelevant with additive blending; switch to View Depth if you move to alpha blending.</p></div>
+      <div class="prop"><span class="pname">Transform Align</span><span class="pval">Disabled</span><p class="pnote">Set to <em>Y to Velocity</em> if you'd rather have stretched streaks than round shards.</p></div>
+      <div class="prop"><span class="pname">Visibility AABB</span><span class="pval">generate</span><p class="pnote">The culling box. Use the viewport menu once the effect looks right, or particles will vanish at certain camera angles.</p></div>
+      <div class="prop"><span class="pname">Emitting</span><span class="pval">On for now</span><p class="pnote">Leave it on while you tune so you can see the loop. Turn it off before saving — code switches it on.</p></div>
+    </div>
+
+    <h2 id="material"><span class="n">Step 3</span>Process material: the look</h2>
+    <p>Click the ParticleProcessMaterial to open its property list. Most numeric properties come as a <strong>Min</strong>, a <strong>Max</strong> and a <strong>Curve</strong>. The rule is the same everywhere: each particle draws a random value between min and max when it spawns, and the curve then multiplies that value as the particle ages. Curves are where the effect stops looking mechanical.</p>
+
+    <h3>Spawn</h3>
+    <div class="props">
+      <div class="head"><span>Spawn</span></div>
+      <div class="prop"><span class="pname">Emission Shape</span><span class="pval">Sphere</span><p class="pnote">Radius <code>0.02</code>. A point emitter looks artificially clean; a tiny sphere gives the shards a believable origin spread.</p></div>
+      <div class="prop"><span class="pname">Direction</span><span class="pval">0, 0, -1</span><p class="pnote">The default is <code>1, 0, 0</code>, which fires sideways. Use -Z so the burst points along the node's forward axis — step 5 depends on this.</p></div>
+      <div class="prop"><span class="pname">Spread</span><span class="pval">38°</span><p class="pnote">Random cone half-angle around Direction. Above roughly 60° the burst stops reading as directional.</p></div>
+      <div class="prop"><span class="pname">Initial Velocity</span><span class="pval">3 → 7</span><p class="pnote">Meters per second. Wide min/max separation is what makes some shards outrun others.</p></div>
+    </div>
+
+    <h3>Accelerations</h3>
+    <div class="props">
+      <div class="head"><span>Accelerations</span></div>
+      <div class="prop"><span class="pname">Gravity</span><span class="pval">0, -6, 0</span><p class="pnote">Real gravity is -9.8, but the arc reads better slightly weakened at this scale and speed.</p></div>
+      <div class="prop"><span class="pname">Damping</span><span class="pval">4 → 8</span><p class="pnote">Friction. Sparks should start fast and lose almost all their speed before they fade.</p></div>
+      <div class="prop"><span class="pname">Damping as Friction</span><span class="pval">On</span><p class="pnote">Makes damping proportional to speed rather than a flat deceleration, so fast shards slow hardest.</p></div>
+      <div class="prop"><span class="pname">Radial Accel</span><span class="pval">0</span><p class="pnote">Positive pushes away from the emitter, negative sucks inward. Useful for embers, not for this.</p></div>
+    </div>
+
+    <h3>Display</h3>
+    <div class="props">
+      <div class="head"><span>Display</span></div>
+      <div class="prop"><span class="pname">Scale</span><span class="pval">0.6 → 1.0</span><p class="pnote">Mixed sizes stop the burst looking like a stamped pattern.</p></div>
+      <div class="prop"><span class="pname">Scale Curve</span><span class="pval">New CurveTexture</span><p class="pnote">Draw it starting near 1 and dropping to 0 at the right edge. This is what shrinks each shard out of existence.</p></div>
+      <div class="prop"><span class="pname">Color Ramp</span><span class="pval">New GradientTexture1D</span><p class="pnote">White → amber → deep red across the lifetime. Cooling metal, in one gradient.</p></div>
+      <div class="prop"><span class="pname">Alpha Curve</span><span class="pval">New CurveTexture</span><p class="pnote">Hold near 1 for most of the life, then fall off a cliff at the end.</p></div>
+      <div class="prop"><span class="pname">Hue Variation</span><span class="pval">0.04</span><p class="pnote">A whisper of per-particle hue shift. Anything higher turns the sparks into confetti.</p></div>
+      <div class="prop"><span class="pname">Angle</span><span class="pval">-180 → 180</span><p class="pnote">Random starting rotation. Works because the draw material uses Particle Billboard.</p></div>
+      <div class="prop"><span class="pname">Scale 3D / Angle 3D</span><span class="pval">4.7</span><p class="pnote">New in 4.7: per-axis scale and rotation ranges, so you can stretch shards along one axis only.</p></div>
+    </div>
+
+    <aside>
+      <b>Also new in 4.7</b>
+      <p>ParticleProcessMaterial gained an <strong>Inherit Emitter Scale</strong> flag, and angular velocity was fixed to finally match its documented behaviour. If rotation speed looks different after upgrading a project, that fix is why.</p>
+    </aside>
+
+    <h3>Worth knowing about</h3>
+    <ul>
+      <li><strong>Turbulence</strong> adds noise-driven drift. Lovely for smoke, distracting on sparks.</li>
+      <li><strong>Collision</strong> set to <em>Hide on Contact</em> or <em>Rigid</em> lets shards bounce off <code>GPUParticlesCollision3D</code> shapes or an SDF of the level.</li>
+      <li><strong>Sub Emitter</strong> points at a second particle scene — the classic use is a slow smoke puff spawned at the death of each spark.</li>
+    </ul>
+
+    <h2 id="save"><span class="n">Step 4</span>Save it as a scene</h2>
+    <p>Before saving to <code>res://vfx/impact_spark.tscn</code>, confirm three things, because each one causes a confusing bug later:</p>
+    <ul class="check">
+      <li><strong>One Shot</strong> is on — otherwise <code>finished</code> never fires and the effect never frees itself.</li>
+      <li><strong>Emitting</strong> is off — otherwise every instance fires the moment it's created, before you've positioned it.</li>
+      <li><strong>Visibility AABB</strong> has been generated from the viewport menu.</li>
+    </ul>
+
+    <h2 id="spawn"><span class="n">Step 5</span>Spawn it where the ray hits</h2>
+    <p>Two pieces of information come back from a raycast, and you need both: the <strong>point</strong> tells you where to put the effect, the <strong>normal</strong> tells you which way is "out of the wall".</p>
+
+    <h3>With a RayCast3D node</h3>
+    <p>Best when the ray is always pointing the same way relative to the parent — a weapon muzzle, a sensor. It resolves once per physics frame on its own; <code>force_raycast_update()</code> forces an answer right now, which is what you want on a trigger press.</p>
+
+    <figure class="code">
+      <figcaption><span>weapon.gd</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">extends Node3D
+
+const IMPACT_SPARK := preload("res://vfx/impact_spark.tscn")
+
+@onready var ray: RayCast3D = $Camera3D/RayCast3D
+
+
+func _ready() -&gt; void:
+	ray.target_position = Vector3(0.0, 0.0, -50.0)  # forward is -Z
+
+
+func _unhandled_input(event: InputEvent) -&gt; void:
+	if not event.is_action_pressed("fire"):
+		return
+
+	ray.force_raycast_update()
+	if ray.is_colliding():
+		spawn_impact(ray.get_collision_point(), ray.get_collision_normal())</code></pre>
+    </figure>
+
+    <h3>With a direct space query</h3>
+    <p>Better for hitscan weapons, where the ray comes from wherever the camera happens to be looking and you want control over the exclusion list. Call it during physics processing.</p>
+
+    <figure class="code">
+      <figcaption><span>player.gd &nbsp;— on a CharacterBody3D</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">func _physics_process(_delta: float) -&gt; void:
+	if not Input.is_action_just_pressed("fire"):
+		return
+
+	var camera := get_viewport().get_camera_3d()
+	var from := camera.global_position
+	var to := from - camera.global_basis.z * 50.0
+
+	var query := PhysicsRayQueryParameters3D.create(from, to)
+	query.collision_mask = 1
+	query.exclude = [get_rid()]  # don't shoot yourself
+
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if hit.is_empty():
+		return
+
+	spawn_impact(hit.position, hit.normal)</code></pre>
+    </figure>
+
+    <h3>The spawner</h3>
+    <p>Three things happen here. The effect is added to the world rather than to the shooter, so it stays put. It's rotated so its -Z axis follows the surface normal, which is why Direction was set to <code>0, 0, -1</code> back in step 3. And it deletes itself when the last particle dies.</p>
+
+    <figure class="code">
+      <figcaption><span>spawn_impact()</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">func spawn_impact(point: Vector3, normal: Vector3) -&gt; void:
+	var fx: GPUParticles3D = IMPACT_SPARK.instantiate()
+	get_tree().current_scene.add_child(fx)
+
+	# Nudge off the surface so the quads don't z-fight with the wall.
+	fx.global_position = point + normal * 0.01
+
+	# Aim -Z along the normal. Swap the up vector near the poles,
+	# otherwise look_at() gets a degenerate basis on floors and ceilings.
+	var up := Vector3.UP if absf(normal.dot(Vector3.UP)) &lt; 0.99 else Vector3.RIGHT
+	fx.look_at(fx.global_position + normal, up)
+
+	fx.finished.connect(fx.queue_free)
+	fx.emitting = true</code></pre>
+    </figure>
+
+    <aside>
+      <b>Why the signal, not a timer</b>
+      <p><code>finished</code> fires when every active particle has finished processing, which accounts for lifetime, randomness and explosiveness together. A hand-tuned <code>await get_tree().create_timer(...)</code> goes stale the moment you change any of those. The signal only exists on one-shot emitters.</p>
+    </aside>
+
+    <h3>If you fire fast: one emitter, many bursts</h3>
+    <p>Instantiating a scene per shot is fine for a pistol and wasteful for a minigun. The alternative is a single long-lived emitter with <code>Emitting</code> off and a generous <code>Amount</code>, injecting particles by hand:</p>
+
+    <figure class="code">
+      <figcaption><span>spark_pool.gd</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">@onready var sparks: GPUParticles3D = $WorldSparks  # Emitting off, Local Coords off
+
+
+func burst(point: Vector3, normal: Vector3, count: int = 12) -&gt; void:
+	for i in count:
+		var spread := Vector3(
+			randf_range(-0.4, 0.4),
+			randf_range(-0.4, 0.4),
+			randf_range(-0.4, 0.4)
+		)
+		var dir := (normal + spread).normalized()
+
+		sparks.emit_particle(
+			Transform3D(Basis(), point),
+			dir * randf_range(3.0, 7.0),
+			Color.WHITE,
+			Color.BLACK,
+			GPUParticles3D.EMIT_FLAG_POSITION | GPUParticles3D.EMIT_FLAG_VELOCITY
+		)</code></pre>
+    </figure>
+
+    <aside class="pitfall">
+      <b>emit_particle() has a renderer requirement</b>
+      <p>It works on Forward+ and Mobile only — on the Compatibility renderer the call does nothing, silently. If you're targeting older mobile hardware or the web, stick with instantiated one-shot scenes.</p>
+    </aside>
+
+    <h2 id="gotchas"><span class="n">Step 6</span>Before you ship it</h2>
+    <ul class="check">
+      <li><strong>Particles disappear at some camera angles.</strong> Regenerate the Visibility AABB — you almost certainly widened the burst after generating it the first time.</li>
+      <li><strong>The burst drags behind a moving target.</strong> Either Local Coords is on, or you parented the effect to something that moves. Add it to the world instead.</li>
+      <li><strong>Restarting a one-shot mid-flight.</strong> Setting <code>emitting = true</code> again can be ignored for a frame or two on the GPU. Call <code>restart()</code> instead when you need an immediate re-fire.</li>
+      <li><strong>Deterministic playback.</strong> Turning on <code>Use Fixed Seed</code>, or calling <code>restart(true)</code> to keep the seed, makes a burst repeat identically — handy for cutscenes and for <code>request_particles_process()</code> when scrubbing.</li>
+      <li><strong>Test in the exported build.</strong> Particle timing differs between the renderers, and Compatibility silently drops several process material features.</li>
+    </ul>
+
+    <hr>
+    <p class="lede">Once the spark scene exists, the same spawner handles every surface type: keep the code identical and swap the scene based on what <code>get_collider()</code> returns — dust for concrete, splinters for wood, a ripple decal for water.</p>
+  </article>
+</main>
+
+<footer class="wrap">
+  <div>Reference for the details this skips:</div>
+  <ul>
+    <li><a href="https://docs.godotengine.org/en/stable/tutorials/3d/particles/index.html">Particle systems (3D) — Godot docs</a></li>
+    <li><a href="https://docs.godotengine.org/en/stable/classes/class_gpuparticles3d.html">GPUParticles3D class reference</a></li>
+    <li><a href="https://docs.godotengine.org/en/stable/classes/class_particleprocessmaterial.html">ParticleProcessMaterial class reference</a></li>
+    <li><a href="https://docs.godotengine.org/en/stable/classes/class_raycast3d.html">RayCast3D class reference</a></li>
+  </ul>
+</footer>
+
+<script>
+(function () {
+  var RE = /(#[^\n]*)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')|(@\w+)|\b(\d+\.\d+|\d+)\b|\b(and|as|assert|await|break|class|class_name|const|continue|elif|else|enum|extends|for|func|if|in|is|match|not|or|pass|preload|return|self|signal|static|super|var|while|true|false|null)\b|\b(Vector3|Transform3D|Basis|Color|GPUParticles3D|RayCast3D|PhysicsRayQueryParameters3D|InputEvent|Node3D|CharacterBody3D|Input|float|int|bool|void|String)\b/g;
+
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  document.querySelectorAll('code.gd').forEach(function (el) {
+    var src = el.textContent;
+    el.setAttribute('data-src', src);
+    el.innerHTML = esc(src).replace(RE, function (m, c, s, a, n, k, t) {
+      if (c) return '<span class="tok-c">' + c + '</span>';
+      if (s) return '<span class="tok-s">' + s + '</span>';
+      if (a) return '<span class="tok-a">' + a + '</span>';
+      if (n) return '<span class="tok-n">' + n + '</span>';
+      if (k) return '<span class="tok-k">' + k + '</span>';
+      if (t) return '<span class="tok-t">' + t + '</span>';
+      return m;
+    });
+  });
+
+  document.querySelectorAll('button.copy').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var fig = btn.closest('figure');
+      var code = fig ? fig.querySelector('code') : null;
+      if (!code) return;
+      var text = code.getAttribute('data-src') || code.textContent;
+      var done = function () {
+        btn.textContent = 'Copied';
+        setTimeout(function () { btn.textContent = 'Copy'; }, 1600);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, function () { btn.textContent = 'Press Ctrl+C'; });
+      } else {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); done(); } catch (e) { btn.textContent = 'Press Ctrl+C'; }
+        document.body.removeChild(ta);
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>

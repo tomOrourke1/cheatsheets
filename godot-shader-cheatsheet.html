@@ -1,0 +1,2953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Godot shader cheat sheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Fragment+Mono&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#e9edf1; --panel:#f7f9fb; --ink:#17202c; --muted:#56657a; --rule:#cbd4dd; --soft:#dde3e9;
+  --godot:#478cbf; --godot-deep:#2c6593;
+  --code:#141c28; --code-head:#1b2535; --code-ink:#dde5ee;
+  --t-spatial:#3b7ddd; --t-canvas:#d0456a; --t-particles:#d98612; --t-sky:#1f9e9a; --t-fog:#7b68d6; --t-compute:#3f9142; --t-gd:#7d8da0; --t-glsl:#3f9142;
+  --sans:"Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:"Fragment Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --gutter:clamp(16px,4vw,56px);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:16px}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.62 var(--sans);-webkit-font-smoothing:antialiased}
+a{color:var(--godot-deep)}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid var(--godot);outline-offset:2px;border-radius:4px}
+.layout{display:grid;grid-template-columns:280px minmax(0,1fr);min-height:100vh}
+
+/* ---------- sidebar ---------- */
+.side{position:sticky;top:0;height:100vh;overflow-y:auto;background:var(--panel);border-right:1px solid var(--rule);padding:22px 14px 40px;scrollbar-width:thin}
+.brand{display:flex;align-items:center;gap:10px;padding:0 6px 16px}
+.brand svg{flex:none}
+.brand b{font-stretch:118%;font-weight:800;font-size:17px;line-height:1.1}
+.brand span{display:block;font-size:12.5px;color:var(--muted);font-weight:500}
+.search{position:relative;margin:0 4px 14px}
+.search input{width:100%;padding:9px 12px 9px 34px;border:1px solid var(--rule);border-radius:8px;background:#fff;font:14px var(--sans);color:var(--ink)}
+.search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);opacity:.55}
+.search small{display:block;margin:6px 4px 0;color:var(--muted);font-size:12px}
+nav.toc ol{list-style:none;margin:0;padding:0}
+nav.toc>ol>li{margin:1px 0}
+nav.toc a{display:block;text-decoration:none;color:var(--ink);padding:5px 8px;border-radius:6px;font-size:14.5px;font-weight:600;line-height:1.3}
+nav.toc a:hover{background:var(--soft)}
+nav.toc a.on{background:var(--ink);color:#fff}
+nav.toc ol ol{display:none;margin:2px 0 8px 10px;border-left:2px solid var(--rule)}
+nav.toc li.open>ol{display:block}
+nav.toc ol ol a{font-weight:450;font-size:13.5px;color:var(--muted);padding:3px 10px}
+nav.toc ol ol a.on{background:none;color:var(--godot-deep);font-weight:650}
+.legend{margin:20px 6px 0;padding-top:14px;border-top:1px solid var(--rule);font-size:12.5px;color:var(--muted)}
+.legend div{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+
+/* ---------- main ---------- */
+main{padding:0 var(--gutter) 140px;max-width:1120px;min-width:0}
+.topbar{display:none}
+h1,h2,h3,h4{font-family:var(--sans);color:var(--ink)}
+h2{font-stretch:125%;font-weight:820;font-size:clamp(28px,3.4vw,42px);line-height:1.06;letter-spacing:-.012em;margin:110px 0 14px;padding-top:26px;border-top:3px solid var(--ink)}
+h3{font-weight:720;font-size:21px;line-height:1.25;margin:52px 0 8px}
+h4{font-weight:700;font-size:16.5px;margin:28px 0 6px}
+p,li{max-width:74ch}
+.lede{font-size:18px;color:#2b3949;max-width:68ch}
+code{font-family:var(--mono);font-size:.86em;background:#dce3ea;padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+kbd{font-family:var(--mono);font-size:.82em;border:1px solid var(--rule);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:#fff}
+ul.tight{padding-left:20px}ul.tight li{margin:4px 0}
+hr.soft{border:0;border-top:1px solid var(--rule);margin:40px 0}
+
+/* chips: shader type colour coding */
+.chip{display:inline-block;font:600 12px/1 var(--sans);padding:4px 7px 4px;border-radius:5px;border:1.5px solid currentColor;white-space:nowrap;vertical-align:1px;background:#fff}
+.chip.spatial{color:var(--t-spatial)}.chip.canvas{color:var(--t-canvas)}.chip.particles{color:var(--t-particles)}
+.chip.sky{color:var(--t-sky)}.chip.fog{color:var(--t-fog)}.chip.compute{color:var(--t-compute)}.chip.gd{color:#56657a}
+.ver{display:inline-block;font:650 11.5px/1 var(--sans);padding:3px 6px;border-radius:4px;background:var(--ink);color:#fff;vertical-align:2px;white-space:nowrap}
+
+/* hero */
+.hero{position:relative;margin:0 calc(-1 * var(--gutter));height:clamp(320px,46vh,460px);overflow:hidden;background:#12263d;color:#fff}
+.hero canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.hero-text{position:absolute;left:var(--gutter);right:var(--gutter);bottom:34px}
+.hero h1{margin:0;font-stretch:125%;font-weight:860;font-size:clamp(46px,8.2vw,112px);line-height:.9;letter-spacing:-.025em;color:#fff;text-shadow:0 2px 30px rgba(8,20,36,.35)}
+.hero p{margin:18px 0 0;max-width:60ch;font-size:clamp(15px,1.5vw,18px);line-height:1.5;color:#e7eef6}
+.hero-foot{position:absolute;right:14px;top:12px;display:flex;gap:8px;align-items:center;font-size:12px;color:#cfe0ef}
+.hero-foot button{font:600 12px var(--sans);color:#fff;background:rgba(10,24,40,.45);border:1px solid rgba(255,255,255,.35);border-radius:6px;padding:5px 10px;cursor:pointer}
+.hero-foot a{color:#fff}
+.hero-foot span{max-width:42ch;text-align:right}
+@media (max-width:760px){.hero-foot span{display:none}}
+
+/* pipeline */
+ol.pipe{list-style:none;counter-reset:step;margin:26px 0 10px;padding:0;position:relative}
+ol.pipe::before{content:"";position:absolute;left:19px;top:8px;bottom:8px;width:2px;background:var(--rule)}
+ol.pipe>li{position:relative;padding:0 0 0 58px;margin:0 0 18px}
+ol.pipe>li.step{counter-increment:step}
+ol.pipe>li.step::before{content:counter(step);position:absolute;left:0;top:0;width:40px;height:40px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font:800 16px var(--sans);font-stretch:120%}
+ol.pipe>li.step b{display:block;font-size:17px;line-height:1.3;padding-top:8px}
+ol.pipe>li.step p{margin:4px 0 0;color:#344355;font-size:15px}
+ol.pipe>li.step .chips{margin-top:7px;display:flex;flex-wrap:wrap;gap:6px}
+ol.pipe>li.hook{padding-left:58px;margin:-6px 0 14px}
+ol.pipe>li.hook span{display:inline-block;font:12.5px var(--mono);color:var(--t-compute);background:#e4f0e2;border:1.5px dashed var(--t-compute);border-radius:6px;padding:3px 8px}
+ol.pipe>li.hook::before{content:"";position:absolute;left:13px;top:50%;width:14px;height:14px;margin-top:-7px;border-radius:3px;transform:rotate(45deg);background:var(--t-compute)}
+
+/* code blocks */
+.cb{margin:14px 0 26px;background:var(--code);border-radius:10px;overflow:hidden;border-left:5px solid var(--kind,var(--t-gd));box-shadow:0 1px 0 rgba(0,0,0,.04)}
+.cb-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 8px 7px 14px;background:var(--code-head);color:#a9b8c9;font:12.5px var(--mono)}
+.cb-head .lang{color:var(--kind,#a9b8c9);font-family:var(--sans);font-weight:700;font-size:11.5px;margin-left:8px}
+.cb-head button{font:600 12px var(--sans);color:#dfe8f2;background:transparent;border:1px solid #3a4a60;border-radius:6px;padding:4px 10px;cursor:pointer}
+.cb-head button:hover{background:#26344a}
+.cb pre{margin:0;padding:14px 18px 16px;overflow:auto;font:13px/1.58 var(--mono);color:var(--code-ink);tab-size:4;max-height:720px}
+.cb pre code{background:none;padding:0;border-radius:0;font:inherit;color:inherit}
+.cb[data-kind=spatial]{--kind:var(--t-spatial)}.cb[data-kind=canvas]{--kind:#f07293}.cb[data-kind=particles]{--kind:var(--t-particles)}
+.cb[data-kind=sky]{--kind:#35c2bd}.cb[data-kind=fog]{--kind:#9a8bf0}.cb[data-kind=compute]{--kind:#6cc070}.cb[data-kind=gd]{--kind:#9aaabd}.cb[data-kind=tree]{--kind:#c7b27a}
+.k{color:#f492b0}.ty{color:#80c6f6}.bi{color:#ffd077}.hn{color:#bfaaff}.nu{color:#a3e6ab}.st{color:#f4bd90}.cm{color:#71849a;font-style:italic}.fn{color:#8fe3d8}.pp{color:#d59cf0}.an{color:#f4bd90}.tn{color:#c7b27a}
+
+/* reference tables */
+.tw{overflow-x:auto;margin:12px 0 24px;border:1px solid var(--rule);border-radius:10px;background:var(--panel)}
+table.ref{border-collapse:collapse;width:100%;font-size:14.5px;line-height:1.45}
+table.ref th{text-align:left;font-weight:700;font-size:12.5px;color:var(--muted);padding:9px 12px;border-bottom:1.5px solid var(--rule);background:#eef2f5;white-space:nowrap}
+table.ref td{padding:8px 12px;border-top:1px solid #e2e7ec;vertical-align:top}
+table.ref tr:first-child td{border-top:0}
+table.ref td:first-child{font-family:var(--mono);font-size:13px;font-weight:600;white-space:nowrap;color:#10304f}
+table.ref td.mono{font-family:var(--mono);font-size:12.5px;color:#46586d;white-space:nowrap}
+table.ref td code{font-size:12.5px;overflow-wrap:break-word}
+.acc{font:700 11.5px var(--sans);padding:2px 6px;border-radius:4px;white-space:nowrap}
+.acc.in{background:#e1e7ed;color:#3d4c5e}.acc.out{background:#fbe1e8;color:#a3274b}.acc.inout{background:#dceafa;color:#1e5a9c}
+
+/* callouts, grids */
+.note{border-left:4px solid var(--godot);background:#dfe9f2;padding:11px 16px;border-radius:0 8px 8px 0;margin:16px 0;max-width:80ch}
+.note.warn{border-color:#d98612;background:#f6ead6}
+.note.ok{border-color:var(--t-compute);background:#e1eedf}
+.note p{margin:4px 0}
+.note b:first-child{margin-right:4px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin:16px 0}
+.card{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:14px 16px}
+.card h4{margin:0 0 6px}
+.card p{margin:6px 0;font-size:15px}
+.card ol,.card ul{margin:6px 0;padding-left:20px;font-size:15px}
+.steps{padding-left:22px}.steps li{margin:5px 0}
+.hidden-by-search{display:none!important}
+mark{background:#ffe38a;color:inherit;border-radius:2px}
+#noresults{display:none;margin:60px 0;font-size:18px}
+
+/* responsive */
+@media (max-width:900px){
+  .layout{grid-template-columns:1fr}
+  .side{position:fixed;inset:0 auto 0 0;width:min(86vw,320px);z-index:30;transform:translateX(-102%);transition:transform .2s ease;box-shadow:0 0 40px rgba(0,0,0,.25)}
+  .side.show{transform:none}
+  .topbar{display:flex;position:sticky;top:0;z-index:20;align-items:center;justify-content:space-between;gap:10px;margin:0 calc(-1 * var(--gutter));padding:10px var(--gutter);background:var(--paper);border-bottom:1px solid var(--rule)}
+  .topbar button{font:650 14px var(--sans);background:var(--ink);color:#fff;border:0;border-radius:7px;padding:8px 14px}
+  .topbar b{font-stretch:118%;font-weight:800}
+  h2{margin-top:80px}
+}
+@media (prefers-reduced-motion:reduce){.side{transition:none}}
+@media print{.side,.topbar,.hero-foot,.cb-head button{display:none}.layout{display:block}.cb pre{max-height:none;white-space:pre-wrap}}
+</style>
+</head>
+<body>
+<div class="layout">
+<aside class="side" id="side" aria-label="Contents">
+  <div class="brand">
+    <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="8" fill="#478cbf"/><circle cx="12" cy="15" r="5" fill="#fff"/><circle cx="22" cy="15" r="5" fill="#fff"/><circle cx="12.8" cy="15.4" r="2.2" fill="#17202c"/><circle cx="21.2" cy="15.4" r="2.2" fill="#17202c"/><rect x="10" y="23" width="14" height="3" rx="1.5" fill="#fff"/></svg>
+    <div><b>Godot shaders</b><span>Cheat sheet for 4.3 – 4.7</span></div>
+  </div>
+  <div class="search">
+    <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="5.2" fill="none" stroke="#17202c" stroke-width="2"/><path d="M11 11l3.6 3.6" stroke="#17202c" stroke-width="2" stroke-linecap="round"/></svg>
+    <input id="q" type="search" placeholder="Filter: VERTEX, depth, blur…" aria-label="Filter the cheat sheet" autocomplete="off">
+    <small>Press <kbd>/</kbd> to focus. Filters tables and blocks.</small>
+  </div>
+  <nav class="toc" id="toc" aria-label="Sections"></nav>
+  <div class="legend">Code blocks are colour-coded by what they run as:
+    <div><span class="chip spatial">spatial</span><span class="chip canvas">canvas_item</span><span class="chip particles">particles</span><span class="chip sky">sky</span><span class="chip fog">fog</span><span class="chip compute">compute GLSL</span><span class="chip gd">GDScript</span></div>
+  </div>
+</aside>
+
+<main id="main">
+<div class="topbar"><b>Godot shaders</b><button id="menu" aria-controls="side" aria-expanded="false">Contents</button></div>
+
+<header class="hero">
+  <canvas id="hero-gl" aria-hidden="true"></canvas>
+  <div class="hero-foot"><span>Live shader, ported from the Godot version in <a href="#hero-shader">Syntax</a></span><button id="pause" aria-pressed="false">Pause</button></div>
+  <div class="hero-text">
+    <h1>Godot shader<br>cheat sheet</h1>
+    <p>Syntax, built-ins, the buffers the engine hands you, the ones you build yourself, post-processing, compute and the Compositor, plus complete scripts you can paste into a project. Written for Godot 4.3+ (reversed-Z era) and checked against 4.7.</p>
+  </div>
+</header>
+<!-- ===================== PIPELINE ===================== -->
+<section id="pipeline">
+<h2>How a frame is drawn</h2>
+<p class="lede">Every shader you write runs at a specific moment in Godot's frame. Knowing the order tells you what data exists yet, which buffers you can read, and where a post-process can be inserted. This is the Forward+ order for one 3D viewport; Mobile is similar with fewer screen-space passes, Compatibility (OpenGL) has no Compositor and no compute.</p>
+
+<div class="blk">
+<ol class="pipe">
+  <li class="step"><b>SubViewports render first</b><p>Each <code>SubViewport</code> with its own camera runs this entire list before the main viewport, so its <code>ViewportTexture</code> is ready for the main scene to sample. This is how you build extra render targets.</p></li>
+  <li class="step"><b>GPU particles simulate</b><p><code>start()</code> runs when a particle spawns, <code>process()</code> every frame. Collision heightfields/SDFs and attractors are applied here.</p><div class="chips"><span class="chip particles">particles</span></div></li>
+  <li class="step"><b>Sky radiance and low-res sky passes</b><p>The sky shader renders into the radiance cubemap (<code>AT_CUBEMAP_PASS</code>) that feeds reflections and ambient light, plus optional half/quarter resolution passes.</p><div class="chips"><span class="chip sky">sky</span></div></li>
+  <li class="step"><b>Shadow maps</b><p>Your spatial <code>vertex()</code> runs from each light's point of view (<code>IN_SHADOW_PASS</code> is true). Fragment only runs if needed for alpha scissor/hash.</p><div class="chips"><span class="chip spatial">spatial vertex()</span></div></li>
+  <li class="step"><b>Depth prepass and normal-roughness buffer</b><p>Opaque geometry writes depth (and, in Forward+, view-space normals + roughness). This is what <code>hint_depth_texture</code> and <code>hint_normal_roughness_texture</code> read later.</p><div class="chips"><span class="chip spatial">spatial</span></div></li>
+  <li class="hook"><span>CompositorEffect · EFFECT_CALLBACK_TYPE_PRE_OPAQUE</span></li>
+  <li class="step"><b>Volumetric fog froxels</b><p><code>FogVolume</code> shaders inject density, albedo and emission into a 3D grid of camera-aligned cells. The result is applied while shading surfaces and sky.</p><div class="chips"><span class="chip fog">fog</span></div></li>
+  <li class="step"><b>Opaque pass</b><p>Spatial <code>fragment()</code> fills the material outputs, then <code>light()</code> runs once per light per pixel. SSAO, SSIL, SSR and SDFGI feed into this.</p><div class="chips"><span class="chip spatial">spatial fragment() + light()</span></div></li>
+  <li class="hook"><span>CompositorEffect · EFFECT_CALLBACK_TYPE_POST_OPAQUE</span></li>
+  <li class="step"><b>Sky background</b><p>The sky shader's main pass fills every pixel no geometry covered.</p><div class="chips"><span class="chip sky">sky</span></div></li>
+  <li class="hook"><span>CompositorEffect · EFFECT_CALLBACK_TYPE_POST_SKY</span></li>
+  <li class="step"><b>Screen and depth copy</b><p>The opaque image and depth are copied so transparent shaders can sample them. This is why screen-reading shaders don't see other transparent objects.</p></li>
+  <li class="hook"><span>CompositorEffect · EFFECT_CALLBACK_TYPE_PRE_TRANSPARENT</span></li>
+  <li class="step"><b>Transparent pass</b><p>Anything that writes <code>ALPHA</code>, reads the screen texture, or uses a blend mode is sorted back to front and drawn. Stencil reads only work here.</p><div class="chips"><span class="chip spatial">spatial (transparent)</span></div></li>
+  <li class="hook"><span>CompositorEffect · EFFECT_CALLBACK_TYPE_POST_TRANSPARENT (still linear HDR, before tonemap)</span></li>
+  <li class="step"><b>Built-in post-processing</b><p>Depth of field, glow/bloom, exposure, tonemapping, color adjustments/LUT, then FXAA/SMAA. Configure in <code>Environment</code> and <code>CameraAttributes</code>.</p></li>
+  <li class="step"><b>2D canvas and UI</b><p>CanvasLayers draw in order on top of the 3D result. Canvas shaders can read everything drawn so far via the back buffer (<code>hint_screen_texture</code>). UI is just more canvas items.</p><div class="chips"><span class="chip canvas">canvas_item</span></div></li>
+</ol>
+<p><span class="chip compute">compute</span> shaders are not in this list at all: you dispatch them yourself, either on a separate local GPU device or on the main device from the render thread (which is exactly what a <code>CompositorEffect</code> does at the hook points above).</p>
+</div>
+</section>
+
+<!-- ===================== TYPES ===================== -->
+<section id="types">
+<h2>Shader types at a glance</h2>
+<p class="lede">The first line of every <code>.gdshader</code> file picks the type. The type decides which processor functions exist, which built-ins you get, and where you can plug it in.</p>
+<div class="blk">
+<script type="text/plain" class="tbl" data-cols="First line|Processor functions|Attach it to|Renderers">
+shader_type spatial; | `vertex()` `fragment()` `light()` | MeshInstance3D, MultiMeshInstance3D, CSG, GPUParticles3D draw passes, full-screen quads | All three
+shader_type canvas_item; | `vertex()` `fragment()` `light()` | Any CanvasItem: Sprite2D, ColorRect, TextureRect, Polygon2D, Line2D, TileMapLayer, CanvasGroup, Control nodes | All three
+shader_type particles; | `start()` `process()` | GPUParticles2D / GPUParticles3D → Process Material | All three (GPU particles in Compatibility are transform-feedback based)
+shader_type sky; | `sky()` | WorldEnvironment → Environment → Sky → Sky Material | All three
+shader_type fog; | `fog()` | FogVolume → Material (needs Environment volumetric fog on) | Forward+ only
+#[compute] (GLSL 450 file) | `main()` | RenderingDevice dispatch from GDScript, or a CompositorEffect | Forward+ and Mobile only
+</script>
+</div>
+<div class="note"><b>File extensions.</b> <code>.gdshader</code> for shaders, <code>.gdshaderinc</code> for include files, <code>.glsl</code> for compute (imported as <code>RDShaderFile</code>). VisualShader resources (<code>.tres</code>) compile to the same language.</div>
+</section>
+
+<!-- ===================== SYNTAX ===================== -->
+<section id="syntax">
+<h2>Shading language syntax</h2>
+<p class="lede">Godot's language is GLSL ES 3.0 with the boilerplate removed: no <code>main()</code>, no <code>in</code>/<code>out</code> declarations, no <code>#version</code>. You write processor functions and assign to UPPERCASE built-ins.</p>
+
+<div class="blk">
+<h3 id="anatomy">Anatomy of a shader file</h3>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="spatial" data-file="anatomy.gdshader">
+shader_type spatial;                          // spatial | canvas_item | particles | sky | fog
+render_mode cull_disabled, diffuse_toon;      // optional, comma separated
+// stencil_mode write, compare_always, 1;     // 4.5+, spatial only, experimental
+
+#include "res://shaders/common.gdshaderinc"   // pastes shared functions in
+
+group_uniforms surface;                       // folds uniforms into an inspector group
+uniform vec4 tint : source_color = vec4(1.0);
+uniform sampler2D albedo_tex : source_color, filter_linear_mipmap, repeat_enable;
+uniform float strength : hint_range(0.0, 1.0, 0.01) = 0.5;
+group_uniforms;                               // end group
+
+varying vec3 world_pos;                       // vertex() -> fragment() -> light()
+const float SPEED = 2.0;
+
+float remap(float v, float lo, float hi) {    // functions must be defined above their callers
+    return clamp((v - lo) / (hi - lo), 0.0, 1.0);
+}
+
+void vertex() {
+    world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+}
+
+void fragment() {
+    vec4 tex = texture(albedo_tex, UV);
+    ALBEDO = tex.rgb * tint.rgb;
+    ROUGHNESS = remap(world_pos.y, 0.0, 10.0);
+}
+
+// void light() { ... }                       // optional; replaces Godot's lighting model
+</script>
+</div>
+
+<div class="blk">
+<h3 id="types-table">Data types</h3>
+<script type="text/plain" class="tbl" data-cols="Type|Notes">
+void | Return type only.
+bool, bvec2, bvec3, bvec4 | Booleans. `any()`, `all()`, `not()` operate on bvecs.
+int, ivec2, ivec3, ivec4 | 32-bit signed. Needed for `texelFetch`, loops and array indices.
+uint, uvec2, uvec3, uvec4 | 32-bit unsigned. Literal suffix `u`: `5u`. Great for hashing.
+float, vec2, vec3, vec4 | 32-bit float. Always write `1.0`, never `1`.
+mat2, mat3, mat4 | Column-major. `m[3]` is the 4th column (translation). `mat3(MODEL_MATRIX)` drops translation.
+sampler2D, isampler2D, usampler2D | 2D texture (float / int / uint data).
+sampler2DArray, isampler2DArray, usampler2DArray | Texture2DArray. Sample with `vec3(uv, layer)`.
+sampler3D, isampler3D, usampler3D | Texture3D, NoiseTexture3D. Sample with `vec3`.
+samplerCube, samplerCubeArray | Cubemap / CubemapArray. Sample with a direction.
+samplerExternalOES | Android camera feeds only.
+</script>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="spatial" data-file="types_and_casts.gdshader">
+float a = 2.0;                 // float a = 2;  -> error, no implicit conversion
+int   i = int(a);              // explicit cast
+uint  u = uint(i) + 3u;
+vec3  v = vec3(1.0);           // (1, 1, 1)
+vec4  c = vec4(v * 0.5, 1.0);  // combine a vec3 and a float
+vec2  s = c.xy;                // swizzle: xyzw, rgba, stpq (don't mix sets)
+c.rgb = c.bgr;                 // swizzles are writable
+mat3  basis = mat3(MODEL_MATRIX);          // upper-left 3x3
+vec3  origin = MODEL_MATRIX[3].xyz;        // translation column
+bool  inside = all(greaterThanEqual(s, vec2(0.0)));
+lowp float cheap; mediump float med; highp float precise;   // precision qualifiers (mostly for mobile)
+</script>
+</div>
+
+<div class="blk">
+<h3 id="uniforms">Uniforms, hints and scopes</h3>
+<p>A uniform is a value you set from the inspector or code. Hints change how the inspector shows it and how textures are sampled. Separate multiple hints with commas.</p>
+<script type="text/plain" class="tbl" data-cols="Hint|Use on|What it does">
+source_color | vec3, vec4, sampler2D | Treats the value as sRGB colour: shows a colour picker and converts to linear. Use on every albedo/colour texture and colour uniform.
+hint_range(min, max[, step]) | int, float | Slider in the inspector.
+hint_enum("A", "B", "C") | int | Dropdown; values 0, 1, 2 (4.3+).
+hint_normal | sampler2D | Normal map; default flat normal when empty.
+hint_default_white / hint_default_black / hint_default_transparent | sampler2D | What an unassigned texture returns.
+hint_anisotropy | sampler2D | Flowmap default (0.5, 0.5).
+hint_roughness_r, _g, _b, _a, _normal, _gray | sampler2D | Roughness channel packing, used for roughness limiter.
+filter_nearest, filter_linear | sampler | No mipmaps. Nearest = crisp pixels.
+filter_nearest_mipmap, filter_linear_mipmap | sampler | Mipmapped. Needed for `textureLod` blurs of the screen texture.
+filter_nearest_mipmap_anisotropic, filter_linear_mipmap_anisotropic | sampler | Anisotropic filtering for surfaces at grazing angles.
+repeat_enable, repeat_disable | sampler | Wrap vs clamp to edge. Use repeat_disable for screen/depth textures.
+hint_screen_texture | sampler2D | The rendered screen so far (see Engine buffers).
+hint_depth_texture | sampler2D | The depth buffer (spatial only).
+hint_normal_roughness_texture | sampler2D | Normal + roughness buffer (spatial, Forward+ only).
+instance_index(n) | instance uniform | Pins an instance uniform to a slot index.
+</script>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="spatial" data-file="uniform_scopes.gdshader">
+uniform float speed = 1.0;                     // per material (ShaderMaterial)
+instance uniform vec4 team_color : source_color = vec4(1.0);  // per node, no material copy needed
+global uniform vec3 wind_direction;            // project-wide, defined in Project Settings
+
+uniform float weights[5];                      // uniform arrays (set with PackedFloat32Array)
+uniform sampler2D layers[4] : source_color;    // texture arrays of uniforms work too
+</script>
+<script type="text/plain" class="tbl" data-cols="Scope|Set from GDScript|Limits">
+uniform | `material.set_shader_parameter("speed", 2.0)` | Changing it affects every node sharing that material. Tween with `"shader_parameter/speed"`.
+instance uniform | `node.set_instance_shader_parameter("team_color", Color.RED)` | GeometryInstance3D, and CanvasItem since 4.4. Max 16 per shader, no textures or arrays.
+global uniform | `RenderingServer.global_shader_parameter_set("wind_direction", Vector3.RIGHT)` | Declare in Project Settings → Globals → Shader Globals first. Any type, including textures.
+</script>
+</div>
+
+<div class="blk">
+<h3 id="varyings">Varyings and interpolation</h3>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="spatial" data-file="varyings.gdshader">
+varying vec3 world_normal;              // smooth (perspective-correct) by default
+varying flat int material_id;           // no interpolation; must be int/uint for integer data
+varying smooth float height;
+
+void vertex() {
+    world_normal = normalize(MODEL_NORMAL_MATRIX * NORMAL);
+    material_id = int(CUSTOM0.x);
+    height = VERTEX.y;
+}
+void fragment() {
+    ALBEDO = world_normal * 0.5 + 0.5;
+}
+// Fragment built-ins are not visible in light(). Pass them with a varying you
+// assign inside fragment(), then read it in light().
+</script>
+</div>
+
+<div class="blk">
+<h3 id="control">Arrays, structs, control flow</h3>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="canvas" data-file="language_features.gdshader">
+shader_type canvas_item;
+
+const vec3 PALETTE[4] = vec3[4](vec3(0.1), vec3(0.3, 0.2, 0.5), vec3(0.9, 0.4, 0.3), vec3(1.0, 0.9, 0.6));
+
+struct Ripple {                   // structs work locally and as function params; not as uniforms
+    vec2 center;
+    float radius;
+};
+
+float ripple(Ripple r, vec2 p, float t) {
+    float d = distance(p, r.center);
+    return sin(d * 40.0 - t * 6.0) * exp(-d * r.radius);
+}
+
+void add_one(inout float x) { x += 1.0; }   // in / out / inout parameters
+void split(vec4 c, out vec3 rgb, out float a) { rgb = c.rgb; a = c.a; }
+
+void fragment() {
+    float local_list[3] = {0.2, 0.5, 0.8};  // initializer-list syntax
+    int n = local_list.length();
+
+    Ripple r = Ripple(vec2(0.5), 3.0);
+    float w = ripple(r, UV, TIME);
+
+    int idx = clamp(int(UV.x * 4.0), 0, 3);
+    vec3 col = PALETTE[idx];
+
+    for (int i = 0; i < n; i++) {
+        if (UV.y < local_list[i]) { col *= 0.9; continue; }
+    }
+    switch (idx) {
+        case 0: col.r += 0.1; break;
+        case 1: case 2: col.g += 0.1; break;
+        default: break;
+    }
+    if (w < -0.9) { discard; }              // discard: fragment only
+    COLOR = vec4(col + w * 0.1, 1.0);
+}
+</script>
+</div>
+
+<div class="blk">
+<h3 id="preprocessor">Preprocessor and include files</h3>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="spatial" data-file="preprocessor.gdshader">
+#define USE_RIM                        // simple flag
+#define WAVE(x, t) sin((x) * 4.0 + (t)) // function-like macro
+
+#include "res://shaders/lib/noise.gdshaderinc"
+
+#if CURRENT_RENDERER == RENDERER_COMPATIBILITY
+    // OpenGL path: NDC z is -1..1
+#elif CURRENT_RENDERER == RENDERER_MOBILE
+    // Mobile path
+#else
+    // RENDERER_FORWARD_PLUS
+#endif
+
+#ifdef USE_RIM
+    // ...
+#endif
+// Also: #undef  #ifndef  #else  #error "message"  #pragma disable_preprocessor
+</script>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="spatial" data-file="res://shaders/lib/noise.gdshaderinc">
+// .gdshaderinc files have NO shader_type line. Anything valid at file scope is allowed:
+// functions, uniforms, varyings, consts, structs, #defines.
+float hash21(vec2 p) {
+    p = fract(p * vec2(123.34, 456.21));
+    p += dot(p, p + 45.32);
+    return fract(p.x * p.y);
+}
+
+float value_noise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    float a = hash21(i);
+    float b = hash21(i + vec2(1.0, 0.0));
+    float c = hash21(i + vec2(0.0, 1.0));
+    float d = hash21(i + vec2(1.0, 1.0));
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+
+float fbm(vec2 p) {
+    float v = 0.0;
+    float amp = 0.5;
+    for (int i = 0; i < 5; i++) {
+        v += amp * value_noise(p);
+        p = p * 2.02 + vec2(1.7, 9.2);
+        amp *= 0.5;
+    }
+    return v;
+}
+</script>
+</div>
+
+<div class="blk">
+<h3 id="functions">Built-in functions you'll use constantly</h3>
+<script type="text/plain" class="tbl" data-cols="Group|Functions">
+Shaping | `mix(a,b,t)` `step(edge,x)` `smoothstep(e0,e1,x)` `clamp(x,lo,hi)` `min` `max` `abs` `sign` `fract` `mod(x,y)` `floor` `ceil` `round` `trunc` `fma(a,b,c)`
+Trig and exponent | `sin` `cos` `tan` `asin` `acos` `atan(y, x)` `pow` `exp` `exp2` `log` `log2` `sqrt` `inversesqrt`
+Vector | `length` `distance` `dot` `cross` `normalize` `reflect(I,N)` `refract(I,N,eta)` `faceforward`
+Matrix | `inverse` `transpose` `determinant` `outerProduct` `matrixCompMult`
+Comparison | `lessThan` `greaterThan` `lessThanEqual` `greaterThanEqual` `equal` `notEqual` `any` `all` `not` `isnan` `isinf`
+Texture sampling | `texture(s, uv)` `textureLod(s, uv, lod)` `textureGrad(s, uv, dx, dy)` `textureProj` `texelFetch(s, ivec2, lod)` `textureSize(s, lod)` `textureGather` `textureQueryLod` `textureQueryLevels`
+Derivatives (fragment) | `dFdx` `dFdy` `fwidth` and `…Coarse` / `…Fine` variants. Great for anti-aliased lines: `smoothstep(-fwidth(d), fwidth(d), d)`
+Bits and packing | `floatBitsToInt` `floatBitsToUint` `intBitsToFloat` `uintBitsToFloat` `bitfieldExtract` `bitfieldInsert` `bitCount` `findLSB` `findMSB` `packHalf2x16` `unpackHalf2x16` `packUnorm4x8` `unpackUnorm4x8`
+Constants | `PI` `TAU` `E` are built in. `TIME` is seconds since start (wraps at 3600 by default).
+</script>
+</div>
+
+<div class="blk">
+<h3 id="hero-shader">The header of this page, as a Godot shader</h3>
+<p>The animation at the top of this page is this <span class="chip canvas">canvas_item</span> shader, ported to WebGL. Put it on a full-rect <code>ColorRect</code> to get the same thing in Godot.</p>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="canvas" data-file="flow_background.gdshader">
+shader_type canvas_item;
+
+uniform vec3 deep_color : source_color = vec3(0.07, 0.16, 0.28);
+uniform vec3 mid_color  : source_color = vec3(0.28, 0.55, 0.75);
+uniform vec3 hot_color  : source_color = vec3(0.82, 0.30, 0.45);
+uniform float scale = 2.2;
+uniform float speed = 1.0;
+
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+
+float noise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+               mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+
+float fbm(vec2 p) {
+    float v = 0.0;
+    float a = 0.5;
+    for (int i = 0; i < 5; i++) {
+        v += a * noise(p);
+        p = p * 2.03 + vec2(1.7, 9.2);
+        a *= 0.5;
+    }
+    return v;
+}
+
+void fragment() {
+    float aspect = SCREEN_PIXEL_SIZE.y / SCREEN_PIXEL_SIZE.x;   // width / height
+    vec2 p = vec2(UV.x * aspect, 1.0 - UV.y) * scale;
+    float t = TIME * speed;
+
+    vec2 q = vec2(fbm(p + t * 0.05), fbm(p + vec2(5.2, 1.3) - t * 0.04));   // domain warp
+    float f = fbm(p + 2.5 * q + t * 0.03);
+
+    vec3 col = mix(deep_color, mid_color, smoothstep(0.25, 0.85, f));
+    col = mix(col, hot_color, smoothstep(0.6, 1.0, q.y) * 0.55);
+    float iso = abs(fract(f * 9.0) - 0.5);                  // contour lines
+    col += 0.05 * (1.0 - smoothstep(0.0, 0.06, iso));
+    COLOR = vec4(col, 1.0);
+}
+</script>
+</div>
+</section>
+<!-- ===================== RENDER MODES ===================== -->
+<section id="render-modes">
+<h2>Render modes and stencil modes</h2>
+<p class="lede">Render modes are compile-time switches on the first lines of the shader. They can't be changed from code; make a second shader (or use <code>#define</code> + an include) if you need both variants.</p>
+
+<div class="blk">
+<h3 id="rm-spatial">Spatial <span class="chip spatial">spatial</span></h3>
+<script type="text/plain" class="tbl" data-cols="Render mode|Effect">
+blend_mix / blend_add / blend_sub / blend_mul / blend_premul_alpha | Blend equation when the material is transparent. `blend_mix` is default.
+depth_draw_opaque / depth_draw_always / depth_draw_never | Whether the surface writes depth. `always` lets transparent objects occlude.
+depth_prepass_alpha | Transparent object does an opaque depth prepass (fixes self-sorting on foliage/hair).
+depth_test_disabled | Draw on top of everything.
+depth_test_default / depth_test_inverted | 4.5+. Inverted only passes where the pixel is behind something (x-ray, stencil tricks).
+cull_back / cull_front / cull_disabled | Face culling. `cull_front` is the inverted-hull outline trick.
+unshaded | Skip lighting; output is `ALBEDO` (+`EMISSION`). Fastest.
+diffuse_burley / diffuse_lambert / diffuse_lambert_wrap / diffuse_toon | Built-in diffuse model (ignored if you write `light()`).
+specular_schlick_ggx / specular_toon / specular_disabled | Built-in specular model for direct light.
+vertex_lighting | Per-vertex lighting; `light()` is not called.
+shadows_disabled | Doesn't receive shadows (still casts).
+ambient_light_disabled | Ignore ambient light and radiance.
+shadow_to_opacity | Shadowed areas become opaque, lit areas transparent (AR shadow catcher).
+skip_vertex_transform | You transform `VERTEX`/`NORMAL`/`TANGENT`/`BINORMAL` to view space yourself.
+world_vertex_coords | `VERTEX` etc. are in world space in `vertex()` instead of model space.
+fog_disabled | Ignore depth fog and volumetric fog. Use on additive effects and full-screen quads.
+sss_mode_skin | Skin preset for subsurface scattering.
+particle_trails | Enable trail geometry when used as a particle draw pass.
+alpha_to_coverage / alpha_to_coverage_and_one | MSAA-based alpha antialiasing for cutouts.
+wireframe / debug_shadow_splits | Debug views.
+</script>
+</div>
+
+<div class="blk">
+<h3 id="rm-stencil">Stencil modes <span class="chip spatial">spatial</span> <span class="ver">4.5+ experimental</span></h3>
+<p>Syntax: <code>stencil_mode &lt;read&gt;, &lt;write | write_if_depth_fail&gt;, &lt;compare_*&gt;, &lt;reference 0-255&gt;;</code>. Writing works in any pass; reading (the compare test) only works in the transparent pass. StandardMaterial3D also exposes Stencil presets (Outline, X-Ray) you can convert to a shader to study.</p>
+<script type="text/plain" class="tbl" data-cols="Stencil mode|Effect">
+read | Test the stencil buffer with the compare function.
+write | Write the reference value where the fragment passes.
+write_if_depth_fail | Write the reference value only where the depth test fails (hidden parts).
+compare_always / compare_equal / compare_not_equal | Stencil test function.
+compare_less / compare_less_or_equal / compare_greater / compare_greater_or_equal | Stencil test function (reference compared against buffer value).
+</script>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="spatial" data-file="xray_silhouette.gdshader (put in the character material's Next Pass)">
+// Pass 1 (the character's normal material) must contain:
+//     stencil_mode write, compare_always, 1;
+// Pass 2 below draws a tinted silhouette only where the character is hidden behind walls.
+shader_type spatial;
+render_mode unshaded, blend_mix, depth_test_inverted, depth_draw_never;
+stencil_mode read, write, compare_not_equal, 1;
+
+uniform vec4 silhouette : source_color = vec4(0.4, 0.7, 1.0, 0.6);
+
+void fragment() {
+    ALBEDO = silhouette.rgb;
+    ALPHA = silhouette.a;      // transparent pass, so the stencil read works
+}
+</script>
+</div>
+
+<div class="blk">
+<h3 id="rm-canvas">Canvas item <span class="chip canvas">canvas_item</span></h3>
+<script type="text/plain" class="tbl" data-cols="Render mode|Effect">
+blend_mix / blend_add / blend_sub / blend_mul / blend_premul_alpha / blend_disabled | Blend equation. `blend_disabled` writes alpha straight through.
+unshaded | Ignore Light2D.
+light_only | Only visible where Light2D hits (light-reveal effects).
+skip_vertex_transform | Transform `VERTEX` yourself.
+world_vertex_coords | `VERTEX` in world space instead of local.
+</script>
+</div>
+
+<div class="blk">
+<h3 id="rm-other">Particles, sky, fog</h3>
+<script type="text/plain" class="tbl" data-cols="Render mode|Type|Effect">
+keep_data | particles | Don't clear particle data when restarting.
+disable_force | particles | Ignore attractors.
+disable_velocity | particles | Don't integrate `VELOCITY` into position automatically.
+collision_use_scale | particles | Particle scale affects collision radius.
+use_half_res_pass | sky | Enable the half-resolution pass; read it with `HALF_RES_COLOR`.
+use_quarter_res_pass | sky | Enable the quarter-resolution pass; read it with `QUARTER_RES_COLOR`.
+disable_fog | sky | Sky ignores depth and volumetric fog.
+(none) | fog | Fog shaders have no render modes.
+</script>
+</div>
+</section>
+
+<!-- ===================== BUILT-INS ===================== -->
+<section id="builtins">
+<h2>Built-in variables by shader type</h2>
+<p class="lede"><span class="acc in">in</span> read-only, <span class="acc out">out</span> write to set it, <span class="acc inout">inout</span> has a sensible value you can modify. Available in every type: <code>TIME</code>, <code>PI</code>, <code>TAU</code>, <code>E</code>. Built-ins aren't visible inside your own functions (except these globals), so pass them in as parameters.</p>
+
+<div class="blk">
+<h3 id="bi-spatial-global">Spatial: global, vertex()</h3>
+<script type="text/plain" class="tbl" data-cols="Built-in|Type|Access|Notes">
+TIME | float | in | Seconds since start, affected by time scale, not by pause.
+OUTPUT_IS_SRGB | bool | in | True in Compatibility, false in Forward+/Mobile.
+CLIP_SPACE_FAR | float | in | 0.0 on Forward+/Mobile (reversed-Z), -1.0 on Compatibility.
+IN_SHADOW_PASS | bool | in | True while rendering into a shadow map.
+IS_MULTIVIEW | bool | in | True for stereo (XR) rendering.
+VERTEX | vec3 | inout | Model-space position (world space with `world_vertex_coords`).
+NORMAL / TANGENT / BINORMAL | vec3 | inout | Model-space basis vectors.
+UV / UV2 | vec2 | inout | Main and secondary UV channels.
+COLOR | vec4 | inout | Vertex colour (8-bit precision; also MultiMesh instance colour).
+POSITION | vec4 | out | Clip-space position. Overrides the whole transform if written on any branch.
+POINT_SIZE | float | inout | Point size for point primitives.
+ROUGHNESS | float | out | Roughness for vertex lighting.
+MODEL_MATRIX | mat4 | in | Model → world.
+MODEL_NORMAL_MATRIX | mat3 | in | Model → world for normals.
+MODELVIEW_MATRIX | mat4 | inout | Model → view. Prefer it over MODEL×VIEW far from the origin.
+MODELVIEW_NORMAL_MATRIX | mat3 | inout | Model → view for normals.
+VIEW_MATRIX / INV_VIEW_MATRIX | mat4 | in | World ↔ view. In shadow passes this is the light's view.
+MAIN_CAM_INV_VIEW_MATRIX | mat4 | in | The real camera, even during shadow passes.
+PROJECTION_MATRIX | mat4 | inout | View → clip.
+INV_PROJECTION_MATRIX | mat4 | in | Clip → view.
+NODE_POSITION_WORLD / NODE_POSITION_VIEW | vec3 | in | Node origin in world / view space.
+CAMERA_POSITION_WORLD / CAMERA_DIRECTION_WORLD | vec3 | in | Camera position and forward.
+CAMERA_VISIBLE_LAYERS | uint | in | Cull mask of the camera drawing this pass.
+VIEWPORT_SIZE | vec2 | in | Viewport size in pixels.
+INSTANCE_ID | int | in | Instance index (MultiMesh / particles).
+INSTANCE_CUSTOM | vec4 | in | MultiMesh custom data; for particles x = rotation, y = age fraction, z = anim frame.
+VERTEX_ID | int | in | Index of this vertex.
+BONE_INDICES / BONE_WEIGHTS | uvec4 / vec4 | in | Skinning data.
+CUSTOM0 … CUSTOM3 | vec4 | in | Custom vertex arrays (or UV3–UV8 when imported as extra UVs).
+Z_CLIP_SCALE | float | out | Pull vertices toward the camera to avoid clipping (first-person weapons).
+VIEW_INDEX / VIEW_MONO_LEFT / VIEW_RIGHT / EYE_OFFSET | int / vec3 | in | Multiview (XR) helpers.
+</script>
+</div>
+
+<div class="blk">
+<h3 id="bi-spatial-frag">Spatial: fragment()</h3>
+<script type="text/plain" class="tbl" data-cols="Built-in|Type|Access|Notes">
+VERTEX | vec3 | in | Fragment position in view space. `-VERTEX.z` is linear distance from camera plane.
+LIGHT_VERTEX | vec3 | inout | Writable copy of VERTEX used for lighting/shadows only.
+FRAGCOORD | vec4 | in | Pixel coordinates (xy) and depth (z).
+SCREEN_UV | vec2 | in | 0–1 screen coordinate, for screen/depth texture lookups.
+VIEW | vec3 | in | Normalized fragment → camera vector (view space).
+FRONT_FACING | bool | in | False on back faces (with `cull_disabled`).
+NORMAL / TANGENT / BINORMAL | vec3 | inout | View-space basis.
+UV / UV2 / COLOR / POINT_COORD | vec2 / vec4 | in | Interpolated from vertex().
+VIEWPORT_SIZE, MODEL_MATRIX, VIEW_MATRIX, INV_VIEW_MATRIX, PROJECTION_MATRIX, INV_PROJECTION_MATRIX, NODE_POSITION_WORLD, CAMERA_POSITION_WORLD … | various | in | Same as vertex().
+ALBEDO | vec3 | out | Base colour.
+ALPHA | float | out | Writing it moves the material into the transparent pass.
+ALPHA_SCISSOR_THRESHOLD | float | out | Cut-out alpha; stays in the opaque pass.
+ALPHA_HASH_SCALE / ALPHA_ANTIALIASING_EDGE / ALPHA_TEXTURE_COORDINATE | float / vec2 | out | Dithered alpha and alpha-to-coverage controls.
+PREMUL_ALPHA_FACTOR | float | out | For shaded `blend_premul_alpha`.
+METALLIC / ROUGHNESS / SPECULAR | float | out | PBR inputs (specular default 0.5; 0 kills reflections).
+NORMAL_MAP | vec3 | out | Tangent-space normal from a texture (blue ignored).
+NORMAL_MAP_DEPTH | float | out | Normal map strength, default 1.0.
+BENT_NORMAL_MAP | vec3 | out | Bent normals for specular occlusion (4.5+).
+EMISSION | vec3 | out | Self-illumination; values above 1 bloom with glow.
+RIM / RIM_TINT | float | out | Built-in rim lighting.
+CLEARCOAT / CLEARCOAT_ROUGHNESS | float | out | Second specular lobe.
+ANISOTROPY / ANISOTROPY_FLOW | float / vec2 | out | Stretched highlights (brushed metal, hair).
+SSS_STRENGTH, SSS_TRANSMITTANCE_COLOR, _DEPTH, _BOOST | float / vec4 | out | Subsurface scattering.
+BACKLIGHT | vec3 | inout | Light that passes through thin surfaces (leaves, paper).
+AO / AO_LIGHT_AFFECT | float | out | Baked ambient occlusion and how much it affects direct light.
+FOG | vec4 | out | Override fog: blends `FOG.rgb` by `FOG.a`.
+RADIANCE / IRRADIANCE | vec4 | out | Override environment reflection / ambient.
+DEPTH | float | out | Custom depth (0–1). If written anywhere, write it on every branch.
+</script>
+</div>
+
+<div class="blk">
+<h3 id="bi-spatial-light">Spatial: light()</h3>
+<p>Called once per light per pixel. Add to the outputs with <code>+=</code> so lights accumulate. The engine multiplies <code>DIFFUSE_LIGHT</code> by albedo afterward, so don't multiply by <code>ALBEDO</code> yourself.</p>
+<script type="text/plain" class="tbl" data-cols="Built-in|Type|Access|Notes">
+NORMAL / VIEW / LIGHT | vec3 | in | View-space normal, view vector, direction toward the light.
+LIGHT_COLOR | vec3 | in | Light colour × energy × PI (divide by PI for physically based models).
+ATTENUATION | float | in | Distance falloff × shadow.
+LIGHT_IS_DIRECTIONAL | bool | in | True for DirectionalLight3D.
+SPECULAR_AMOUNT | float | in | 2 × light_specular for omni/spot, 1 for directional.
+ALBEDO / BACKLIGHT / METALLIC / ROUGHNESS | vec3 / float | in | Material values from fragment().
+UV / UV2 / SCREEN_UV / FRAGCOORD / VIEWPORT_SIZE | various | in | As in fragment().
+DIFFUSE_LIGHT | vec3 | out | Accumulated diffuse.
+SPECULAR_LIGHT | vec3 | out | Accumulated specular.
+ALPHA | float | out | Per-light alpha (moves to transparent pass).
+LIGHT_IS_AREA, LIGHT_AREA_DIFFUSE_MULTIPLIER, LIGHT_AREA_SPECULAR_MULTIPLIER | bool / float | in | AreaLight3D support (4.7+).
+</script>
+</div>
+
+<div class="blk">
+<h3 id="bi-canvas">Canvas item: vertex(), fragment(), light()</h3>
+<script type="text/plain" class="tbl" data-cols="Built-in|Type|Access|Notes">
+VERTEX (vertex) | vec2 | inout | Local-space position in pixels.
+UV | vec2 | inout | 0–1 across the texture (or region).
+COLOR (vertex) | vec4 | inout | Vertex colour × modulate.
+MODEL_MATRIX / CANVAS_MATRIX / SCREEN_MATRIX | mat4 | in | Local → world → canvas → clip.
+INSTANCE_ID / INSTANCE_CUSTOM | int / vec4 | in | MultiMeshInstance2D and particles.
+TEXTURE_PIXEL_SIZE | vec2 | in | 1 / texture size. Offset by one texel with `UV + TEXTURE_PIXEL_SIZE`.
+POINT_SIZE, VERTEX_ID, CUSTOM0, CUSTOM1 | various | inout / in | Per-vertex extras.
+TEXTURE | sampler2D | – | The node's texture.
+COLOR (fragment) | vec4 | inout | Arrives as `texture(TEXTURE, UV) × vertex colour × modulate`. Write your result here.
+SCREEN_UV / SCREEN_PIXEL_SIZE | vec2 | in | Screen coordinate and 1 / viewport size.
+FRAGCOORD | vec4 | in | Pixel position in the viewport.
+VERTEX (fragment) | vec2 | in | Pixel position in screen space.
+NORMAL / NORMAL_MAP / NORMAL_MAP_DEPTH | vec3 / float | inout / out | Normals for 2D lighting.
+NORMAL_TEXTURE, SPECULAR_SHININESS_TEXTURE | sampler2D | – | From CanvasTexture.
+SPECULAR_SHININESS | vec4 | inout | Specular colour + shininess.
+LIGHT_VERTEX / SHADOW_VERTEX | vec3 / vec2 | inout | Move where lights/shadows see this pixel.
+AT_LIGHT_PASS | bool | in | Always false in 4.x (lights are batched).
+REGION_RECT | vec4 | in | Visible sprite region in UV (4.4+).
+LIGHT (light) | vec4 | inout | Output of light(). Starts with Godot's default result.
+LIGHT_COLOR, LIGHT_ENERGY, LIGHT_POSITION, LIGHT_DIRECTION, LIGHT_IS_DIRECTIONAL | various | in | Current Light2D.
+SHADOW_MODULATE | vec4 | inout | Shadow colour multiplier.
+texture_sdf(p) / texture_sdf_normal(p) / screen_uv_to_sdf(uv) / sdf_to_screen_uv(p) | functions | – | 2D signed distance field of LightOccluder2D shapes.
+</script>
+</div>
+
+<div class="blk">
+<h3 id="bi-particles">Particles: start(), process()</h3>
+<script type="text/plain" class="tbl" data-cols="Built-in|Type|Access|Notes">
+TRANSFORM | mat4 | inout | Particle transform. `TRANSFORM[3].xyz` is position.
+VELOCITY | vec3 | inout | Integrated into position automatically (unless `disable_velocity`).
+COLOR | vec4 | inout | Passed to the draw pass as `COLOR`.
+CUSTOM | vec4 | inout | Free data; draw pass reads it as `INSTANCE_CUSTOM`.
+ACTIVE | bool | inout | Set false to kill the particle.
+MASS | float | inout | Used with attractors.
+LIFETIME / DELTA | float | in | Particle lifetime and frame delta.
+NUMBER / INDEX | uint | in | Unique spawn number / slot index.
+RANDOM_SEED | uint | in | Seed for your hash functions.
+EMISSION_TRANSFORM | mat4 | in | Emitter transform (world, unless local_coords).
+AMOUNT_RATIO | float | in | The node's amount_ratio.
+USERDATA1 … USERDATA6 | vec4 | inout | Extra per-particle storage (declare use by writing to it).
+RESTART_POSITION, RESTART_ROT_SCALE, RESTART_VELOCITY, RESTART_COLOR, RESTART_CUSTOM | bool | in | start() only: which fields should be reset.
+RESTART | bool | in | process() only: particle just restarted.
+COLLIDED / COLLISION_NORMAL / COLLISION_DEPTH | bool / vec3 / float | in | process() only: GPUParticlesCollision hits.
+ATTRACTOR_FORCE | vec3 | in | process() only: summed attractor force.
+emit_subparticle(xform, vel, color, custom, flags) | bool | – | Spawn into the node's sub-emitter. Flags: FLAG_EMIT_POSITION, _ROT_SCALE, _VELOCITY, _COLOR, _CUSTOM.
+</script>
+</div>
+
+<div class="blk">
+<h3 id="bi-sky">Sky: sky()</h3>
+<script type="text/plain" class="tbl" data-cols="Built-in|Type|Access|Notes">
+EYEDIR | vec3 | in | Normalized view direction for this pixel / cubemap texel.
+SKY_COORDS | vec2 | in | Equirectangular UV (for panorama textures).
+SCREEN_UV | vec2 | in | Screen UV (main pass).
+POSITION | vec3 | in | Camera world position.
+COLOR / ALPHA | vec3 / float | out | Sky colour (HDR) and alpha (for transparent viewports).
+FOG | vec4 | out | Custom fog blend for the sky.
+RADIANCE | samplerCube | – | The radiance cubemap (don't sample it in the cubemap pass).
+AT_CUBEMAP_PASS / AT_HALF_RES_PASS / AT_QUARTER_RES_PASS | bool | in | Which pass is running. Skip expensive work in the cubemap pass.
+HALF_RES_COLOR / QUARTER_RES_COLOR | vec4 | in | Results of the low-res passes (main pass only).
+LIGHT0_ENABLED … LIGHT3_ENABLED | bool | in | Up to four DirectionalLight3Ds.
+LIGHTn_DIRECTION | vec3 | in | Direction toward the light.
+LIGHTn_COLOR / LIGHTn_ENERGY / LIGHTn_SIZE | vec3 / float / float | in | Colour, energy, angular diameter (radians).
+</script>
+</div>
+
+<div class="blk">
+<h3 id="bi-fog">Fog: fog()</h3>
+<script type="text/plain" class="tbl" data-cols="Built-in|Type|Access|Notes">
+WORLD_POSITION | vec3 | in | World position of the froxel.
+OBJECT_POSITION | vec3 | in | FogVolume origin.
+UVW | vec3 | in | 0–1 coordinate inside the volume's bounds.
+SIZE | vec3 | in | Volume size.
+SDF | float | in | Signed distance to the shape surface (negative inside).
+DENSITY | float | out | Fog density (can be negative to carve holes in global fog).
+ALBEDO | vec3 | out | Scattering colour.
+EMISSION | vec3 | out | Glow emitted by the fog.
+</script>
+</div>
+</section>
+<!-- ===================== ENGINE BUFFERS ===================== -->
+<section id="engine-buffers">
+<h2>Buffers the engine gives you</h2>
+<p class="lede">You never bind these manually. Declare a uniform with the right hint (or read a built-in) and Godot wires it up. Each has a moment in the frame when it's valid.</p>
+
+<div class="blk">
+<h3 id="buffer-table">What's available, where</h3>
+<script type="text/plain" class="tbl" data-cols="Buffer|How to get it|Shader types|What it contains">
+Screen colour | `uniform sampler2D s : hint_screen_texture;` | spatial, canvas_item | 3D: opaque objects + sky, linear HDR, before tonemapping. 2D: everything drawn so far in this viewport.
+Depth | `uniform sampler2D d : hint_depth_texture;` | spatial | Opaque depth. Forward+/Mobile: reversed-Z, 1.0 = near plane, 0.0 = far.
+Normal + roughness | `uniform sampler2D n : hint_normal_roughness_texture;` | spatial | Forward+ only. View-space normal in rgb (0–1), packed roughness in a.
+Radiance | `RADIANCE` | sky | Filtered sky cubemap.
+Half / quarter-res sky | `HALF_RES_COLOR`, `QUARTER_RES_COLOR` | sky | Output of the low-res sky passes.
+2D SDF | `texture_sdf()` and friends | canvas_item | Distance to LightOccluder2D shapes that have SDF Collision enabled.
+Node texture | `TEXTURE`, `NORMAL_TEXTURE`, `SPECULAR_SHININESS_TEXTURE` | canvas_item | The sprite's texture and its CanvasTexture maps.
+Per-light data | `LIGHT`, `LIGHT_COLOR`, `ATTENUATION` … | spatial / canvas light() | One light at a time, including its shadow.
+Particle collisions | `COLLIDED`, `COLLISION_NORMAL`, `ATTRACTOR_FORCE` | particles | From GPUParticlesCollision*/Attractor* nodes.
+Stencil | `stencil_mode` | spatial (4.5+) | 8-bit stencil; read in transparent pass only.
+Render buffers | `RenderSceneBuffersRD` | CompositorEffect | Colour, depth, velocity, normal-roughness and your own named textures.
+</script>
+</div>
+
+<div class="blk">
+<h3 id="screen-texture">Screen texture recipes</h3>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="spatial" data-file="screen_read.gdshader">
+shader_type spatial;
+render_mode unshaded;
+
+// filter_linear_mipmap generates mip levels, so textureLod() gives a cheap blur.
+uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap, repeat_disable;
+uniform float blur_lod : hint_range(0.0, 6.0) = 2.5;
+uniform vec4 tint : source_color = vec4(0.8, 0.9, 1.0, 1.0);
+
+void fragment() {
+    // Frosted glass: blurred scene behind the surface, tinted.
+    vec3 behind = textureLod(screen_tex, SCREEN_UV, blur_lod).rgb;
+    ALBEDO = behind * tint.rgb;
+    // Reading the screen texture places this object in the transparent pass automatically.
+}
+</script>
+<div class="note warn"><b>Things that surprise people.</b> In 3D, the screen texture doesn't contain transparent objects (they're drawn after the copy), and objects that read it don't see each other. In 2D, the copy happens the first time a node reads it; drop a <code>BackBufferCopy</code> node between layers to force a fresh copy so a later effect sees an earlier one.</div>
+</div>
+
+<div class="blk">
+<h3 id="depth-recipes">Depth: linearize and reconstruct positions</h3>
+<p>The depth buffer is non-linear. Multiply by the inverse projection to get real distances, then by the inverse view to get world positions. Custom functions can't see built-ins, so pass the matrices in.</p>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="spatial" data-file="depth_utils.gdshaderinc">
+uniform sampler2D depth_texture : hint_depth_texture, filter_nearest, repeat_disable;
+
+// NDC from a screen UV and a raw depth sample.
+vec3 ndc_from(vec2 uv, float raw_depth) {
+#if CURRENT_RENDERER == RENDERER_COMPATIBILITY
+    return vec3(uv, raw_depth) * 2.0 - 1.0;          // OpenGL: z in -1..1
+#else
+    return vec3(uv * 2.0 - 1.0, raw_depth);          // Vulkan/D3D12/Metal: z in 0..1 (reversed)
+#endif
+}
+
+// Distance from the camera plane, in meters.
+float linear_depth(vec2 uv, mat4 inv_proj) {
+    float raw = texture(depth_texture, uv).r;
+    vec4 view = inv_proj * vec4(ndc_from(uv, raw), 1.0);
+    return -view.z / view.w;
+}
+
+// World-space position of whatever opaque surface is under this pixel.
+vec3 world_position(vec2 uv, mat4 inv_proj, mat4 inv_view) {
+    float raw = texture(depth_texture, uv).r;
+    vec4 view = inv_proj * vec4(ndc_from(uv, raw), 1.0);
+    view.xyz /= view.w;
+    return (inv_view * vec4(view.xyz, 1.0)).xyz;
+}
+
+// Usage inside fragment():
+//   float scene_d   = linear_depth(SCREEN_UV, INV_PROJECTION_MATRIX);
+//   float surface_d = -VERTEX.z;                    // this fragment's own distance
+//   float thickness = scene_d - surface_d;          // soft particles, water depth, intersections
+//   vec3  wp = world_position(SCREEN_UV, INV_PROJECTION_MATRIX, INV_VIEW_MATRIX);
+</script>
+</div>
+
+<div class="blk">
+<h3 id="normal-roughness">Normal-roughness buffer decoding <span class="ver">Forward+</span></h3>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="spatial" data-file="normal_roughness.gdshaderinc">
+uniform sampler2D normal_rough_tex : hint_normal_roughness_texture, filter_nearest, repeat_disable;
+
+vec3 scene_normal_view(vec2 uv) {
+    return normalize(texture(normal_rough_tex, uv).xyz * 2.0 - 1.0);   // view space
+}
+
+float scene_roughness(vec2 uv) {
+    float r = texture(normal_rough_tex, uv).w;
+    if (r > 0.5) { r = 1.0 - r; }     // high bit flags dynamic objects
+    return r / (127.0 / 255.0);
+}
+// World-space normal: mat3(INV_VIEW_MATRIX) * scene_normal_view(SCREEN_UV)
+</script>
+</div>
+
+<div class="blk">
+<h3 id="sdf2d">2D signed distance field</h3>
+<p>Enable <b>SDF Collision</b> on your <code>LightOccluder2D</code> nodes and every canvas shader can ask how far a pixel is from the nearest wall. Tune range in Project Settings → Rendering → 2D → SDF.</p>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="canvas" data-file="wall_glow.gdshader">
+shader_type canvas_item;
+
+uniform vec4 glow_color : source_color = vec4(0.3, 0.8, 1.0, 1.0);
+uniform float glow_distance = 48.0;     // pixels
+
+void fragment() {
+    float d = texture_sdf(screen_uv_to_sdf(SCREEN_UV));    // pixels to nearest occluder
+    float glow = 1.0 - smoothstep(0.0, glow_distance, d);
+    COLOR.rgb = mix(COLOR.rgb, glow_color.rgb, glow * glow_color.a);
+    // texture_sdf_normal() gives the direction away from the nearest wall.
+}
+</script>
+</div>
+
+<div class="blk">
+<h3 id="sky-passes">Sky low-resolution passes</h3>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="sky" data-file="cheap_clouds_sky.gdshader">
+shader_type sky;
+render_mode use_half_res_pass;
+
+uniform sampler2D cloud_noise : repeat_enable;   // NoiseTexture2D, seamless
+
+vec3 gradient(vec3 dir) {
+    return mix(vec3(0.6, 0.75, 0.9), vec3(0.12, 0.3, 0.65), clamp(dir.y, 0.0, 1.0));
+}
+
+void sky() {
+    if (AT_HALF_RES_PASS) {
+        // Expensive work at half resolution.
+        vec2 p = EYEDIR.xz / max(EYEDIR.y, 0.05) * 0.3 + TIME * 0.005;
+        float c = smoothstep(0.45, 0.8, texture(cloud_noise, p).r) * smoothstep(0.0, 0.15, EYEDIR.y);
+        COLOR = vec3(1.0);
+        ALPHA = c;
+    } else {
+        // Full-res pass composites the cached half-res result.
+        COLOR = mix(gradient(EYEDIR), HALF_RES_COLOR.rgb, HALF_RES_COLOR.a);
+    }
+}
+</script>
+</div>
+</section>
+
+<!-- ===================== CUSTOM BUFFERS ===================== -->
+<section id="custom-buffers">
+<h2>Making your own buffers</h2>
+<p class="lede">"Buffer" can mean a few different things in Godot. Pick by how much data you have and who writes it.</p>
+
+<div class="blk">
+<h3 id="buffer-choice">Choosing a technique</h3>
+<script type="text/plain" class="tbl" data-cols="You need|Use|Written by">
+A handful of values per material | `uniform` (arrays up to a few hundred floats) | CPU, per frame is fine
+A value per node without duplicating materials | `instance uniform` | CPU
+A value every shader in the project can read | `global uniform` | CPU
+Data per vertex | Vertex `COLOR`, `UV2`, `CUSTOM0–3` via SurfaceTool / ArrayMesh | CPU, at mesh build time
+Data per MultiMesh instance | `INSTANCE_CUSTOM` + instance colour | CPU
+A grid or lookup table (fog of war, heightmap, LUT) | Data texture: `Image` → `ImageTexture` | CPU, `update()` when changed
+An image rendered by the GPU (mask pass, minimap, portal) | `SubViewport` → `ViewportTexture` | GPU (a second camera or 2D scene)
+Last frame's result (trails, simulations, paint) | SubViewport with clear mode Never + screen texture, or compute ping-pong | GPU
+Simple GPU painting onto a texture | `DrawableTexture2D` with a texture_blit shader (4.7+) | GPU
+Arbitrary structured data, millions of elements | Compute storage buffer / storage image, shown via `Texture2DRD` | GPU compute
+Intermediate textures inside a post-process chain | `RenderSceneBuffersRD.create_texture()` in a CompositorEffect | GPU compute
+</script>
+</div>
+
+<div class="blk">
+<h3 id="data-texture">Data texture: a CPU-written grid (fog of war)</h3>
+<script type="text/plain" class="src" data-lang="gdscript" data-kind="gd" data-file="fog_of_war.gd">
+extends Node
+
+const W := 64
+const H := 64
+@export var ground_material: ShaderMaterial
+@export var cell_size := 1.0
+
+var _img: Image
+var _tex: ImageTexture
+
+func _ready() -> void:
+    _img = Image.create_empty(W, H, false, Image.FORMAT_R8)   # 1 byte per cell
+    _img.fill(Color.BLACK)
+    _tex = ImageTexture.create_from_image(_img)
+    ground_material.set_shader_parameter("reveal_tex", _tex)
+    ground_material.set_shader_parameter("map_cells", Vector2(W, H))
+    ground_material.set_shader_parameter("cell_size", cell_size)
+
+func reveal(world_pos: Vector3, radius_cells: int) -> void:
+    var center := Vector2i(floori(world_pos.x / cell_size), floori(world_pos.z / cell_size))
+    for y in range(-radius_cells, radius_cells + 1):
+        for x in range(-radius_cells, radius_cells + 1):
+            var c := center + Vector2i(x, y)
+            if c.x >= 0 and c.y >= 0 and c.x < W and c.y < H and Vector2(x, y).length() <= radius_cells:
+                _img.set_pixelv(c, Color.WHITE)
+    _tex.update(_img)   # same size + format = fast re-upload, no new texture
+</script>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="spatial" data-file="fog_of_war_ground.gdshader">
+shader_type spatial;
+
+uniform sampler2D albedo_tex : source_color, filter_linear_mipmap;
+uniform sampler2D reveal_tex : filter_linear, repeat_disable;  // linear = soft edges
+uniform vec2 map_cells = vec2(64.0);
+uniform float cell_size = 1.0;
+uniform float hidden_brightness = 0.12;
+
+varying vec3 world_pos;
+
+void vertex() {
+    world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+}
+
+void fragment() {
+    vec2 grid_uv = world_pos.xz / (map_cells * cell_size);
+    float seen = texture(reveal_tex, grid_uv).r;
+    // Exact per-cell lookup instead: texelFetch(reveal_tex, ivec2(world_pos.xz / cell_size), 0).r
+    ALBEDO = texture(albedo_tex, world_pos.xz * 0.25).rgb * mix(hidden_brightness, 1.0, seen);
+}
+</script>
+</div>
+
+<div class="blk">
+<h3 id="instance-global">Instance and global uniforms in practice</h3>
+<script type="text/plain" class="src" data-lang="gdscript" data-kind="gd" data-file="uniform_scopes.gd">
+extends Node3D
+
+@onready var enemy: MeshInstance3D = $Enemy
+@onready var player: Node3D = $Player
+
+func _ready() -> void:
+    # Per-node value; every enemy can share ONE ShaderMaterial.
+    enemy.set_instance_shader_parameter("team_color", Color.CRIMSON)
+
+    # Global: declare "player_position" (vec3) in Project Settings > Globals > Shader Globals,
+    # or add it at runtime:
+    if not "player_position" in RenderingServer.global_shader_parameter_get_list():
+        RenderingServer.global_shader_parameter_add("player_position",
+            RenderingServer.GLOBAL_VAR_TYPE_VEC3, Vector3.ZERO)
+
+func _process(_delta: float) -> void:
+    RenderingServer.global_shader_parameter_set("player_position", player.global_position)
+</script>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="spatial" data-file="grass_push.gdshader">
+shader_type spatial;
+render_mode cull_disabled;
+
+global uniform vec3 player_position;
+uniform float push_radius = 1.5;
+uniform float push_strength = 0.6;
+uniform vec4 color : source_color = vec4(0.35, 0.6, 0.2, 1.0);
+
+void vertex() {
+    vec3 world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+    vec3 away = world - player_position;
+    float falloff = 1.0 - smoothstep(0.0, push_radius, length(away.xz));
+    float tip = clamp(VERTEX.y, 0.0, 1.0);              // blades are 1 unit tall
+    world.xz += normalize(away.xz + 0.0001) * falloff * push_strength * tip;
+    world.y -= falloff * push_strength * tip * 0.5;
+    VERTEX = (inverse(MODEL_MATRIX) * vec4(world, 1.0)).xyz;
+}
+
+void fragment() {
+    ALBEDO = color.rgb;
+    BACKLIGHT = color.rgb * 0.4;
+}
+</script>
+</div>
+
+<div class="blk">
+<h3 id="vertex-data">Per-vertex and per-instance data</h3>
+<script type="text/plain" class="src" data-lang="gdscript" data-kind="gd" data-file="custom_vertex_data.gd">
+extends MeshInstance3D
+
+# CUSTOM0..3: four vec4 channels per vertex, full float precision.
+func build_mesh(points: PackedVector3Array, heat: PackedFloat32Array) -> void:
+    var st := SurfaceTool.new()
+    st.begin(Mesh.PRIMITIVE_TRIANGLES)
+    st.set_custom_format(0, SurfaceTool.CUSTOM_RGBA_FLOAT)   # must be set before add_vertex
+    for i in points.size():
+        st.set_custom(0, Color(heat[i], 0.0, 0.0, 0.0))     # read as CUSTOM0 in vertex()
+        st.add_vertex(points[i])
+    st.generate_normals()
+    mesh = st.commit()
+
+# MultiMesh: per-instance colour and 4 custom floats.
+func build_crowd(count: int, source_mesh: Mesh) -> MultiMesh:
+    var mm := MultiMesh.new()
+    mm.transform_format = MultiMesh.TRANSFORM_3D
+    mm.use_colors = true           # flags BEFORE instance_count
+    mm.use_custom_data = true
+    mm.mesh = source_mesh
+    mm.instance_count = count
+    for i in count:
+        var pos := Vector3(randf_range(-50, 50), 0, randf_range(-50, 50))
+        mm.set_instance_transform(i, Transform3D(Basis(), pos))
+        mm.set_instance_color(i, Color.from_hsv(randf(), 0.6, 0.9))  # arrives in COLOR
+        mm.set_instance_custom_data(i, Color(randf(), randf(), 0, 0))  # arrives in INSTANCE_CUSTOM
+    return mm
+</script>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="spatial" data-file="crowd.gdshader">
+shader_type spatial;
+
+varying float heat;
+varying vec4 tint;
+
+void vertex() {
+    heat = CUSTOM0.r;                       // per-vertex data from SurfaceTool
+    tint = COLOR;                           // MultiMesh instance colour
+    float phase = INSTANCE_CUSTOM.r * TAU;  // per-instance random value
+    VERTEX.y += sin(TIME * 4.0 + phase) * 0.1;   // bob out of sync
+}
+
+void fragment() {
+    ALBEDO = tint.rgb;
+    EMISSION = vec3(1.0, 0.3, 0.1) * heat;
+}
+</script>
+</div>
+
+<div class="blk">
+<h3 id="viewport-buffer">SubViewport as a render target: selection-outline mask</h3>
+<p>This is the classic "custom G-buffer": a second camera sees only one render layer, draws those objects flat white into a <code>SubViewport</code>, and a full-screen shader reads that texture to draw an outline. The same pattern gives you minimaps, portals, security cameras, and water reflection passes.</p>
+<script type="text/plain" class="src" data-lang="tree" data-kind="tree" data-file="scene tree">
+Main (Node3D)
+├── Camera3D (Camera3D)                 cull_mask: layer 1 only
+├── Hero (MeshInstance3D)               layers: 1
+│   └── HeroMask (MeshInstance3D)       same mesh, layers: 2 only, cast_shadow: Off, material: mask_white
+├── MaskViewport (SubViewport)          transparent_bg: On, update_mode: Always
+│   └── MaskCamera (Camera3D)           cull_mask: layer 2 only, script: mask_camera.gd
+└── PostFX (CanvasLayer)                layer: 10
+    └── Outline (ColorRect)             anchors: Full Rect, mouse_filter: Ignore, material: selection_outline
+</script>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="spatial" data-file="mask_white.gdshader">
+shader_type spatial;
+render_mode unshaded, shadows_disabled, fog_disabled;
+
+void fragment() {
+    ALBEDO = vec3(1.0);     // the viewport's alpha is 1 here, 0 in empty space
+}
+</script>
+<script type="text/plain" class="src" data-lang="gdscript" data-kind="gd" data-file="mask_camera.gd">
+extends Camera3D
+## Keeps the mask camera and its SubViewport identical to the main camera.
+
+@export var source: Camera3D
+@export var outline_rect: ColorRect
+
+func _ready() -> void:
+    current = true
+    var vp := get_viewport() as SubViewport
+    var mat := outline_rect.material as ShaderMaterial
+    mat.set_shader_parameter("mask_tex", vp.get_texture())   # ViewportTexture
+
+func _process(_delta: float) -> void:
+    global_transform = source.global_transform
+    fov = source.fov
+    near = source.near
+    far = source.far
+    var vp := get_viewport() as SubViewport
+    var want := Vector2i(source.get_viewport().get_visible_rect().size)
+    if vp.size != want:
+        vp.size = want
+</script>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="canvas" data-file="selection_outline.gdshader">
+shader_type canvas_item;
+
+uniform sampler2D mask_tex : filter_linear, repeat_disable;
+uniform vec4 outline_color : source_color = vec4(1.0, 0.72, 0.1, 1.0);
+uniform float width = 3.0;          // pixels
+const int TAPS = 12;
+
+void fragment() {
+    float inside = texture(mask_tex, SCREEN_UV).a;
+    float near_mask = 0.0;
+    for (int i = 0; i < TAPS; i++) {
+        float a = float(i) / float(TAPS) * TAU;
+        vec2 offset = vec2(cos(a), sin(a)) * width * SCREEN_PIXEL_SIZE;
+        near_mask = max(near_mask, texture(mask_tex, SCREEN_UV + offset).a);
+    }
+    float edge = near_mask * (1.0 - inside);
+    COLOR = vec4(outline_color.rgb, edge * outline_color.a);
+}
+</script>
+<div class="note"><b>Assigning ViewportTextures in the editor.</b> Mark the material <b>Local to Scene</b> first, then choose New ViewportTexture on the uniform and pick the SubViewport. The outline above shows through walls because walls aren't on layer 2; put occluders on layer 2 with a black material if you want it hidden.</div>
+</div>
+
+<div class="blk">
+<h3 id="feedback-buffer">Feedback buffer: reading last frame</h3>
+<p>A <code>SubViewport</code> set to never clear keeps last frame's pixels. A full-size <code>ColorRect</code> drawn first inside it reads them through the screen texture, fades them, and the rest of the viewport draws on top. Result: motion trails, paint, or a simple cellular simulation.</p>
+<script type="text/plain" class="src" data-lang="tree" data-kind="tree" data-file="scene tree">
+Trails (Node2D)
+├── TrailViewport (SubViewport)     size = window size, update_mode: Always,
+│   │                               render_target_clear_mode: Never, use_hdr_2d: On
+│   ├── Fade (ColorRect)            Full Rect, drawn first, material: trail_fade
+│   └── Brush (Sprite2D)            follows the mouse, drawn on top every frame
+└── Display (TextureRect)           texture: ViewportTexture → TrailViewport
+</script>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="canvas" data-file="trail_fade.gdshader">
+shader_type canvas_item;
+
+// Inside a SubViewport, the screen texture is that viewport's own contents so far this frame.
+// With clear mode Never, that is last frame's final image.
+uniform sampler2D previous : hint_screen_texture, filter_linear, repeat_disable;
+uniform float decay : hint_range(0.8, 1.0) = 0.965;
+uniform vec2 drift = vec2(0.0, -0.0006);     // UV per frame, smoke rising
+
+void fragment() {
+    vec3 last = texture(previous, SCREEN_UV - drift).rgb;
+    COLOR = vec4(last * decay, 1.0);
+}
+</script>
+<div class="note"><b>Precision.</b> An 8-bit target can't fade below about 1/255 × (1 − decay) per step, which leaves ghost smears. <code>use_hdr_2d</code> makes the viewport a half-float target and fixes it. For heavy simulations (fluids, reaction-diffusion) use the compute ping-pong pattern in the Compute section instead.</div>
+</div>
+</section>
+<!-- ===================== ATTACH ===================== -->
+<section id="attach">
+<h2>Plugging shaders into the engine</h2>
+<p class="lede">A shader only runs once it's inside a <code>ShaderMaterial</code> that's assigned somewhere. Here is every slot, what it affects, and the code to do it at runtime.</p>
+
+<div class="blk">
+<h3 id="slots">Material slots</h3>
+<script type="text/plain" class="tbl" data-cols="Where|Property|Shader type|Notes">
+Mesh resource | `mesh.surface_set_material(i, mat)` | spatial | Travels with the mesh; shared by every instance.
+MeshInstance3D surface | `set_surface_override_material(i, mat)` | spatial | Per node, per surface.
+MeshInstance3D whole | `material_override` | spatial | Replaces every surface.
+GeometryInstance3D overlay | `material_overlay` | spatial | Extra pass on top of all surfaces (hit flashes, outlines, x-ray).
+Any Material | `next_pass` | spatial / canvas | Draws the same geometry again with another material. Chainable.
+CanvasItem | `material` | canvas_item | Sprite2D, AnimatedSprite2D, ColorRect, TextureRect, NinePatchRect, Polygon2D, Line2D, Label, TileMapLayer, Control…
+CanvasItem children | `use_parent_material = true` | canvas_item | Children reuse the parent's material.
+CanvasGroup | `material` | canvas_item | Children are drawn into a buffer first; the shader reads it via hint_screen_texture. Whole-character outlines/fades.
+SubViewportContainer | `material` | canvas_item | Post-process the viewport it displays (`TEXTURE`).
+GPUParticles2D/3D | `process_material` | particles | Simulation. The draw pass mesh keeps its own spatial material.
+Environment | `sky.sky_material` | sky | WorldEnvironment → Environment → Background: Sky → Sky.
+FogVolume | `material` | fog | Also set Environment → Volumetric Fog → Enabled.
+Decal | – | – | No custom shaders; use its textures, or a spatial shader on a box with depth reconstruction.
+Compositor | `compositor.compositor_effects` | compute | On WorldEnvironment or Camera3D.
+</script>
+</div>
+
+<div class="blk">
+<h3 id="runtime-material">Creating and driving materials from code</h3>
+<script type="text/plain" class="src" data-lang="gdscript" data-kind="gd" data-file="material_basics.gd">
+extends MeshInstance3D
+
+const DISSOLVE := preload("res://shaders/dissolve.gdshader")
+
+var mat: ShaderMaterial
+
+func _ready() -> void:
+    mat = ShaderMaterial.new()
+    mat.shader = DISSOLVE
+    mat.set_shader_parameter("noise_tex", preload("res://textures/noise.tres"))
+    mat.set_shader_parameter("edge_color", Color(1.0, 0.45, 0.1))
+    material_override = mat
+
+    # Materials loaded from disk are shared. Duplicate if this node needs its own values:
+    # mat = (get_surface_override_material(0) as ShaderMaterial).duplicate()
+    # Or tick "Local to Scene" on the material resource.
+
+func dissolve(duration := 1.2) -> void:
+    var tw := create_tween()
+    tw.tween_property(mat, "shader_parameter/progress", 1.0, duration)
+    await tw.finished
+    queue_free()
+
+func current_progress() -> float:
+    return mat.get_shader_parameter("progress")
+
+func make_red_shader() -> Shader:
+    # Shaders can be built from a string at runtime, too.
+    var sh := Shader.new()
+    sh.code = "shader_type spatial; void fragment() { ALBEDO = vec3(1.0, 0.0, 0.0); }"
+    return sh
+</script>
+<div class="note ok"><b>Fastest way to learn a feature.</b> Set up a <code>StandardMaterial3D</code>, <code>CanvasItemMaterial</code>, <code>ParticleProcessMaterial</code>, <code>ProceduralSkyMaterial</code> or <code>FogMaterial</code> in the inspector, then right-click it → <b>Convert to ShaderMaterial</b>. You get the exact generated source to edit.</div>
+</div>
+
+<div class="blk">
+<h3 id="sorting">Draw order controls</h3>
+<script type="text/plain" class="tbl" data-cols="Control|Where|Effect">
+render_priority | Material (−128 to 127) | Sort order among transparent materials; higher draws later. Also orders opaque materials for batching.
+sorting_offset / sorting_use_aabb_center | VisualInstance3D | Nudge transparent sort distance.
+z_index / z_as_relative | CanvasItem | 2D draw order within a layer.
+layer | CanvasLayer | 2D layers; higher draws on top. Use for full-screen canvas effects.
+Tree order / y_sort_enabled | Node2D | Siblings draw in tree order, or sorted by Y.
+BackBufferCopy | 2D node | Forces a fresh screen copy (rect or whole viewport) for later screen readers.
+</script>
+</div>
+</section>
+
+<!-- ===================== POST ===================== -->
+<section id="post">
+<h2>Post-processing, four ways</h2>
+<p class="lede">Pick the lightest tool that reaches the data you need.</p>
+
+<div class="blk">
+<script type="text/plain" class="tbl" data-cols="Method|Can read|Placement in frame|Best for">
+CanvasLayer + ColorRect | Final tonemapped image, 2D below it | After 3D post, during 2D | Colour grading, CRT, vignette, UI blur, 2D games
+Full-screen quad in 3D | Screen, depth, normals (opaque only) | Transparent pass, HDR | Outlines, depth fog, scans; anything needing depth without code
+SubViewportContainer shader | The viewport's final image | When the container draws | Pixelation, low-res 3D, split screen, dithering
+CompositorEffect (compute) | Colour, depth, velocity, normals, custom buffers | Any of 5 hook points, HDR | Blur chains, proper full-scene effects, anything multi-pass
+Environment settings | – | Built in | Glow, tonemap, adjustments, LUT (`adjustment_color_correction`), DOF, SSR/SSAO/SSIL
+</script>
+</div>
+
+<div class="blk">
+<h3 id="post-2d">1. Canvas full-screen effect</h3>
+<script type="text/plain" class="src" data-lang="tree" data-kind="tree" data-file="scene tree">
+Game (Node)
+├── World (Node3D or Node2D)
+└── PostFX (CanvasLayer)            layer: 100 (above gameplay, below UI layers if you want)
+    └── Screen (ColorRect)          Layout → Full Rect, Mouse Filter: Ignore, material: crt.gdshader
+</script>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="canvas" data-file="crt.gdshader">
+shader_type canvas_item;
+
+uniform sampler2D screen_tex : hint_screen_texture, repeat_disable, filter_linear;
+uniform float curvature : hint_range(0.0, 0.3) = 0.08;
+uniform float aberration : hint_range(0.0, 6.0) = 1.5;    // pixels at the edges
+uniform float scanline : hint_range(0.0, 1.0) = 0.22;
+uniform float vignette : hint_range(0.0, 1.0) = 0.35;
+uniform float noise_amount : hint_range(0.0, 0.2) = 0.03;
+
+float rand(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+
+void fragment() {
+    vec2 c = SCREEN_UV * 2.0 - 1.0;          // -1..1 from centre
+    c *= 1.0 + curvature * dot(c, c);        // barrel distortion
+    vec2 uv = c * 0.5 + 0.5;
+
+    if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) {
+        COLOR = vec4(0.0, 0.0, 0.0, 1.0);
+    } else {
+        vec2 shift = SCREEN_PIXEL_SIZE * aberration * c;
+        vec3 col;
+        col.r = texture(screen_tex, uv + shift).r;
+        col.g = texture(screen_tex, uv).g;
+        col.b = texture(screen_tex, uv - shift).b;
+
+        col *= 1.0 - scanline * (0.5 + 0.5 * sin(FRAGCOORD.y * PI));
+        col *= 1.0 - vignette * dot(c, c);
+        col += (rand(FRAGCOORD.xy + TIME) - 0.5) * noise_amount;
+        COLOR = vec4(col, 1.0);
+    }
+}
+</script>
+</div>
+
+<div class="blk">
+<h3 id="post-quad">2. Full-screen quad with depth and normals <span class="ver">4.3+ reversed-Z</span></h3>
+<ol class="steps">
+  <li>Add a <code>MeshInstance3D</code> as a child of your <code>Camera3D</code>. Mesh: <code>QuadMesh</code>, size <code>(2, 2)</code>.</li>
+  <li>Set <b>Geometry → Extra Cull Margin</b> to the maximum (16384) so it's never frustum-culled.</li>
+  <li>Assign the shader below. For multiple effects, give each its own quad and raise <code>render_priority</code> on later ones.</li>
+</ol>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="spatial" data-file="edge_outline_post.gdshader">
+shader_type spatial;
+render_mode unshaded, fog_disabled, cull_disabled, depth_draw_never;
+
+uniform sampler2D screen_tex : hint_screen_texture, filter_nearest, repeat_disable;
+uniform sampler2D depth_tex : hint_depth_texture, filter_nearest, repeat_disable;
+uniform sampler2D normal_tex : hint_normal_roughness_texture, filter_nearest, repeat_disable;
+
+uniform vec4 line_color : source_color = vec4(0.04, 0.04, 0.07, 1.0);
+uniform float thickness : hint_range(0.5, 4.0) = 1.0;
+uniform float depth_threshold = 0.04;     // relative depth discontinuity
+uniform float normal_threshold = 0.5;
+uniform float fade_distance = 120.0;
+
+void vertex() {
+    // Clip space directly. z = 1.0 is the near plane with reversed-Z (4.3+).
+    POSITION = vec4(VERTEX.xy, 1.0, 1.0);
+}
+
+float lin_depth(vec2 uv, mat4 inv_proj) {
+    float raw = texture(depth_tex, uv).r;
+    vec4 v = inv_proj * vec4(uv * 2.0 - 1.0, raw, 1.0);
+    return -v.z / v.w;
+}
+
+vec3 view_normal(vec2 uv) {
+    return texture(normal_tex, uv).xyz * 2.0 - 1.0;
+}
+
+void fragment() {
+    vec2 px = thickness / VIEWPORT_SIZE;
+    vec2 r = vec2(px.x, 0.0);
+    vec2 u = vec2(0.0, px.y);
+
+    float d  = lin_depth(SCREEN_UV, INV_PROJECTION_MATRIX);
+    float dl = lin_depth(SCREEN_UV - r, INV_PROJECTION_MATRIX);
+    float dr = lin_depth(SCREEN_UV + r, INV_PROJECTION_MATRIX);
+    float dd = lin_depth(SCREEN_UV - u, INV_PROJECTION_MATRIX);
+    float du = lin_depth(SCREEN_UV + u, INV_PROJECTION_MATRIX);
+    // Laplacian: ~0 on flat or sloped planes, large at silhouettes.
+    float depth_edge = abs(dl + dr + dd + du - 4.0 * d) / d;
+
+    vec3 n = view_normal(SCREEN_UV);
+    float normal_edge = 0.0;
+    normal_edge += 1.0 - dot(n, view_normal(SCREEN_UV + r));
+    normal_edge += 1.0 - dot(n, view_normal(SCREEN_UV + u));
+
+    float edge = max(step(depth_threshold, depth_edge), step(normal_threshold, normal_edge));
+    edge *= 1.0 - smoothstep(fade_distance * 0.6, fade_distance, d);
+
+    vec3 scene = texture(screen_tex, SCREEN_UV).rgb;
+    ALBEDO = mix(scene, line_color.rgb, edge * line_color.a);
+}
+</script>
+<div class="note warn"><b>The quad's blind spot.</b> It runs in the transparent pass but reads a screen copy taken before transparent objects, so it paints over them. Glass, particles and water will vanish behind it. If that matters, use a CompositorEffect at <code>POST_TRANSPARENT</code>. <code>hint_normal_roughness_texture</code> is Forward+ only; delete the normal part for Mobile.</div>
+</div>
+
+<div class="blk">
+<h3 id="post-viewport">3. SubViewportContainer: low-res 3D with ordered dithering</h3>
+<script type="text/plain" class="src" data-lang="tree" data-kind="tree" data-file="scene tree">
+Root (Control)                     Full Rect
+└── Pixel (SubViewportContainer)   Full Rect, stretch: On, stretch_shrink: 4,
+    │                              texture_filter: Nearest, material: dither.gdshader
+    └── SubViewport (SubViewport)  sized automatically by stretch
+        └── Level (Node3D)         your 3D scene + Camera3D
+</script>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="canvas" data-file="dither.gdshader">
+shader_type canvas_item;
+
+uniform int levels : hint_range(2, 32) = 6;         // colour steps per channel
+uniform float dither_strength : hint_range(0.0, 1.0) = 1.0;
+
+const float BAYER[16] = float[16](
+     0.0,  8.0,  2.0, 10.0,
+    12.0,  4.0, 14.0,  6.0,
+     3.0, 11.0,  1.0,  9.0,
+    15.0,  7.0, 13.0,  5.0);
+
+void fragment() {
+    vec4 c = texture(TEXTURE, UV);
+    // Dither on the LOW-RES pixel grid, not screen pixels.
+    ivec2 p = ivec2(mod(floor(UV / TEXTURE_PIXEL_SIZE), 4.0));
+    float threshold = BAYER[p.y * 4 + p.x] / 16.0 - 0.5;
+    float steps = float(levels - 1);
+    c.rgb = floor(c.rgb * steps + 0.5 + threshold * dither_strength) / steps;
+    COLOR = vec4(clamp(c.rgb, 0.0, 1.0), 1.0);
+}
+</script>
+</div>
+
+<div class="blk">
+<h3 id="post-compositor">4. CompositorEffect</h3>
+<p>The most capable option: a GDScript resource whose callback runs compute shaders on the actual render buffers. Full examples with depth sampling and a multi-pass blur with its own intermediate buffer are in <a href="#compositor">The Compositor</a> below.</p>
+</div>
+</section>
+<!-- ===================== COMPUTE ===================== -->
+<section id="compute">
+<h2>Compute shaders</h2>
+<p class="lede">Compute shaders are plain GLSL 4.50 run through <code>RenderingDevice</code>. No built-in variables, no materials: you create buffers and textures, bind them, and dispatch a grid of threads. Available on Forward+ and Mobile, not Compatibility.</p>
+
+<div class="blk">
+<h3 id="compute-concepts">Threads, workgroups, dispatch</h3>
+<p>You pick a workgroup size in the shader (<code>local_size_x/y/z</code>) and the number of workgroups when you dispatch. Total threads = workgroups × local size. Round up and guard against overshoot.</p>
+<script type="text/plain" class="tbl" data-cols="GLSL built-in|Type|Meaning">
+gl_GlobalInvocationID | uvec3 | This thread's unique index across the whole dispatch. Usually your pixel or array index.
+gl_LocalInvocationID | uvec3 | Index within its workgroup.
+gl_WorkGroupID | uvec3 | Which workgroup this is.
+gl_NumWorkGroups | uvec3 | The numbers you passed to dispatch.
+gl_WorkGroupSize | uvec3 | The local_size you declared.
+gl_LocalInvocationIndex | uint | Flattened local index; handy for `shared` memory.
+shared / barrier() / memoryBarrierShared() | – | Workgroup-shared memory and synchronisation between its threads.
+</script>
+<script type="text/plain" class="src" data-lang="glsl" data-kind="compute" data-file="res://compute/template.glsl">
+#[compute]
+#version 450
+
+// 8x8 = 64 threads per group is a good default for images; 64x1 for 1D arrays.
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, rgba16f) uniform restrict writeonly image2D out_image;
+
+layout(push_constant, std430) uniform Params {
+    vec2 size;
+    float time;
+    float pad;          // push constants: total size must be a multiple of 16 bytes
+} params;
+
+void main() {
+    ivec2 px = ivec2(gl_GlobalInvocationID.xy);
+    if (px.x >= int(params.size.x) || px.y >= int(params.size.y)) {
+        return;         // the last row/column of workgroups overshoots the image
+    }
+    vec2 uv = (vec2(px) + 0.5) / params.size;
+    imageStore(out_image, px, vec4(uv, 0.5 + 0.5 * sin(params.time), 1.0));
+}
+// Dispatch: ceili(width / 8.0), ceili(height / 8.0), 1
+</script>
+<div class="note"><b>The <code>#[compute]</code> line</b> tells Godot's importer this <code>.glsl</code> is a compute shader. It's imported as an <code>RDShaderFile</code>; compile errors appear when you select the file in the FileSystem dock. <code>#include "other.glsl"</code> works relative to the file.</div>
+</div>
+
+<div class="blk">
+<h3 id="bindings">Binding resources</h3>
+<script type="text/plain" class="tbl" data-cols="Resource|GLSL declaration|Create in GDScript|RDUniform type and ids">
+Storage buffer | `layout(set=0, binding=0, std430) restrict buffer Data { vec4 items[]; } data;` | `rd.storage_buffer_create(bytes.size(), bytes)` | `UNIFORM_TYPE_STORAGE_BUFFER` · [buffer]
+Uniform buffer | `layout(set=0, binding=1, std140) uniform Settings { mat4 xform; vec4 color; } settings;` | `rd.uniform_buffer_create(bytes.size(), bytes)` (size multiple of 16) | `UNIFORM_TYPE_UNIFORM_BUFFER` · [buffer]
+Storage image | `layout(set=0, binding=2, rgba16f) uniform image2D img;` | `rd.texture_create(fmt, RDTextureView.new(), [])` with `TEXTURE_USAGE_STORAGE_BIT` | `UNIFORM_TYPE_IMAGE` · [texture]
+Sampled texture | `layout(set=0, binding=3) uniform sampler2D tex;` | texture + `rd.sampler_create(RDSamplerState.new())` | `UNIFORM_TYPE_SAMPLER_WITH_TEXTURE` · [sampler, texture]
+Godot texture asset | as sampled texture | `RenderingServer.texture_get_rd_texture(tex.get_rid())` (main device only) | `UNIFORM_TYPE_SAMPLER_WITH_TEXTURE`
+Push constant | `layout(push_constant, std430) uniform P { ... } p;` | a `PackedByteArray` | `compute_list_set_push_constant(cl, bytes, bytes.size())`, ≤ 128 bytes
+</script>
+<script type="text/plain" class="tbl" data-cols="GLSL image format|RenderingDevice.DataFormat|Notes">
+rgba8 | DATA_FORMAT_R8G8B8A8_UNORM | Colour, 0–1.
+rgba16f | DATA_FORMAT_R16G16B16A16_SFLOAT | HDR colour. Forward+ scene colour buffer uses this.
+rgba32f | DATA_FORMAT_R32G32B32A32_SFLOAT | Positions, velocities, precise data.
+r32f / rg32f | DATA_FORMAT_R32_SFLOAT / DATA_FORMAT_R32G32_SFLOAT | Heightmaps, simulation state.
+r32ui | DATA_FORMAT_R32_UINT | Counters with `imageAtomicAdd`.
+</script>
+</div>
+
+<div class="blk">
+<h3 id="layout-rules">Memory layout (the usual source of garbage data)</h3>
+<script type="text/plain" class="tbl" data-cols="Type|std430 size / alignment|Watch out">
+float, int, uint | 4 / 4 | –
+vec2 | 8 / 8 | –
+vec3 | 12 / 16 | An array of vec3 has a 16-byte stride. Use vec4 and ignore w.
+vec4 | 16 / 16 | Safest element type.
+mat4 | 64 / 16 | Column-major, same as Godot's `Projection`.
+struct[] | rounded up to its largest member alignment | Add explicit padding floats so GDScript and GLSL agree.
+std140 arrays | every element padded to 16 bytes | Uniform buffers only. `float[4]` takes 64 bytes.
+</script>
+<script type="text/plain" class="src" data-lang="gdscript" data-kind="gd" data-file="packing.gd">
+# Homogeneous data: typed arrays convert straight to bytes.
+var floats := PackedFloat32Array([1.0, 2.0, 3.0, 4.0]).to_byte_array()
+var ints := PackedInt32Array([1, 2, 3, 4]).to_byte_array()
+var vec4s := PackedVector4Array([Vector4(1, 2, 3, 0)]).to_byte_array()   # 4.3+
+
+# Mixed ints and floats: encode at explicit byte offsets.
+var pc := PackedByteArray()
+pc.resize(32)                      # round up to a multiple of 16
+pc.encode_s32(0, 256)              # ivec2 size
+pc.encode_s32(4, 256)
+pc.encode_float(8, 0.5)            # float
+pc.encode_u32(12, 7)               # uint
+
+# Reading back
+var bytes_from_gpu := rd.buffer_get_data(buffer_rid)
+var out := bytes_from_gpu.to_float32_array()
+var first := bytes_from_gpu.decode_float(0)
+</script>
+</div>
+
+<div class="blk">
+<h3 id="devices">Local device or main device?</h3>
+<script type="text/plain" class="tbl" data-cols="|Local device|Main device">
+Get it | `RenderingServer.create_local_rendering_device()` | `RenderingServer.get_rendering_device()`
+Runs | When you call `submit()`; `sync()` waits | As part of the next rendered frame
+Thread | Any thread you like | Only on the render thread: `RenderingServer.call_on_render_thread(callable)`
+CPU readback | Easy: `sync()` then `buffer_get_data()` | Stalls the frame; avoid in hot paths
+Share with scene | No | Yes: `Texture2DRD` / `Texture3DRD` / `TextureCubemapRD`, render buffers, imported textures
+Don't call | – | `submit()` / `sync()`
+Use for | Batch math, pathfinding fields, baking, AI queries | Anything you display: simulations, generated textures, post-processing
+</script>
+</div>
+
+<div class="blk">
+<h3 id="compute-buffer-example">Complete example: GPU number crunching with readback</h3>
+<script type="text/plain" class="src" data-lang="glsl" data-kind="compute" data-file="res://compute/square.glsl">
+#[compute]
+#version 450
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, std430) restrict readonly buffer SourceBuffer {
+    float values[];
+} src_buf;
+
+layout(set = 0, binding = 1, std430) restrict writeonly buffer ResultBuffer {
+    float values[];
+} dst_buf;
+
+layout(push_constant, std430) uniform Params {
+    uint count;
+    float scale;
+    float offset;
+    float pad;
+} params;
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= params.count) {
+        return;
+    }
+    float v = src_buf.values[i];
+    dst_buf.values[i] = v * v * params.scale + params.offset;
+}
+</script>
+<script type="text/plain" class="src" data-lang="gdscript" data-kind="gd" data-file="compute_square.gd">
+extends Node
+
+func _ready() -> void:
+    var rd := RenderingServer.create_local_rendering_device()
+    if rd == null:
+        push_error("Compute shaders need the Forward+ or Mobile renderer.")
+        return
+
+    # 1. Shader and pipeline
+    var file: RDShaderFile = load("res://compute/square.glsl")
+    var shader := rd.shader_create_from_spirv(file.get_spirv())
+    var pipeline := rd.compute_pipeline_create(shader)
+
+    # 2. Buffers
+    var count := 100_000
+    var data := PackedFloat32Array()
+    data.resize(count)
+    for i in count:
+        data[i] = float(i) * 0.001
+    var in_bytes := data.to_byte_array()
+    var in_buf := rd.storage_buffer_create(in_bytes.size(), in_bytes)
+    var out_buf := rd.storage_buffer_create(in_bytes.size())   # zero-filled
+
+    # 3. Uniform set: binding numbers must match the GLSL
+    var u_in := RDUniform.new()
+    u_in.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
+    u_in.binding = 0
+    u_in.add_id(in_buf)
+    var u_out := RDUniform.new()
+    u_out.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
+    u_out.binding = 1
+    u_out.add_id(out_buf)
+    var uniform_set := rd.uniform_set_create([u_in, u_out], shader, 0)
+
+    # 4. Push constants (16 bytes)
+    var pc := PackedByteArray()
+    pc.resize(16)
+    pc.encode_u32(0, count)
+    pc.encode_float(4, 2.0)     # scale
+    pc.encode_float(8, 1.0)     # offset
+
+    # 5. Record and dispatch
+    var cl := rd.compute_list_begin()
+    rd.compute_list_bind_compute_pipeline(cl, pipeline)
+    rd.compute_list_bind_uniform_set(cl, uniform_set, 0)
+    rd.compute_list_set_push_constant(cl, pc, pc.size())
+    rd.compute_list_dispatch(cl, ceili(count / 64.0), 1, 1)
+    rd.compute_list_end()
+
+    rd.submit()
+    # ...free to do CPU work here while the GPU runs...
+    rd.sync()
+
+    # 6. Read back
+    var result := rd.buffer_get_data(out_buf).to_float32_array()
+    print("result[10] = ", result[10], "  last = ", result[count - 1])
+
+    # 7. Clean up (dependents first)
+    rd.free_rid(uniform_set)
+    rd.free_rid(in_buf)
+    rd.free_rid(out_buf)
+    rd.free_rid(pipeline)
+    rd.free_rid(shader)
+    rd.free()
+</script>
+</div>
+
+<div class="blk">
+<h3 id="compute-texture-example">Complete example: ping-pong simulation shown in the scene</h3>
+<p>Game of Life on the main device. Two textures swap roles every step (read A write B, then read B write A). A <code>Texture2DRD</code> lets a normal <code>Sprite2D</code> display whichever is current, so any material, mesh or UI can use it too. Hold the left mouse button to paint.</p>
+<script type="text/plain" class="src" data-lang="glsl" data-kind="compute" data-file="res://compute/life.glsl">
+#[compute]
+#version 450
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, r32f) uniform restrict readonly image2D current_state;
+layout(set = 0, binding = 1, r32f) uniform restrict writeonly image2D next_state;
+
+layout(push_constant, std430) uniform Params {
+    ivec2 size;
+    ivec2 paint_cell;     // x < 0 means not painting
+    float paint_radius;
+    float pad0;
+    float pad1;
+    float pad2;
+} params;
+
+int alive(ivec2 p) {
+    p = (p + params.size) % params.size;          // wrap around the edges
+    return imageLoad(current_state, p).r > 0.5 ? 1 : 0;
+}
+
+void main() {
+    ivec2 p = ivec2(gl_GlobalInvocationID.xy);
+    if (p.x >= params.size.x || p.y >= params.size.y) {
+        return;
+    }
+    int n = 0;
+    for (int y = -1; y <= 1; y++) {
+        for (int x = -1; x <= 1; x++) {
+            if (x != 0 || y != 0) {
+                n += alive(p + ivec2(x, y));
+            }
+        }
+    }
+    int me = alive(p);
+    float next = (n == 3 || (me == 1 && n == 2)) ? 1.0 : 0.0;
+    if (params.paint_cell.x >= 0 && distance(vec2(p), vec2(params.paint_cell)) < params.paint_radius) {
+        next = 1.0;
+    }
+    imageStore(next_state, p, vec4(next, 0.0, 0.0, 1.0));
+}
+</script>
+<script type="text/plain" class="src" data-lang="gdscript" data-kind="gd" data-file="life.gd  (attach to a Sprite2D)">
+extends Sprite2D
+
+@export var grid_size := Vector2i(256, 256)
+@export var steps_per_second := 20.0
+@export var brush_radius := 4.0
+
+var rd: RenderingDevice
+var shader: RID
+var pipeline: RID
+var textures: Array[RID] = [RID(), RID()]
+var sets: Array[RID] = [RID(), RID()]   # sets[i] reads textures[i], writes the other
+var current := 0
+var accum := 0.0
+
+func _ready() -> void:
+    texture = Texture2DRD.new()
+    texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST   # crisp cells; scale the Sprite2D up
+    RenderingServer.call_on_render_thread(_gpu_init)
+
+func _gpu_init() -> void:
+    rd = RenderingServer.get_rendering_device()
+    var file: RDShaderFile = load("res://compute/life.glsl")
+    shader = rd.shader_create_from_spirv(file.get_spirv())
+    pipeline = rd.compute_pipeline_create(shader)
+
+    var fmt := RDTextureFormat.new()
+    fmt.format = RenderingDevice.DATA_FORMAT_R32_SFLOAT
+    fmt.width = grid_size.x
+    fmt.height = grid_size.y
+    fmt.usage_bits = RenderingDevice.TEXTURE_USAGE_STORAGE_BIT \
+        | RenderingDevice.TEXTURE_USAGE_SAMPLING_BIT \
+        | RenderingDevice.TEXTURE_USAGE_CAN_UPDATE_BIT
+
+    var seed := PackedFloat32Array()
+    seed.resize(grid_size.x * grid_size.y)
+    for i in seed.size():
+        seed[i] = 1.0 if randf() < 0.25 else 0.0
+    var bytes := seed.to_byte_array()
+    textures[0] = rd.texture_create(fmt, RDTextureView.new(), [bytes])
+    textures[1] = rd.texture_create(fmt, RDTextureView.new(), [bytes])
+
+    for i in 2:
+        var src := RDUniform.new()
+        src.uniform_type = RenderingDevice.UNIFORM_TYPE_IMAGE
+        src.binding = 0
+        src.add_id(textures[i])
+        var dst := RDUniform.new()
+        dst.uniform_type = RenderingDevice.UNIFORM_TYPE_IMAGE
+        dst.binding = 1
+        dst.add_id(textures[1 - i])
+        sets[i] = rd.uniform_set_create([src, dst], shader, 0)
+
+func _process(delta: float) -> void:
+    if not sets[1].is_valid():
+        return    # GPU init hasn't run yet
+
+    var paint := Vector2i(-1, -1)
+    if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+        var local := get_local_mouse_position() + Vector2(grid_size) * 0.5   # Sprite2D is centred
+        paint = Vector2i(local.floor())
+
+    accum += delta
+    var step_time := 1.0 / steps_per_second
+    while accum >= step_time:
+        accum -= step_time
+        RenderingServer.call_on_render_thread(_step.bind(current, paint))
+        current = 1 - current
+
+    (texture as Texture2DRD).texture_rd_rid = textures[current]
+
+func _step(read_index: int, paint: Vector2i) -> void:
+    var pc := PackedByteArray()
+    pc.resize(32)
+    pc.encode_s32(0, grid_size.x)
+    pc.encode_s32(4, grid_size.y)
+    pc.encode_s32(8, paint.x)
+    pc.encode_s32(12, paint.y)
+    pc.encode_float(16, brush_radius)
+
+    var cl := rd.compute_list_begin()
+    rd.compute_list_bind_compute_pipeline(cl, pipeline)
+    rd.compute_list_bind_uniform_set(cl, sets[read_index], 0)
+    rd.compute_list_set_push_constant(cl, pc, pc.size())
+    rd.compute_list_dispatch(cl, ceili(grid_size.x / 8.0), ceili(grid_size.y / 8.0), 1)
+    rd.compute_list_end()
+    # No submit()/sync() on the main device; the frame's render graph handles ordering.
+
+func _exit_tree() -> void:
+    (texture as Texture2DRD).texture_rd_rid = RID()
+    RenderingServer.call_on_render_thread(_gpu_free)
+
+func _gpu_free() -> void:
+    for s in sets:
+        if s.is_valid():
+            rd.free_rid(s)
+    for t in textures:
+        if t.is_valid():
+            rd.free_rid(t)
+    if shader.is_valid():
+        rd.free_rid(shader)    # also frees the pipeline
+</script>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="canvas" data-file="life_display.gdshader  (material on the same Sprite2D)">
+shader_type canvas_item;
+
+uniform vec4 dead_color : source_color = vec4(0.06, 0.09, 0.14, 1.0);
+uniform vec4 alive_color : source_color = vec4(0.45, 0.85, 1.0, 1.0);
+
+void fragment() {
+    float state = texture(TEXTURE, UV).r;     // the R32F compute texture
+    COLOR = mix(dead_color, alive_color, state);
+}
+</script>
+<div class="note"><b>Using the result elsewhere.</b> Any <code>ShaderMaterial</code> can take the same <code>Texture2DRD</code> as a <code>sampler2D</code> uniform, so the simulation can displace a water mesh, drive particles, or feed a fog volume. Keep the texture's usage bits including <code>SAMPLING_BIT</code>.</div>
+</div>
+</section>
+
+<!-- ===================== COMPOSITOR ===================== -->
+<section id="compositor">
+<h2>The Compositor <span class="ver">4.3+</span></h2>
+<p class="lede">A <code>CompositorEffect</code> is a resource with a <code>_render_callback</code> that Godot calls at one of five points in the 3D frame, handing you the live render buffers. You run compute shaders on them. Everything is still linear HDR, so tonemapping and glow happen after you.</p>
+
+<div class="blk">
+<h3 id="compositor-setup">Setup</h3>
+<ol class="steps">
+  <li>Write a script that <code>extends CompositorEffect</code> with <code>@tool</code> (so it previews in the editor) and a <code>class_name</code>.</li>
+  <li>Select your <code>WorldEnvironment</code> (applies to every camera) or a <code>Camera3D</code> (overrides for that camera). Set <b>Compositor → New Compositor</b>.</li>
+  <li>In <b>Compositor Effects</b>, add an element and choose your class. Order in the array is execution order for the same callback.</li>
+</ol>
+<script type="text/plain" class="src" data-lang="gdscript" data-kind="gd" data-file="add_effects_in_code.gd">
+var compositor := Compositor.new()
+compositor.compositor_effects = [DepthFogEffect.new(), BlurEffect.new()]
+$WorldEnvironment.compositor = compositor      # or $Camera3D.compositor
+</script>
+<script type="text/plain" class="tbl" data-cols="CompositorEffect property|Meaning">
+effect_callback_type | `EFFECT_CALLBACK_TYPE_PRE_OPAQUE`, `POST_OPAQUE`, `POST_SKY`, `PRE_TRANSPARENT`, `POST_TRANSPARENT`.
+enabled | Toggle the effect.
+access_resolved_color / access_resolved_depth | Ask Godot to resolve MSAA so the colour/depth layers you read are single-sample.
+needs_motion_vectors | Generate the velocity buffer (`get_velocity_layer(view)`).
+needs_normal_roughness | Keep the normal-roughness buffer: `get_texture("forward_clustered", "normal_roughness")`.
+needs_separate_specular | Keep diffuse and specular separate until after your effect (for SSS-style effects).
+</script>
+<script type="text/plain" class="tbl" data-cols="Accessor|Returns">
+render_data.get_render_scene_buffers() | `RenderSceneBuffersRD`, the per-viewport textures.
+render_data.get_render_scene_data() | `RenderSceneData`: `get_cam_projection()`, `get_cam_transform()`, `get_view_projection(view)`, `get_uniform_buffer()`.
+buffers.get_internal_size() | Render resolution (before FSR/scaling upscale).
+buffers.get_view_count() | 1, or 2 in XR. Loop and process each view.
+buffers.get_color_layer(view) / get_depth_layer(view) / get_velocity_layer(view) | RIDs of the scene's textures for that view.
+buffers.create_texture(context, name, format, usage, samples, size, layers, mips, unique, discardable) | Your own named texture, freed automatically on resize. (4.3 has no `discardable` argument.)
+buffers.has_texture(context, name) / get_texture(context, name) / get_texture_slice(context, name, layer, mip, layers, mips) | Look up named textures.
+buffers.clear_context(context) | Free all your textures in a context.
+</script>
+</div>
+
+<div class="blk">
+<h3 id="compositor-fog">Complete example: depth fog (samples the depth buffer)</h3>
+<script type="text/plain" class="src" data-lang="glsl" data-kind="compute" data-file="res://compositor/depth_fog.glsl">
+#[compute]
+#version 450
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(rgba16f, set = 0, binding = 0) uniform image2D color_image;
+layout(set = 0, binding = 1) uniform sampler2D depth_texture;
+
+layout(push_constant, std430) uniform Params {
+    vec4 fog_color;       // rgb + max strength
+    vec2 raster_size;
+    float z_near;
+    float z_far;
+    float fog_start;
+    float fog_end;
+    float affect_sky;     // 0 or 1
+    float pad;
+} p;
+
+void main() {
+    ivec2 px = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = ivec2(p.raster_size);
+    if (px.x >= size.x || px.y >= size.y) {
+        return;
+    }
+    vec2 uv = (vec2(px) + 0.5) / p.raster_size;
+    float raw = textureLod(depth_texture, uv, 0.0).r;
+    if (raw <= 0.0 && p.affect_sky < 0.5) {
+        return;                                            // reversed-Z: 0 is the far plane / sky
+    }
+    // Reversed-Z perspective depth to metres.
+    float dist = p.z_near * p.z_far / (p.z_near + raw * (p.z_far - p.z_near));
+    float f = smoothstep(p.fog_start, p.fog_end, dist) * p.fog_color.a;
+
+    vec4 color = imageLoad(color_image, px);
+    color.rgb = mix(color.rgb, p.fog_color.rgb, f);
+    imageStore(color_image, px, color);
+}
+</script>
+<script type="text/plain" class="src" data-lang="gdscript" data-kind="gd" data-file="depth_fog_effect.gd">
+@tool
+class_name DepthFogEffect
+extends CompositorEffect
+
+@export var fog_color := Color(0.55, 0.65, 0.8, 1.0)
+@export var fog_start := 10.0
+@export var fog_end := 60.0
+@export var affect_sky := false
+
+var rd: RenderingDevice
+var shader: RID
+var pipeline: RID
+var sampler: RID
+
+func _init() -> void:
+    effect_callback_type = EFFECT_CALLBACK_TYPE_POST_TRANSPARENT
+    access_resolved_depth = true
+    rd = RenderingServer.get_rendering_device()
+    RenderingServer.call_on_render_thread(_init_gpu)
+
+func _init_gpu() -> void:
+    if rd == null:
+        return
+    var file: RDShaderFile = load("res://compositor/depth_fog.glsl")
+    shader = rd.shader_create_from_spirv(file.get_spirv())
+    pipeline = rd.compute_pipeline_create(shader)
+    sampler = rd.sampler_create(RDSamplerState.new())   # nearest, clamp
+
+func _notification(what: int) -> void:
+    if what == NOTIFICATION_PREDELETE and rd:
+        if sampler.is_valid():
+            rd.free_rid(sampler)
+        if shader.is_valid():
+            rd.free_rid(shader)          # pipeline is freed with it
+
+func _render_callback(callback_type: int, render_data: RenderData) -> void:
+    if rd == null or callback_type != effect_callback_type or not pipeline.is_valid():
+        return
+    var buffers := render_data.get_render_scene_buffers() as RenderSceneBuffersRD
+    if buffers == null:
+        return
+    var size := buffers.get_internal_size()
+    if size.x == 0 or size.y == 0:
+        return
+
+    var proj := render_data.get_render_scene_data().get_cam_projection()
+    var pc := PackedFloat32Array([
+        fog_color.r, fog_color.g, fog_color.b, fog_color.a,
+        size.x, size.y, proj.get_z_near(), proj.get_z_far(),
+        fog_start, fog_end, 1.0 if affect_sky else 0.0, 0.0,
+    ]).to_byte_array()                    # 48 bytes
+
+    for view in buffers.get_view_count():
+        var color_u := RDUniform.new()
+        color_u.uniform_type = RenderingDevice.UNIFORM_TYPE_IMAGE
+        color_u.binding = 0
+        color_u.add_id(buffers.get_color_layer(view))
+
+        var depth_u := RDUniform.new()
+        depth_u.uniform_type = RenderingDevice.UNIFORM_TYPE_SAMPLER_WITH_TEXTURE
+        depth_u.binding = 1
+        depth_u.add_id(sampler)
+        depth_u.add_id(buffers.get_depth_layer(view))
+
+        # UniformSetCacheRD reuses sets across frames; don't free these yourself.
+        var uniform_set := UniformSetCacheRD.get_cache(shader, 0, [color_u, depth_u])
+
+        var cl := rd.compute_list_begin()
+        rd.compute_list_bind_compute_pipeline(cl, pipeline)
+        rd.compute_list_bind_uniform_set(cl, uniform_set, 0)
+        rd.compute_list_set_push_constant(cl, pc, pc.size())
+        rd.compute_list_dispatch(cl, ceili(size.x / 8.0), ceili(size.y / 8.0), 1)
+        rd.compute_list_end()
+</script>
+</div>
+
+<div class="blk">
+<h3 id="compositor-blur">Complete example: two-pass blur with your own intermediate buffer</h3>
+<p>Horizontal pass writes into a texture you create inside the render buffers; the vertical pass writes back to the scene colour. The same skeleton handles bloom chains, outlines from a mask, or any multi-pass effect.</p>
+<script type="text/plain" class="src" data-lang="glsl" data-kind="compute" data-file="res://compositor/blur_pass.glsl">
+#[compute]
+#version 450
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(rgba16f, set = 0, binding = 0) uniform restrict readonly image2D src_image;
+layout(rgba16f, set = 0, binding = 1) uniform restrict writeonly image2D dst_image;
+
+layout(push_constant, std430) uniform Params {
+    vec2 size;
+    vec2 direction;       // (1, 0) then (0, 1)
+    float radius;         // pixels, keep it modest (≤ 24)
+    float pad0;
+    float pad1;
+    float pad2;
+} p;
+
+void main() {
+    ivec2 px = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 sz = ivec2(p.size);
+    if (px.x >= sz.x || px.y >= sz.y) {
+        return;
+    }
+    int r = int(p.radius);
+    float sigma = max(p.radius * 0.5, 0.001);
+    vec4 sum = vec4(0.0);
+    float weight_sum = 0.0;
+    for (int i = -r; i <= r; i++) {
+        ivec2 q = clamp(px + ivec2(p.direction) * i, ivec2(0), sz - 1);
+        float w = exp(-float(i * i) / (2.0 * sigma * sigma));
+        sum += imageLoad(src_image, q) * w;
+        weight_sum += w;
+    }
+    imageStore(dst_image, px, sum / weight_sum);
+}
+</script>
+<script type="text/plain" class="src" data-lang="gdscript" data-kind="gd" data-file="blur_effect.gd">
+@tool
+class_name BlurEffect
+extends CompositorEffect
+
+const CONTEXT := &"blur_effect"
+const TEMP := &"blur_temp"
+
+@export_range(0.0, 24.0) var radius := 6.0
+
+var rd: RenderingDevice
+var shader: RID
+var pipeline: RID
+
+func _init() -> void:
+    effect_callback_type = EFFECT_CALLBACK_TYPE_POST_TRANSPARENT
+    rd = RenderingServer.get_rendering_device()
+    RenderingServer.call_on_render_thread(_init_gpu)
+
+func _init_gpu() -> void:
+    if rd == null:
+        return
+    var file: RDShaderFile = load("res://compositor/blur_pass.glsl")
+    shader = rd.shader_create_from_spirv(file.get_spirv())
+    pipeline = rd.compute_pipeline_create(shader)
+
+func _notification(what: int) -> void:
+    if what == NOTIFICATION_PREDELETE and rd and shader.is_valid():
+        rd.free_rid(shader)
+
+func _image_uniform(binding: int, texture: RID) -> RDUniform:
+    var u := RDUniform.new()
+    u.uniform_type = RenderingDevice.UNIFORM_TYPE_IMAGE
+    u.binding = binding
+    u.add_id(texture)
+    return u
+
+func _pass(src: RID, dst: RID, direction: Vector2, size: Vector2i) -> void:
+    var pc := PackedFloat32Array([size.x, size.y, direction.x, direction.y, radius, 0, 0, 0]).to_byte_array()
+    var uniform_set := UniformSetCacheRD.get_cache(shader, 0, [_image_uniform(0, src), _image_uniform(1, dst)])
+    var cl := rd.compute_list_begin()
+    rd.compute_list_bind_compute_pipeline(cl, pipeline)
+    rd.compute_list_bind_uniform_set(cl, uniform_set, 0)
+    rd.compute_list_set_push_constant(cl, pc, pc.size())
+    rd.compute_list_dispatch(cl, ceili(size.x / 8.0), ceili(size.y / 8.0), 1)
+    rd.compute_list_end()
+
+func _render_callback(callback_type: int, render_data: RenderData) -> void:
+    if rd == null or callback_type != effect_callback_type or not pipeline.is_valid() or radius < 0.5:
+        return
+    var buffers := render_data.get_render_scene_buffers() as RenderSceneBuffersRD
+    if buffers == null:
+        return
+    var size := buffers.get_internal_size()
+    if size.x == 0 or size.y == 0:
+        return
+
+    # Our own buffer. Render buffers are rebuilt on resize, which drops it, so this recreates it.
+    if not buffers.has_texture(CONTEXT, TEMP):
+        var usage := RenderingDevice.TEXTURE_USAGE_STORAGE_BIT | RenderingDevice.TEXTURE_USAGE_SAMPLING_BIT
+        buffers.create_texture(CONTEXT, TEMP, RenderingDevice.DATA_FORMAT_R16G16B16A16_SFLOAT, usage,
+            RenderingDevice.TEXTURE_SAMPLES_1, size, buffers.get_view_count(), 1, true, false)
+            # Godot 4.3: drop the final 'false' (no discardable argument)
+
+    for view in buffers.get_view_count():
+        var color := buffers.get_color_layer(view)
+        var temp := buffers.get_texture_slice(CONTEXT, TEMP, view, 0, 1, 1)
+        _pass(color, temp, Vector2(1, 0), size)   # horizontal: colour -> temp
+        _pass(temp, color, Vector2(0, 1), size)   # vertical:   temp -> colour
+        # Separate compute lists; the render graph inserts the barrier between them.
+</script>
+<div class="note warn"><b>Compositor limits.</b> Forward+ and Mobile only. The colour format shown (<code>rgba16f</code>) is Forward+'s; check your formats if you target Mobile. The stencil buffer can't be copied into your own textures. Effects run at internal resolution, before FSR upscaling.</div>
+</div>
+</section>
+<!-- ===================== COOKBOOK ===================== -->
+<section id="cookbook">
+<h2>Cookbook: complete shaders</h2>
+<p class="lede">Each one is a full file. The line under each heading says where it goes.</p>
+
+<div class="blk">
+<h3 id="cb-toon">Toon shading with rim light and hard specular</h3>
+<p><span class="chip spatial">spatial</span> MeshInstance3D → Surface Material Override → ShaderMaterial. Works with any number of lights and shadows.</p>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="spatial" data-file="toon.gdshader">
+shader_type spatial;
+
+uniform vec4 base_color : source_color = vec4(0.9, 0.45, 0.35, 1.0);
+uniform sampler2D albedo_tex : source_color, hint_default_white, filter_linear_mipmap;
+uniform int bands : hint_range(1, 6) = 3;
+uniform float band_softness : hint_range(0.0, 0.1) = 0.02;
+uniform float specular_size : hint_range(0.0, 1.0) = 0.12;
+uniform float rim_width : hint_range(0.0, 1.0) = 0.3;
+uniform vec4 rim_color : source_color = vec4(1.0, 0.95, 0.9, 1.0);
+
+void fragment() {
+    ALBEDO = base_color.rgb * texture(albedo_tex, UV).rgb;
+    ROUGHNESS = 1.0;
+    SPECULAR = 0.0;       // no environment reflections: keeps the flat look
+}
+
+// Hard bands with a small soft transition at each step.
+float quantize(float x, int steps, float soft) {
+    float s = float(steps);
+    float scaled = x * s;
+    float w = max(soft * s, 0.0001);
+    return (floor(scaled) + smoothstep(1.0 - w, 1.0, fract(scaled))) / s;
+}
+
+void light() {
+    float ndl = clamp(dot(NORMAL, LIGHT), 0.0, 1.0);
+    float lit = quantize(ndl * ATTENUATION, bands, band_softness);
+    vec3 light_col = LIGHT_COLOR / PI;               // LIGHT_COLOR includes a PI factor
+    DIFFUSE_LIGHT += lit * light_col;                // engine multiplies by ALBEDO afterwards
+
+    vec3 half_dir = normalize(VIEW + LIGHT);
+    float spec = pow(clamp(dot(NORMAL, half_dir), 0.0, 1.0), 64.0);
+    SPECULAR_LIGHT += step(1.0 - specular_size * 0.1, spec) * light_col * ATTENUATION;
+
+    float rim = 1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0);
+    rim = smoothstep(1.0 - rim_width, 1.0 - rim_width + 0.04, rim) * ndl;
+    SPECULAR_LIGHT += rim * rim_color.rgb * light_col * ATTENUATION;
+}
+</script>
+</div>
+
+<div class="blk">
+<h3 id="cb-dissolve">Dissolve with a burning edge</h3>
+<p><span class="chip spatial">spatial</span> Material override on the mesh. Set <code>noise_tex</code> to a <code>NoiseTexture2D</code>. Drive <code>progress</code> from a tween (see <a href="#runtime-material">material_basics.gd</a>).</p>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="spatial" data-file="dissolve.gdshader">
+shader_type spatial;
+
+uniform sampler2D albedo_tex : source_color, hint_default_white;
+uniform sampler2D noise_tex : hint_default_white;
+uniform float progress : hint_range(0.0, 1.0) = 0.0;
+uniform float edge_width : hint_range(0.0, 0.2) = 0.05;
+uniform vec4 edge_color : source_color = vec4(1.0, 0.45, 0.1, 1.0);
+uniform float edge_energy = 6.0;
+
+void fragment() {
+    float n = texture(noise_tex, UV).r;
+    float cut = n - progress;
+    if (cut < 0.0) {
+        discard;                                   // stays in the opaque pass, casts correct shadows
+    }
+    ALBEDO = texture(albedo_tex, UV).rgb;
+    float edge = (1.0 - smoothstep(0.0, edge_width, cut)) * step(0.001, progress);
+    EMISSION = edge_color.rgb * edge * edge_energy;  // > 1.0 blooms if glow is enabled
+}
+</script>
+</div>
+
+<div class="blk">
+<h3 id="cb-water">Stylized water: waves, depth colour, refraction, shoreline foam</h3>
+<p><span class="chip spatial">spatial</span> On a subdivided <code>PlaneMesh</code> (e.g. 100×100 subdivisions). Two normal maps: <code>NoiseTexture2D</code> with <b>As Normal Map</b> and <b>Seamless</b> on. Forward+ / Mobile.</p>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="spatial" data-file="water.gdshader">
+shader_type spatial;
+render_mode depth_draw_always, cull_back;
+
+uniform vec4 shallow_color : source_color = vec4(0.22, 0.72, 0.78, 1.0);
+uniform vec4 deep_color : source_color = vec4(0.02, 0.1, 0.24, 1.0);
+uniform float depth_distance = 4.0;            // metres until fully deep
+uniform vec4 foam_color : source_color = vec4(1.0);
+uniform float foam_distance = 0.35;
+uniform sampler2D normal_a : hint_normal, repeat_enable, filter_linear_mipmap;
+uniform sampler2D normal_b : hint_normal, repeat_enable, filter_linear_mipmap;
+uniform vec2 flow_a = vec2(0.03, 0.01);
+uniform vec2 flow_b = vec2(-0.02, 0.025);
+uniform float wave_height = 0.15;
+uniform float wave_scale = 0.35;
+uniform float refraction = 0.03;
+
+uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap, repeat_disable;
+uniform sampler2D depth_tex : hint_depth_texture, filter_nearest, repeat_disable;
+
+varying vec3 world_pos;
+
+float scene_depth(vec2 uv, mat4 inv_proj) {
+    float raw = texture(depth_tex, uv).r;
+    vec4 v = inv_proj * vec4(uv * 2.0 - 1.0, raw, 1.0);
+    return -v.z / v.w;
+}
+
+void vertex() {
+    world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+    float w = sin(world_pos.x * wave_scale + TIME * 1.3) * cos(world_pos.z * wave_scale * 0.8 + TIME * 0.9);
+    VERTEX.y += w * wave_height;
+}
+
+void fragment() {
+    vec2 uv = world_pos.xz * 0.15;
+    vec3 n1 = texture(normal_a, uv + TIME * flow_a).rgb;
+    vec3 n2 = texture(normal_b, uv * 1.7 + TIME * flow_b).rgb;
+    NORMAL_MAP = mix(n1, n2, 0.5);
+
+    float surface = -VERTEX.z;
+    float floor_depth = scene_depth(SCREEN_UV, INV_PROJECTION_MATRIX);
+    float thickness = max(floor_depth - surface, 0.0);
+
+    // Refraction: offset the lookup, but not onto objects in front of the water.
+    vec2 ref_uv = SCREEN_UV + (NORMAL_MAP.xy * 2.0 - 1.0) * refraction;
+    if (scene_depth(ref_uv, INV_PROJECTION_MATRIX) < surface) {
+        ref_uv = SCREEN_UV;
+    }
+    vec3 behind = textureLod(screen_tex, ref_uv, 0.0).rgb;
+
+    float deep = clamp(thickness / depth_distance, 0.0, 1.0);
+    vec3 transmitted = mix(behind * shallow_color.rgb, deep_color.rgb, deep);
+    float foam = 1.0 - smoothstep(0.0, foam_distance, thickness);
+    foam *= step(0.5, texture(normal_a, uv * 3.0 + TIME * 0.02).r + 0.25);   // break it up
+
+    // The scene behind is already lit, so it goes into EMISSION; lighting adds highlights on top.
+    ALBEDO = foam_color.rgb * foam;
+    EMISSION = transmitted * (1.0 - foam);
+    ROUGHNESS = mix(0.04, 0.8, foam);
+    METALLIC = 0.0;
+    SPECULAR = 0.5;
+}
+</script>
+</div>
+
+<div class="blk">
+<h3 id="cb-outline">Inverted-hull outline (constant pixel width)</h3>
+<p><span class="chip spatial">spatial</span> Put this in the <b>Next Pass</b> of the object's main material (or in <code>material_overlay</code>). Smooth-shaded meshes outline best.</p>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="spatial" data-file="outline_hull.gdshader">
+shader_type spatial;
+render_mode unshaded, cull_front, shadows_disabled, fog_disabled;
+
+uniform vec4 outline_color : source_color = vec4(0.03, 0.03, 0.05, 1.0);
+uniform bool constant_width = true;
+uniform float width_px : hint_range(0.0, 10.0) = 2.5;   // when constant_width
+uniform float width_world = 0.02;                       // otherwise, in metres
+
+void vertex() {
+    if (constant_width) {
+        vec4 clip = PROJECTION_MATRIX * MODELVIEW_MATRIX * vec4(VERTEX, 1.0);
+        vec3 view_n = normalize(MODELVIEW_NORMAL_MATRIX * NORMAL);
+        vec2 clip_n = normalize((PROJECTION_MATRIX * vec4(view_n, 0.0)).xy);
+        clip.xy += clip_n * width_px * 2.0 / VIEWPORT_SIZE * clip.w;
+        POSITION = clip;
+    } else {
+        // POSITION was written on the other branch, so it must be written here too.
+        POSITION = PROJECTION_MATRIX * MODELVIEW_MATRIX * vec4(VERTEX + NORMAL * width_world, 1.0);
+    }
+}
+
+void fragment() {
+    ALBEDO = outline_color.rgb;
+}
+</script>
+</div>
+
+<div class="blk">
+<h3 id="cb-hologram">Hologram</h3>
+<p><span class="chip spatial">spatial</span> Material override. Additive, so it glows against dark backgrounds.</p>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="spatial" data-file="hologram.gdshader">
+shader_type spatial;
+render_mode unshaded, blend_add, cull_disabled, depth_draw_never, fog_disabled;
+
+uniform vec4 holo_color : source_color = vec4(0.25, 0.8, 1.0, 1.0);
+uniform float fresnel_power = 2.5;
+uniform float line_density = 90.0;
+uniform float scroll_speed = 0.6;
+uniform float glitch_strength = 0.04;
+
+varying vec3 world_pos;
+
+float hash(float n) { return fract(sin(n) * 43758.5453); }
+
+void vertex() {
+    float g = step(0.96, hash(floor(TIME * 12.0)));             // occasional glitch frame
+    VERTEX.x += g * glitch_strength * sin(VERTEX.y * 40.0);
+    world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+}
+
+void fragment() {
+    float fres = pow(1.0 - clamp(abs(dot(NORMAL, VIEW)), 0.0, 1.0), fresnel_power);
+    float lines = smoothstep(0.3, 0.7, 0.5 + 0.5 * sin((world_pos.y - TIME * scroll_speed) * line_density));
+    float flicker = 0.9 + 0.1 * sin(TIME * 37.0);
+    ALBEDO = holo_color.rgb * (fres * 1.6 + lines * 0.35) * flicker;
+    ALPHA = clamp(fres + lines * 0.25, 0.0, 1.0);
+}
+</script>
+</div>
+
+<div class="blk">
+<h3 id="cb-foliage">Foliage wind sway with alpha cut-out</h3>
+<p><span class="chip spatial">spatial</span> On leaf cards or grass. Works on MultiMesh instances (each gets its own phase).</p>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="spatial" data-file="foliage.gdshader">
+shader_type spatial;
+render_mode cull_disabled;
+
+uniform sampler2D albedo_tex : source_color, filter_linear_mipmap_anisotropic;
+uniform float alpha_cut : hint_range(0.0, 1.0) = 0.5;
+uniform vec2 wind_dir = vec2(1.0, 0.3);
+uniform float sway = 0.15;
+uniform float speed = 1.6;
+uniform float height_ref = 1.0;           // mesh height that gets full sway
+uniform vec3 translucency : source_color = vec3(0.35, 0.45, 0.1);
+
+void vertex() {
+    float h = clamp(VERTEX.y / height_ref, 0.0, 1.0);
+    h *= h;                                               // roots stay planted
+    vec3 origin = MODEL_MATRIX[3].xyz;                    // per-instance, even in a MultiMesh
+    float phase = dot(origin.xz, vec2(0.7, 1.3));
+    float gust = sin(TIME * speed + phase) + 0.4 * sin(TIME * speed * 2.7 + phase * 1.9);
+    VERTEX.xz += normalize(wind_dir) * gust * sway * h;
+}
+
+void fragment() {
+    vec4 tex = texture(albedo_tex, UV);
+    ALBEDO = tex.rgb;
+    ALPHA = tex.a;
+    ALPHA_SCISSOR_THRESHOLD = alpha_cut;   // cut-out: stays opaque, sorts correctly, casts shadows
+    BACKLIGHT = translucency;
+    ROUGHNESS = 0.8;
+}
+</script>
+</div>
+
+<div class="blk">
+<h3 id="cb-triplanar">World-space triplanar mapping</h3>
+<p><span class="chip spatial">spatial</span> Terrain, rocks, level blockouts: no UVs needed, texture stays still when the mesh scales.</p>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="spatial" data-file="triplanar.gdshader">
+shader_type spatial;
+
+uniform sampler2D side_tex : source_color, filter_linear_mipmap, repeat_enable;
+uniform sampler2D top_tex : source_color, filter_linear_mipmap, repeat_enable;
+uniform float tiling = 0.25;
+uniform float sharpness = 6.0;
+
+varying vec3 wpos;
+varying vec3 wnormal;
+
+void vertex() {
+    wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+    wnormal = normalize(MODEL_NORMAL_MATRIX * NORMAL);
+}
+
+void fragment() {
+    vec3 w = pow(abs(wnormal), vec3(sharpness));
+    w /= (w.x + w.y + w.z);
+    vec3 x = texture(side_tex, wpos.zy * tiling).rgb;
+    vec3 z = texture(side_tex, wpos.xy * tiling).rgb;
+    vec3 y = wnormal.y > 0.0 ? texture(top_tex, wpos.xz * tiling).rgb    // samplers can't go in a ternary,
+                             : texture(side_tex, wpos.xz * tiling).rgb;  // so branch on the result
+    ALBEDO = x * w.x + y * w.y + z * w.z;
+    ROUGHNESS = 0.85;
+}
+</script>
+</div>
+
+<div class="blk">
+<h3 id="cb-sprite-outline">Sprite outline</h3>
+<p><span class="chip canvas">canvas_item</span> Sprite2D → Material. The texture needs a few pixels of transparent padding; for sprite sheets, add padding between frames.</p>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="canvas" data-file="sprite_outline.gdshader">
+shader_type canvas_item;
+
+uniform vec4 outline_color : source_color = vec4(1.0, 0.85, 0.2, 1.0);
+uniform float width : hint_range(0.0, 8.0) = 1.0;     // texels
+
+void fragment() {
+    vec4 base = COLOR;                                 // texture × modulate
+    vec2 o = TEXTURE_PIXEL_SIZE * width;
+    float a = 0.0;
+    a = max(a, texture(TEXTURE, UV + vec2( o.x, 0.0)).a);
+    a = max(a, texture(TEXTURE, UV + vec2(-o.x, 0.0)).a);
+    a = max(a, texture(TEXTURE, UV + vec2(0.0,  o.y)).a);
+    a = max(a, texture(TEXTURE, UV + vec2(0.0, -o.y)).a);
+    a = max(a, texture(TEXTURE, UV + o * 0.7071).a);
+    a = max(a, texture(TEXTURE, UV - o * 0.7071).a);
+    a = max(a, texture(TEXTURE, UV + vec2(o.x, -o.y) * 0.7071).a);
+    a = max(a, texture(TEXTURE, UV + vec2(-o.x, o.y) * 0.7071).a);
+    vec4 outline = vec4(outline_color.rgb, a * outline_color.a);
+    COLOR = mix(outline, base, base.a);
+}
+</script>
+</div>
+
+<div class="blk">
+<h3 id="cb-hit-flash">Hit flash with a shared material <span class="ver">4.4+ 2D instance uniforms</span></h3>
+<p><span class="chip canvas">canvas_item</span> One material for every enemy; each flashes on its own.</p>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="canvas" data-file="hit_flash.gdshader">
+shader_type canvas_item;
+
+uniform vec4 flash_color : source_color = vec4(1.0);
+instance uniform float flash : hint_range(0.0, 1.0) = 0.0;
+
+void fragment() {
+    COLOR.rgb = mix(COLOR.rgb, flash_color.rgb, flash);
+}
+</script>
+<script type="text/plain" class="src" data-lang="gdscript" data-kind="gd" data-file="enemy.gd">
+extends Sprite2D
+
+func take_hit() -> void:
+    var tw := create_tween()
+    tw.tween_method(_set_flash, 1.0, 0.0, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
+func _set_flash(v: float) -> void:
+    set_instance_shader_parameter("flash", v)
+    # Before 4.4: use a regular uniform and make the material Local to Scene.
+</script>
+</div>
+
+<div class="blk">
+<h3 id="cb-palette">Palette swap</h3>
+<p><span class="chip canvas">canvas_item</span> Author sprites in greyscale where red = slot / (slots − 1). Palette texture: one row per variant, one column per slot, imported <b>Lossless</b>, filter Nearest.</p>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="canvas" data-file="palette_swap.gdshader">
+shader_type canvas_item;
+
+uniform sampler2D palette : filter_nearest, repeat_disable;
+uniform int palette_row = 0;          // which variant (row) to use
+
+void fragment() {
+    vec4 src = texture(TEXTURE, UV);
+    int slots = textureSize(palette, 0).x;
+    int slot = int(src.r * float(slots - 1) + 0.5);            // 0..slots-1
+    vec3 swapped = texelFetch(palette, ivec2(slot, palette_row), 0).rgb;
+    COLOR = vec4(swapped, COLOR.a);                              // COLOR.a keeps modulate alpha
+}
+</script>
+</div>
+
+<div class="blk">
+<h3 id="cb-canvasgroup">Outline around a whole multi-sprite character</h3>
+<p><span class="chip canvas">canvas_item</span> Put all the parts under a <code>CanvasGroup</code> (Fit Margin ≥ outline width), then this material on the CanvasGroup. Its children render to a buffer the shader reads through the screen texture.</p>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="canvas" data-file="canvas_group_outline.gdshader">
+shader_type canvas_item;
+render_mode unshaded;
+
+uniform sampler2D screen_tex : hint_screen_texture, repeat_disable, filter_nearest;
+uniform vec4 outline_color : source_color = vec4(0.0, 0.0, 0.0, 1.0);
+uniform float width = 2.0;   // screen pixels
+
+void fragment() {
+    vec4 c = textureLod(screen_tex, SCREEN_UV, 0.0);
+    if (c.a > 0.0001) {
+        c.rgb /= c.a;                        // the group buffer is premultiplied
+    }
+    float a = 0.0;
+    for (int i = 0; i < 8; i++) {
+        float ang = float(i) * TAU / 8.0;
+        a = max(a, textureLod(screen_tex, SCREEN_UV + vec2(cos(ang), sin(ang)) * width * SCREEN_PIXEL_SIZE, 0.0).a);
+    }
+    vec4 outline = vec4(outline_color.rgb, a * outline_color.a);
+    COLOR *= mix(outline, c, c.a);
+}
+</script>
+</div>
+
+<div class="blk">
+<h3 id="cb-wave2d">Flag / heat-haze wave</h3>
+<p><span class="chip canvas">canvas_item</span> Sprite2D only has four vertices, so displace UVs in <code>fragment()</code>. For true vertex waves, use a <code>MeshInstance2D</code> with a subdivided <code>PlaneMesh</code>.</p>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="canvas" data-file="flag_wave.gdshader">
+shader_type canvas_item;
+
+uniform float amplitude = 0.04;   // UV units; give the texture vertical padding
+uniform float frequency = 2.0;
+uniform float speed = 4.0;
+uniform bool pinned_left = true;
+
+void fragment() {
+    float pin = pinned_left ? UV.x : 1.0;
+    vec2 uv = UV;
+    uv.y += sin(UV.x * frequency * TAU - TIME * speed) * amplitude * pin;
+    vec4 c = texture(TEXTURE, uv);
+    c.rgb *= 1.0 - 0.15 * cos(UV.x * frequency * TAU - TIME * speed) * pin;   // fake folds
+    c.a *= step(0.0, uv.y) * step(uv.y, 1.0);
+    COLOR = c;
+}
+</script>
+</div>
+
+<div class="blk">
+<h3 id="cb-particles">Custom particle process: swirling vortex</h3>
+<p><span class="chip particles">particles</span> GPUParticles3D → Process Material → ShaderMaterial. Give the draw pass mesh a <code>StandardMaterial3D</code> with <b>Vertex Color → Use as Albedo</b> and Billboard enabled. <code>color_ramp</code> takes a <code>GradientTexture1D</code>.</p>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="particles" data-file="vortex_particles.gdshader">
+shader_type particles;
+
+uniform float spawn_radius = 2.0;
+uniform float swirl_speed = 2.5;
+uniform float rise_speed = 1.2;
+uniform float pull = 1.5;
+uniform float scale_min = 0.05;
+uniform float scale_max = 0.2;
+uniform sampler2D color_ramp : source_color, repeat_disable;
+
+float hash(uint n) {
+    n = (n << 13u) ^ n;
+    n = n * (n * n * 15731u + 789221u) + 1376312589u;
+    return float(n & 2147483647u) / 2147483647.0;
+}
+
+void start() {
+    if (RESTART_POSITION) {
+        float a = hash(NUMBER + RANDOM_SEED) * TAU;
+        float r = sqrt(hash(NUMBER * 3u + RANDOM_SEED + 1u)) * spawn_radius;
+        float s = mix(scale_min, scale_max, hash(NUMBER * 7u + RANDOM_SEED + 2u));
+        mat4 local = mat4(vec4(s, 0.0, 0.0, 0.0), vec4(0.0, s, 0.0, 0.0),
+                          vec4(0.0, 0.0, s, 0.0), vec4(cos(a) * r, 0.0, sin(a) * r, 1.0));
+        TRANSFORM = EMISSION_TRANSFORM * local;
+    }
+    if (RESTART_VELOCITY) {
+        VELOCITY = vec3(0.0);
+    }
+    CUSTOM = vec4(0.0);           // CUSTOM.y = normalized age; draw pass sees INSTANCE_CUSTOM.y
+}
+
+void process() {
+    CUSTOM.y += DELTA / LIFETIME;
+    float age = clamp(CUSTOM.y, 0.0, 1.0);
+
+    vec3 center = EMISSION_TRANSFORM[3].xyz;
+    vec3 to_p = TRANSFORM[3].xyz - center;
+    vec3 flat_offset = vec3(to_p.x, 0.0, to_p.z);
+    vec3 tangent = normalize(cross(vec3(0.0, 1.0, 0.0), flat_offset + vec3(0.0001)));
+
+    // VELOCITY is integrated into TRANSFORM[3] by the engine after process().
+    VELOCITY = tangent * swirl_speed + vec3(0.0, rise_speed, 0.0) - flat_offset * pull * age;
+    COLOR = texture(color_ramp, vec2(age, 0.5));
+}
+</script>
+</div>
+
+<div class="blk">
+<h3 id="cb-sky">Stylized sky: gradient, sun disk, stars at night</h3>
+<p><span class="chip sky">sky</span> WorldEnvironment → Environment → Background Mode: Sky → Sky → Sky Material: ShaderMaterial. Rotate your DirectionalLight3D to move the sun; set its Angular Distance to size the disk.</p>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="sky" data-file="stylized_sky.gdshader">
+shader_type sky;
+
+uniform vec3 top_color : source_color = vec3(0.1, 0.3, 0.7);
+uniform vec3 horizon_color : source_color = vec3(0.65, 0.8, 0.95);
+uniform vec3 ground_color : source_color = vec3(0.16, 0.15, 0.14);
+uniform vec3 night_color : source_color = vec3(0.01, 0.015, 0.04);
+uniform float sun_disk_scale = 1.0;
+uniform float sun_glow = 6.0;
+uniform float star_density = 300.0;
+
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+
+void sky() {
+    float y = EYEDIR.y;
+    vec3 col;
+    if (y > 0.0) {
+        col = mix(horizon_color, top_color, pow(y, 0.5));
+    } else {
+        col = mix(horizon_color, ground_color, clamp(-y * 6.0, 0.0, 1.0));
+    }
+
+    float day = 1.0;
+    if (LIGHT0_ENABLED) {
+        day = smoothstep(-0.15, 0.2, LIGHT0_DIRECTION.y);   // LIGHT0_DIRECTION points at the sun
+        float ang = acos(clamp(dot(EYEDIR, LIGHT0_DIRECTION), -1.0, 1.0));
+        float radius = max(LIGHT0_SIZE * 0.5 * sun_disk_scale, 0.004);
+        float disk = 1.0 - smoothstep(radius * 0.85, radius, ang);
+        float glow = exp(-ang * sun_glow) * 0.35;
+        col += LIGHT0_COLOR * LIGHT0_ENERGY * (disk * 25.0 + glow);
+    }
+    col = mix(night_color, col, day);
+
+    // Skip detail in the radiance cubemap pass (it's low-res and blurred anyway).
+    if (!AT_CUBEMAP_PASS && y > 0.0) {
+        vec2 cell = floor(SKY_COORDS * star_density * vec2(2.0, 1.0));
+        float star = step(0.9975, hash(cell)) * smoothstep(0.0, 0.25, y);
+        float twinkle = 0.6 + 0.4 * sin(TIME * 3.0 + hash(cell + 7.0) * TAU);
+        col += vec3(star * twinkle * (1.0 - day) * 3.0);
+    }
+    COLOR = col;
+}
+</script>
+</div>
+
+<div class="blk">
+<h3 id="cb-fog">Drifting noise fog volume</h3>
+<p><span class="chip fog">fog</span> FogVolume → Material: ShaderMaterial. Enable Environment → Volumetric Fog (density can stay 0 so only volumes show). <code>noise_tex</code> takes a <code>NoiseTexture3D</code> with Seamless on. Forward+ only.</p>
+<script type="text/plain" class="src" data-lang="gdshader" data-kind="fog" data-file="noise_fog.gdshader">
+shader_type fog;
+
+uniform float density : hint_range(0.0, 2.0) = 0.8;
+uniform vec4 albedo : source_color = vec4(0.9, 0.92, 1.0, 1.0);
+uniform vec4 emission : source_color = vec4(0.0, 0.0, 0.0, 1.0);
+uniform sampler3D noise_tex;
+uniform float noise_scale = 0.12;
+uniform vec3 wind = vec3(0.4, 0.05, 0.15);
+uniform float edge_fade = 1.0;          // metres of soft falloff at the volume's surface
+
+void fog() {
+    vec3 p = WORLD_POSITION * noise_scale + wind * TIME * 0.05;
+    float n = texture(noise_tex, p).r;
+    float fade = clamp(-SDF / edge_fade, 0.0, 1.0);   // SDF is negative inside the shape
+    DENSITY = density * smoothstep(0.35, 0.75, n) * fade;
+    ALBEDO = albedo.rgb;
+    EMISSION = emission.rgb * emission.a;
+}
+</script>
+</div>
+</section>
+<!-- ===================== GOTCHAS ===================== -->
+<section id="gotchas">
+<h2>Gotchas, debugging, performance</h2>
+
+<div class="blk">
+<h3 id="symptoms">Symptom → cause → fix</h3>
+<script type="text/plain" class="tbl" data-cols="Symptom|Cause|Fix">
+Colours look washed out or too dark | Colour texture/uniform read as linear data | Add `source_color` to albedo textures and colour uniforms. Leave it off for masks, noise, normal and data textures.
+`float x = 1;` won't compile | No implicit int → float conversion | Write `1.0`. Cast with `float(i)`.
+Custom function can't see VERTEX, SCREEN_UV… | Built-ins only exist inside processor functions | Pass them (and matrices) as parameters.
+Full-screen quad vanishes in 4.3+ | Old `POSITION = vec4(VERTEX, 1.0)` put it at the far plane | `POSITION = vec4(VERTEX.xy, 1.0, 1.0);` (reversed-Z near = 1).
+Quad disappears when the camera turns | CPU frustum culling uses the mesh's AABB | Max out Extra Cull Margin or parent it to the camera.
+Displaced mesh pops out at screen edges | Same culling problem after vertex displacement | Set `custom_aabb` or `extra_cull_margin` on the GeometryInstance3D.
+Depth maths wrong only in Compatibility | NDC z is -1..1 in OpenGL | Use the `CURRENT_RENDERER` branch from the depth recipe.
+Glass and particles missing from refraction or post quad | Screen texture is copied before the transparent pass | Expected. Use a CompositorEffect at POST_TRANSPARENT for full-scene effects.
+Changing a uniform changes every copy | Materials are shared resources | `instance uniform`, Local to Scene, or `material.duplicate()`.
+Sprite2D vertex() waves do nothing | A sprite is two triangles | MeshInstance2D + subdivided PlaneMesh, or distort UVs in fragment().
+Pixel art is blurry | Linear filtering | `filter_nearest` on the uniform, or the node's Texture Filter = Nearest.
+`light()` ignored on phones | Vertex shading is forced on mobile by default | Project Settings → Rendering → Shading → Force Vertex Shading (per platform override).
+hint_normal_roughness_texture is empty | Only Forward+ writes that buffer | Switch renderer or reconstruct normals from depth with `cross(dFdx(p), dFdy(p))`.
+Hitch the first time an effect appears | Pipeline compilation | 4.4+ ubershaders hide most of it; 4.5+ Shader Baker export option pre-compiles; show new materials once during loading.
+Effects stop at exactly one hour | `TIME` wraps at 3600 s | Project Setting `rendering/limits/time/time_rollover_secs`, or your own global uniform.
+Compute output is zeros or garbage | Layout mismatch (usually vec3), wrong binding, too few workgroups, missing `sync()` on a local device | Use vec4, check binding numbers, `ceili(n / local_size)`, sync before `buffer_get_data`.
+"Uniform set is invalid" errors | Binding type or number doesn't match the shader, or a bound RID was freed | Match `RDUniform.binding` and type to the GLSL; recreate sets after freeing textures.
+CompositorEffect does nothing in the editor | Script lacks `@tool` | Add `@tool` at the top.
+Smeared ghosts in feedback buffers | 8-bit render target | `use_hdr_2d = true` on the SubViewport.
+</script>
+</div>
+
+<div class="blk">
+<h3 id="debugging">Debugging techniques</h3>
+<ul class="tight">
+  <li><b>Visualise the value.</b> <code>ALBEDO = vec3(fract(x));</code> or <code>COLOR = vec4(vec3(v), 1.0);</code>. For signed values: <code>vec3(v * 0.5 + 0.5)</code>. Use <code>render_mode unshaded</code> while doing it so lighting doesn't hide the value.</li>
+  <li><b>Editor debug draws.</b> 3D viewport → Perspective menu → Display Advanced: Normal Buffer, SSAO, Directional Shadow Splits, Overdraw, Unshaded and more.</li>
+  <li><b>GPU timings.</b> Debugger → Visual Profiler shows GPU time per render pass, including your compositor effects.</li>
+  <li><b>Frame capture.</b> Launch the game from RenderDoc to inspect every draw and compute dispatch, bound textures and push constants. Start Godot with <code>--gpu-validation</code> to get Vulkan validation messages for RenderingDevice mistakes.</li>
+  <li><b>Generated code.</b> Convert any built-in material to a ShaderMaterial to see how Godot itself writes the effect.</li>
+</ul>
+</div>
+
+<div class="blk">
+<h3 id="performance">Performance habits</h3>
+<ul class="tight">
+  <li>Move maths from <code>fragment()</code> to <code>vertex()</code> and pass it through a varying when it varies slowly across a triangle.</li>
+  <li><code>discard</code> and <code>ALPHA_SCISSOR_THRESHOLD</code> are cheaper than true transparency, but still defeat some early-depth optimisations; keep cut-out areas small.</li>
+  <li>Writing <code>ALPHA</code>, reading the screen texture, or using blend modes forces sorting and overdraw. Use opaque whenever possible.</li>
+  <li>Screen-space loops (blurs, outlines) cost texture reads per pixel. Use mipmaps with <code>textureLod</code>, separable passes in compute, or render at lower resolution.</li>
+  <li>For sky shaders, put expensive work in the half/quarter-res passes and skip detail when <code>AT_CUBEMAP_PASS</code> is true. Set the Sky's Process Mode to Incremental or Real-Time only if the sky changes.</li>
+  <li>Prefer <code>MODELVIEW_MATRIX</code> over <code>VIEW_MATRIX * MODEL_MATRIX</code> for precision far from the origin, and avoid <code>inverse()</code> per vertex when a uniform can hold the precomputed matrix.</li>
+  <li>Compute: 64 threads per workgroup is a safe default; reuse uniform sets (<code>UniformSetCacheRD</code>); keep data on the GPU and avoid readbacks in the frame loop.</li>
+</ul>
+</div>
+</section>
+
+<p id="noresults">Nothing matches that filter. Try a built-in name like <code>SCREEN_UV</code>, or a topic like <em>depth</em> or <em>compositor</em>.</p>
+
+<footer style="margin-top:100px;padding-top:18px;border-top:1px solid var(--rule);color:var(--muted);font-size:14px">
+  Written against Godot 4.3–4.7 docs. Version tags mark features that need a newer release. Official references: <a href="https://docs.godotengine.org/en/stable/tutorials/shaders/index.html">Shaders</a>, <a href="https://docs.godotengine.org/en/stable/tutorials/shaders/compute_shaders.html">Compute shaders</a>, <a href="https://docs.godotengine.org/en/stable/tutorials/rendering/compositor.html">The Compositor</a>.
+</footer>
+</main>
+</div>
+
+<script>
+(() => {
+"use strict";
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/* ---------------- syntax highlighting ---------------- */
+const words = s => new Set(s.split(/\s+/).filter(Boolean));
+const SH_KW = words(`shader_type render_mode stencil_mode uniform varying const instance global group_uniforms if else for while do
+  switch case default break continue return discard struct in out inout flat smooth lowp mediump highp true false
+  layout restrict readonly writeonly buffer shared coherent volatile precision`);
+const SH_TY = words(`void bool bvec2 bvec3 bvec4 int ivec2 ivec3 ivec4 uint uvec2 uvec3 uvec4 float vec2 vec3 vec4 mat2 mat3 mat4
+  sampler2D isampler2D usampler2D sampler2DArray isampler2DArray usampler2DArray sampler3D isampler3D usampler3D
+  samplerCube samplerCubeArray samplerExternalOES image2D iimage2D uimage2D image3D image2DArray`);
+const GD_KW = words(`func var const extends class_name if elif else for while match return pass break continue in and or not is as
+  self super signal enum static await true false null breakpoint when`);
+const GD_TY = words(`int float bool void`);
+const NUM = String.raw`\b\d[\d_]*(?:\.\d*)?(?:[eE][+-]?\d+)?[uUfF]?\b|\.\d+\b`;
+const RE_SH = new RegExp(String.raw`(\/\/[^\n]*)|(\/\*[\s\S]*?\*\/)|(^[ \t]*#[^\n]*)|("(?:\\.|[^"\\\n])*")|(${NUM})|([A-Za-z_]\w*)`, "gm");
+const RE_GD = new RegExp(String.raw`(#[^\n]*)|("(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')|(&"[^"\n]*")|(@\w+)|(${NUM})|(\$[A-Za-z_][\w/]*)|([A-Za-z_]\w*)`, "g");
+const span = (c, t) => `<span class="${c}">${esc(t)}</span>`;
+
+function highlightShader(src) {
+  let out = "", last = 0, modeLine = false, m;
+  RE_SH.lastIndex = 0;
+  while ((m = RE_SH.exec(src))) {
+    const gap = src.slice(last, m.index);
+    if (/[;\n]/.test(gap)) modeLine = false;
+    out += esc(gap);
+    const [tok, lc, bc, pp, str, num, word] = m;
+    if (lc || bc) out += span("cm", tok);
+    else if (pp) out += span("pp", tok);
+    else if (str) out += span("st", tok);
+    else if (num) out += span("nu", tok);
+    else if (word) {
+      const next = src.slice(RE_SH.lastIndex).match(/^\s*\(/);
+      if (word === "render_mode" || word === "stencil_mode") { modeLine = true; out += span("k", word); }
+      else if (SH_KW.has(word)) out += span("k", word);
+      else if (SH_TY.has(word)) out += span("ty", word);
+      else if (modeLine || /^(hint_\w+|filter_\w+|repeat_\w+|source_color|instance_index)$/.test(word)) out += span("hn", word);
+      else if (/^(gl_\w+|[A-Z][A-Z0-9_]+)$/.test(word)) out += span("bi", word);
+      else if (next) out += span("fn", word);
+      else out += esc(word);
+    }
+    last = RE_SH.lastIndex;
+  }
+  return out + esc(src.slice(last));
+}
+
+function highlightGd(src) {
+  let out = "", last = 0, m;
+  RE_GD.lastIndex = 0;
+  while ((m = RE_GD.exec(src))) {
+    out += esc(src.slice(last, m.index));
+    const [tok, cm, str, sname, ann, num, node, word] = m;
+    if (cm) out += span("cm", tok);
+    else if (str || sname) out += span("st", tok);
+    else if (ann) out += span("an", tok);
+    else if (num) out += span("nu", tok);
+    else if (node) out += span("tn", tok);
+    else if (word) {
+      const next = src.slice(RE_GD.lastIndex).match(/^\s*\(/);
+      if (GD_KW.has(word)) out += span("k", word);
+      else if (GD_TY.has(word)) out += span("ty", word);
+      else if (/^[A-Z][A-Z0-9_]*$/.test(word) && word.length > 1) out += span("bi", word);
+      else if (/^[A-Z]/.test(word)) out += span("ty", word);
+      else if (next) out += span("fn", word);
+      else out += esc(word);
+    }
+    last = RE_GD.lastIndex;
+  }
+  return out + esc(src.slice(last));
+}
+
+function highlightTree(src) {
+  return src.split("\n").map(line => {
+    const m = line.match(/^(.*?\))(\s{2,}.*)?$/);
+    if (!m) return esc(line);
+    const head = esc(m[1]).replace(/\(([^)]+)\)/, '(<span class="tn">$1</span>)');
+    return head + (m[2] ? span("cm", m[2]) : "");
+  }).join("\n");
+}
+
+function clean(raw) {
+  const lines = raw.replace(/^\s*\n/, "").replace(/\s+$/, "").split("\n");
+  const indent = Math.min(...lines.filter(l => l.trim()).map(l => l.match(/^ */)[0].length));
+  return lines.map(l => l.slice(indent)).join("\n");
+}
+
+const LANG_LABEL = { gdshader: "Godot shader", glsl: "GLSL compute", gdscript: "GDScript", tree: "Scene" };
+$$("script.src").forEach(el => {
+  const code = clean(el.textContent);
+  const lang = el.dataset.lang || "gdshader";
+  const html = lang === "gdscript" ? highlightGd(code) : lang === "tree" ? highlightTree(code) : highlightShader(code);
+  const box = document.createElement("div");
+  box.className = "cb";
+  box.dataset.kind = el.dataset.kind || "gd";
+  box.innerHTML = `<div class="cb-head"><span>${esc(el.dataset.file || "")}<span class="lang">${LANG_LABEL[lang] || lang}</span></span>` +
+                  `<button type="button">Copy</button></div><pre tabindex="0"><code>${html}</code></pre>`;
+  const btn = $("button", box);
+  btn.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(code); }
+    catch (e) {
+      const ta = document.createElement("textarea"); ta.value = code; document.body.appendChild(ta);
+      ta.select(); document.execCommand("copy"); ta.remove();
+    }
+    btn.textContent = "Copied"; setTimeout(() => (btn.textContent = "Copy"), 1400);
+  });
+  el.replaceWith(box);
+});
+
+/* ---------------- reference tables ---------------- */
+const inline = s => esc(s).replace(/`([^`]+)`/g, "<code>$1</code>");
+$$("script.tbl").forEach(el => {
+  const cols = el.dataset.cols.split("|");
+  const rows = el.textContent.split("\n").map(l => l.trim()).filter(Boolean).map(l => l.split(/\s\|\s/));
+  const typeCol = cols.findIndex(c => c === "Type");
+  const accCol = cols.findIndex(c => c === "Access");
+  const labelFirst = cols[0] === "";
+  let h = '<div class="tw"><table class="ref"><thead><tr>' + cols.map(c => `<th scope="col">${esc(c)}</th>`).join("") + "</tr></thead><tbody>";
+  rows.forEach(r => {
+    h += "<tr>";
+    cols.forEach((_, i) => {
+      const v = (r[i] || "").trim();
+      if (i === 0) {
+        const plain = v.replace(/`/g, "");
+        const style = labelFirst ? ' style="font-family:var(--sans);font-size:14px;color:var(--ink)"' : (plain.length > 34 ? ' style="white-space:normal"' : "");
+        h += `<td${style}>${esc(plain)}</td>`;
+      } else if (i === accCol) {
+        h += `<td>${v.split(/\s*\/\s*/).map(a => `<span class="acc ${a}">${esc(a)}</span>`).join(" ")}</td>`;
+      } else if (i === typeCol) {
+        h += `<td class="mono">${esc(v)}</td>`;
+      } else h += `<td>${inline(v)}</td>`;
+    });
+    h += "</tr>";
+  });
+  h += "</tbody></table></div>";
+  const wrap = document.createElement("div");
+  wrap.innerHTML = h;
+  el.replaceWith(wrap.firstChild);
+});
+
+/* ---------------- table of contents + scroll spy ---------------- */
+const toc = $("#toc");
+const sections = $$("main section[id]");
+const slug = t => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+const labelOf = h => { const c = h.cloneNode(true); $$(".chip,.ver", c).forEach(x => x.remove()); return c.textContent.trim(); };
+const tocOl = document.createElement("ol");
+const tocLinks = new Map();
+sections.forEach(sec => {
+  const h2 = $("h2", sec);
+  const li = document.createElement("li");
+  li.innerHTML = `<a href="#${sec.id}">${esc(labelOf(h2))}</a>`;
+  tocLinks.set(sec.id, { a: li.firstChild, li, sec: sec.id });
+  const subs = $$("h3", sec);
+  if (subs.length) {
+    const sub = document.createElement("ol");
+    subs.forEach(h3 => {
+      if (!h3.id) h3.id = slug(labelOf(h3));
+      const sli = document.createElement("li");
+      sli.innerHTML = `<a href="#${h3.id}">${esc(labelOf(h3))}</a>`;
+      sub.appendChild(sli);
+      tocLinks.set(h3.id, { a: sli.firstChild, li, sec: sec.id });
+    });
+    li.appendChild(sub);
+  }
+  tocOl.appendChild(li);
+});
+toc.appendChild(tocOl);
+
+const headings = $$("main section[id], main h3[id]");
+let activeId = null, ticking = false;
+function spy() {
+  ticking = false;
+  let current = null;
+  for (const h of headings) {
+    if (h.offsetParent === null) continue;
+    if (h.getBoundingClientRect().top < 140) current = h.id; else break;
+  }
+  if (current === activeId) return;
+  activeId = current;
+  $$("a.on", toc).forEach(a => a.classList.remove("on"));
+  $$("li.open", toc).forEach(l => l.classList.remove("open"));
+  if (!current) return;
+  const entry = tocLinks.get(current);
+  if (!entry) return;
+  const secEntry = tocLinks.get(entry.sec);
+  secEntry.a.classList.add("on");
+  secEntry.li.classList.add("open");
+  if (entry !== secEntry) entry.a.classList.add("on");
+  const side = $("#side"), r = entry.a.getBoundingClientRect(), sr = side.getBoundingClientRect();
+  if (r.top < sr.top + 60 || r.bottom > sr.bottom - 20) side.scrollTop += r.top - sr.top - sr.height / 3;
+}
+addEventListener("scroll", () => { if (!ticking) { ticking = true; requestAnimationFrame(spy); } }, { passive: true });
+spy();
+
+/* ---------------- filter ---------------- */
+const q = $("#q"), hero = $(".hero"), noRes = $("#noresults");
+const blocks = $$(".blk").map(b => ({ el: b, text: b.textContent.toLowerCase(), rows: $$("tbody tr", b).map(r => ({ el: r, text: r.textContent.toLowerCase() })) }));
+let filterTimer;
+function applyFilter() {
+  const term = q.value.trim().toLowerCase();
+  if (!term) {
+    $$(".hidden-by-search").forEach(e => e.classList.remove("hidden-by-search"));
+    noRes.style.display = "none";
+    spy();
+    return;
+  }
+  hero.classList.add("hidden-by-search");
+  let any = false;
+  blocks.forEach(b => {
+    const hit = b.text.includes(term);
+    b.el.classList.toggle("hidden-by-search", !hit);
+    if (!hit) return;
+    any = true;
+    const heading = ($("h3", b.el)?.textContent || "").toLowerCase();
+    const rowHits = b.rows.filter(r => r.text.includes(term));
+    b.rows.forEach(r => r.el.classList.toggle("hidden-by-search", !heading.includes(term) && rowHits.length > 0 && !r.text.includes(term)));
+  });
+  sections.forEach(s => s.classList.toggle("hidden-by-search", !$$(".blk", s).some(b => !b.classList.contains("hidden-by-search"))));
+  noRes.style.display = any ? "none" : "block";
+  window.scrollTo({ top: 0 });
+  spy();
+}
+q.addEventListener("input", () => { clearTimeout(filterTimer); filterTimer = setTimeout(applyFilter, 120); });
+q.addEventListener("keydown", e => { if (e.key === "Escape") { q.value = ""; applyFilter(); q.blur(); } });
+addEventListener("keydown", e => {
+  if (e.key === "/" && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) { e.preventDefault(); q.focus(); }
+});
+
+/* ---------------- mobile menu ---------------- */
+const side = $("#side"), menu = $("#menu");
+menu.addEventListener("click", () => { const open = side.classList.toggle("show"); menu.setAttribute("aria-expanded", open); });
+toc.addEventListener("click", e => { if (e.target.closest("a")) { side.classList.remove("show"); menu.setAttribute("aria-expanded", "false"); } });
+
+/* ---------------- hero shader ---------------- */
+(function heroShader() {
+  const canvas = $("#hero-gl"), btn = $("#pause");
+  const gl = canvas.getContext("webgl", { antialias: false, premultipliedAlpha: false });
+  if (!gl) { btn.hidden = true; canvas.style.background = "radial-gradient(120% 90% at 70% 20%, #3f7fb0 0%, #1d3b5c 45%, #12263d 100%)"; return; }
+  const vs = "attribute vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }";
+  const fs = `precision highp float;
+uniform vec2 res; uniform float t;
+float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f*f*(3.0-2.0*f);
+  return mix(mix(hash(i), hash(i+vec2(1.0,0.0)), u.x), mix(hash(i+vec2(0.0,1.0)), hash(i+vec2(1.0,1.0)), u.x), u.y); }
+float fbm(vec2 p){ float v = 0.0, a = 0.5; for (int i = 0; i < 5; i++){ v += a*noise(p); p = p*2.03 + vec2(1.7, 9.2); a *= 0.5; } return v; }
+void main(){
+  vec2 uv = gl_FragCoord.xy / res;
+  vec2 p = vec2(uv.x * res.x / res.y, uv.y) * 2.2;
+  vec2 q = vec2(fbm(p + t*0.05), fbm(p + vec2(5.2, 1.3) - t*0.04));
+  float f = fbm(p + 2.5*q + t*0.03);
+  vec3 col = mix(vec3(0.07,0.16,0.28), vec3(0.28,0.55,0.75), smoothstep(0.25, 0.85, f));
+  col = mix(col, vec3(0.82,0.30,0.45), smoothstep(0.6, 1.0, q.y) * 0.55);
+  float iso = abs(fract(f*9.0) - 0.5);
+  col += 0.05 * (1.0 - smoothstep(0.0, 0.06, iso));
+  col *= mix(0.55, 1.0, smoothstep(0.0, 0.95, uv.x*0.55 + uv.y*0.9));
+  gl_FragColor = vec4(col, 1.0);
+}`;
+  const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; };
+  const prog = gl.createProgram();
+  gl.attachShader(prog, sh(gl.VERTEX_SHADER, vs));
+  gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { btn.hidden = true; return; }
+  gl.useProgram(prog);
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(prog, "p");
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  const uRes = gl.getUniformLocation(prog, "res"), uT = gl.getUniformLocation(prog, "t");
+
+  function resize() {
+    const scale = Math.min(devicePixelRatio || 1, 1.5) * 0.6;
+    const w = Math.max(1, Math.round(canvas.clientWidth * scale)), h = Math.max(1, Math.round(canvas.clientHeight * scale));
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+    gl.viewport(0, 0, canvas.width, canvas.height);
+  }
+  let simTime = 20.0, last = performance.now(), playing = !matchMedia("(prefers-reduced-motion: reduce)").matches, onScreen = true;
+  function draw() {
+    resize();
+    gl.uniform2f(uRes, canvas.width, canvas.height);
+    gl.uniform1f(uT, simTime);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+  function frame(now) {
+    const dt = Math.min((now - last) / 1000, 0.1); last = now;
+    if (playing && onScreen) { simTime += dt; draw(); }
+    requestAnimationFrame(frame);
+  }
+  const setBtn = () => { btn.textContent = playing ? "Pause" : "Play"; btn.setAttribute("aria-pressed", String(!playing)); };
+  btn.addEventListener("click", () => { playing = !playing; setBtn(); });
+  new IntersectionObserver(es => { onScreen = es[0].isIntersecting; }).observe(canvas);
+  addEventListener("resize", draw);
+  setBtn(); draw(); requestAnimationFrame(frame);
+})();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Godot 4 — Wave Shooter Build Sheet</title>
+<style>
+:root{
+  --void:#0B131C; --surface:#121D29; --surface2:#182635; --rule:#22374D;
+  --text:#C9D8E6; --dim:#7B92A8; --blue:#6FC1F0; --sun:#F3C05B;
+  --rose:#F2687F; --mint:#7FD6A8; --violet:#B79BF0;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:1.5rem}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+body{
+  margin:0;background:var(--void);color:var(--text);
+  font-family:var(--sans);font-size:16px;line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--blue);text-decoration:none;border-bottom:1px solid rgba(111,193,240,.28)}
+a:hover{border-bottom-color:var(--blue)}
+:focus-visible{outline:2px solid var(--sun);outline-offset:2px;border-radius:2px}
+
+/* ---------- shell ---------- */
+.shell{display:grid;grid-template-columns:260px minmax(0,1fr);gap:0;max-width:1240px;margin:0 auto}
+.rail{
+  position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;
+  padding:2.2rem 1rem 3rem 1.4rem;border-right:1px solid var(--rule);
+  font-family:var(--mono);font-size:12.5px;line-height:1.9;
+}
+.rail-title{color:var(--dim);letter-spacing:.06em;margin-bottom:.9rem}
+.rail a{display:block;color:var(--dim);border:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rail a:hover{color:var(--text)}
+.rail a.on{color:var(--blue)}
+.rail .g{color:var(--rule)}
+.rail hr{border:0;border-top:1px solid var(--rule);margin:.9rem 0}
+main{padding:2.2rem 2.4rem 8rem;min-width:0}
+
+/* ---------- hero ---------- */
+.hero{border-bottom:1px solid var(--rule);padding-bottom:2.2rem;margin-bottom:2.6rem}
+h1{
+  font-family:var(--mono);font-weight:700;font-size:clamp(1.9rem,4.6vw,3.1rem);
+  letter-spacing:-.045em;line-height:1.02;margin:0 0 .7rem;color:#EAF3FB;
+}
+.lede{max-width:60ch;color:var(--dim);margin:0 0 1.6rem;font-size:1.02rem}
+.meta{font-family:var(--mono);font-size:12px;color:var(--dim);margin-bottom:1.8rem}
+.meta b{color:var(--mint);font-weight:500}
+
+/* ---------- scene tree hero ---------- */
+.tree{
+  font-family:var(--mono);font-size:13px;line-height:1.85;
+  background:var(--surface);border:1px solid var(--rule);border-radius:3px;
+  padding:1.1rem 1.2rem;overflow-x:auto;white-space:pre;
+}
+.tree .g{color:#2C445E}
+.tree .n{color:#EAF3FB}
+.tree .t{color:var(--blue)}
+.tree .c{color:var(--dim)}
+.tree .always{color:var(--mint)}
+.tree .whenp{color:var(--sun)}
+.tree a{border:0;color:inherit}
+.tree a:hover .n{color:var(--blue);text-decoration:underline}
+
+/* ---------- parts ---------- */
+.part{
+  border-left:1px solid var(--rule);padding:0 0 3.4rem 1.9rem;margin-left:.7rem;position:relative;
+}
+.part:last-of-type{border-left-color:transparent}
+.part>h2{
+  font-family:var(--mono);font-size:1.35rem;font-weight:700;letter-spacing:-.03em;
+  margin:0 0 .5rem;color:#EAF3FB;position:relative;
+}
+.part>h2::before{
+  content:"";position:absolute;left:-1.9rem;top:.85em;width:1.35rem;height:1px;background:var(--rule);
+}
+.pnum{
+  position:absolute;left:-1.9rem;transform:translateX(-50%);
+  width:1.5rem;height:1.5rem;border-radius:50%;background:var(--void);
+  border:1px solid var(--rule);color:var(--blue);
+  font-family:var(--mono);font-size:11px;display:grid;place-items:center;margin-top:.15rem;
+}
+.part>p,.part>ul,.part>ol{max-width:66ch}
+h3{
+  font-family:var(--mono);font-size:.98rem;font-weight:600;color:var(--sun);
+  letter-spacing:-.01em;margin:2.1rem 0 .6rem;position:relative;
+}
+h3::before{content:"";position:absolute;left:-1.9rem;top:.72em;width:1.35rem;height:1px;background:var(--rule)}
+h4{font-family:var(--mono);font-size:.86rem;color:var(--text);margin:1.5rem 0 .5rem;font-weight:600}
+ul,ol{padding-left:1.15rem}
+li{margin:.3rem 0}
+li::marker{color:var(--rule)}
+code{font-family:var(--mono);font-size:.87em;color:var(--violet);background:rgba(183,155,240,.09);padding:.1em .34em;border-radius:2px}
+p code,li code,td code{white-space:nowrap}
+
+/* ---------- code blocks ---------- */
+.code{margin:1rem 0 1.3rem;border:1px solid var(--rule);border-radius:3px;background:var(--surface);overflow:hidden}
+.code-head{
+  display:flex;align-items:center;gap:.7rem;padding:.42rem .7rem;
+  border-bottom:1px solid var(--rule);background:#0F1926;
+  font-family:var(--mono);font-size:11.5px;color:var(--dim);
+}
+.code-head .path{color:var(--blue);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.code-head .tag{margin-left:auto;color:var(--dim)}
+.copy{
+  background:transparent;border:1px solid var(--rule);color:var(--dim);
+  font-family:var(--mono);font-size:10.5px;padding:.16rem .5rem;border-radius:2px;cursor:pointer;
+}
+.copy:hover{color:var(--text);border-color:var(--dim)}
+.copy.done{color:var(--mint);border-color:var(--mint)}
+pre{margin:0;padding:.85rem .9rem;overflow-x:auto;font-family:var(--mono);font-size:12.6px;line-height:1.62;tab-size:4}
+pre code{background:none;padding:0;color:var(--text);font-size:inherit;white-space:pre}
+.k{color:#F2687F}.ty{color:#6FC1F0}.st{color:#9BD98C}.cm{color:#4E6A85;font-style:italic}
+.nu{color:#F3C05B}.an{color:#B79BF0}.fn{color:#EAF3FB}.cn{color:#F3C05B}
+
+/* ---------- callouts ---------- */
+.note{
+  border-left:2px solid var(--sun);background:rgba(243,192,91,.055);
+  padding:.7rem .9rem;margin:1rem 0;font-size:.93rem;max-width:68ch;border-radius:0 3px 3px 0;
+}
+.note.gotcha{border-color:var(--rose);background:rgba(242,104,127,.055)}
+.note.why{border-color:var(--mint);background:rgba(127,214,168,.05)}
+.note b{font-family:var(--mono);font-size:.84em;letter-spacing:.02em;display:block;margin-bottom:.2rem;color:var(--sun);font-weight:600}
+.note.gotcha b{color:var(--rose)}
+.note.why b{color:var(--mint)}
+
+/* ---------- tables ---------- */
+table{border-collapse:collapse;width:100%;max-width:70ch;margin:1rem 0;font-size:.88rem}
+th,td{text-align:left;padding:.4rem .7rem .4rem 0;border-bottom:1px solid var(--rule);vertical-align:top}
+th{color:var(--dim);font-family:var(--mono);font-size:11.5px;font-weight:500}
+td:first-child{font-family:var(--mono);color:var(--blue);white-space:nowrap;font-size:.92em}
+
+/* ---------- post section ---------- */
+.post{border-top:1px solid var(--rule);margin-top:2rem;padding-top:2.6rem}
+.post-head{font-family:var(--mono);font-size:1.5rem;letter-spacing:-.03em;color:#EAF3FB;margin:0 0 .4rem}
+details{border:1px solid var(--rule);border-radius:3px;margin:1rem 0;background:var(--surface)}
+summary{
+  cursor:pointer;padding:.75rem .9rem;font-family:var(--mono);font-size:.95rem;color:var(--text);
+  list-style:none;display:flex;align-items:center;gap:.6rem;
+}
+summary::-webkit-details-marker{display:none}
+summary::before{content:"+";color:var(--blue);font-weight:700}
+details[open] summary::before{content:"−"}
+details[open] summary{border-bottom:1px solid var(--rule)}
+.details-body{padding:.3rem 1.1rem 1.1rem}
+.details-body>h3::before{display:none}
+.details-body>h3{margin-left:0}
+
+footer{border-top:1px solid var(--rule);margin-top:3rem;padding-top:1.4rem;font-family:var(--mono);font-size:12px;color:var(--dim)}
+
+@media (max-width:900px){
+  .shell{grid-template-columns:1fr}
+  .rail{position:static;height:auto;border-right:0;border-bottom:1px solid var(--rule);padding:1.2rem 1.2rem 1.4rem}
+  main{padding:1.6rem 1.2rem 5rem}
+  .part{padding-left:1.2rem;margin-left:.2rem}
+  .part>h2::before,h3::before{width:.9rem;left:-1.2rem}
+  .pnum{left:-1.2rem}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+<nav class="rail">
+  <div class="rail-title">build order</div>
+  <a href="#p0">00 · project setup</a>
+  <a href="#p1">01 · architecture</a>
+  <a href="#p2">02 · autoloads</a>
+  <a href="#p3">03 · components</a>
+  <a href="#p4">04 · player</a>
+  <a href="#p5">05 · shooting</a>
+  <a href="#p6">06 · enemy AI</a>
+  <a href="#p7">07 · waves</a>
+  <a href="#p8">08 · juice</a>
+  <a href="#p9">09 · pausing + UI</a>
+  <a href="#p10">10 · pickups</a>
+  <a href="#p11">11 · wiring up</a>
+  <hr>
+  <div class="rail-title">after the loop</div>
+  <a href="#x1">A · key rebinding</a>
+  <a href="#x2">B · object pooling</a>
+  <a href="#x3">C · saving settings</a>
+</nav>
+<main>
+<header class="hero">
+  <h1>A wave shooter,<br>node by node.</h1>
+  <p class="lede">A complete Godot 4 FPS in about 700 lines — movement, hitscan shooting, tweened enemy slam attacks, wave spawning, screen shake, hit flashes, a real pause system and a settings menu that actually moves the audio buses. Build it top to bottom, or lift the parts you need.</p>
+  <p class="meta">Godot <b>4.3+</b> &nbsp;·&nbsp; GDScript &nbsp;·&nbsp; 3D &nbsp;·&nbsp; forward+ renderer</p>
+
+  <div class="tree"><span class="c">// the finished tree — click a node to jump to its part</span>
+<a href="#p11"><span class="n">Main</span></a> <span class="t">Node3D</span><span class="c">  main.gd</span>
+<span class="g">├─</span> <span class="n">World</span> <span class="t">Node3D</span>
+<span class="g">│  ├─</span> <span class="n">Arena</span> <span class="t">StaticBody3D</span>
+<span class="g">│  ├─</span> <span class="n">SpawnPoints</span> <span class="t">Node3D</span><span class="c">   Marker3D × 6</span>
+<span class="g">│  └─</span> <a href="#p4"><span class="n">Player</span></a> <span class="t">CharacterBody3D</span><span class="c">  player.gd</span>
+<span class="g">│     ├─</span> <span class="n">CameraPivot</span> <span class="t">Node3D</span><span class="c">      pitch lives here</span>
+<span class="g">│     │  └─</span> <a href="#p8"><span class="n">ShakeRig</span></a> <span class="t">Node3D</span><span class="c">     shake + recoil</span>
+<span class="g">│     │     └─</span> <span class="n">Camera3D</span>
+<span class="g">│     │        ├─</span> <span class="n">Muzzle</span> <span class="t">Node3D</span>
+<span class="g">│     │        └─</span> <a href="#p5"><span class="n">ShootRay</span></a> <span class="t">RayCast3D</span>
+<span class="g">│     ├─</span> <a href="#p3"><span class="n">HealthComponent</span></a>
+<span class="g">│     └─</span> <span class="n">Hurtbox</span> <span class="t">Area3D</span>
+<span class="g">├─</span> <a href="#p7"><span class="n">WaveDirector</span></a> <span class="t">Node</span>
+<span class="g">└─</span> <span class="n">UI</span> <span class="t">CanvasLayer</span>
+<span class="g">   ├─</span> <span class="n">HUD</span> <span class="t">Control</span>
+<span class="g">   ├─</span> <a href="#p9"><span class="n">PauseMenu</span></a> <span class="t">Control</span> <span class="whenp">▸ when paused</span>
+<span class="g">   ├─</span> <span class="n">SettingsMenu</span> <span class="t">Control</span> <span class="whenp">▸ when paused</span>
+<span class="g">   └─</span> <span class="n">MainMenu</span> <span class="t">Control</span> <span class="always">▸ always</span>
+
+<span class="c">// spawned at runtime</span>
+<a href="#p6"><span class="n">Enemy</span></a> <span class="t">CharacterBody3D</span>   <a href="#p10"><span class="n">HealthPickup</span></a> <span class="t">Area3D</span>   <span class="n">AttackHitbox</span> <span class="t">Area3D</span>
+
+<span class="c">// autoloads — always running, never paused</span>
+<a href="#p2"><span class="n">Events</span></a> <span class="always">▸ always</span>   <a href="#p2"><span class="n">Game</span></a> <span class="always">▸ always</span>   <a href="#p2"><span class="n">Audio</span></a> <span class="always">▸ always</span>   <a href="#x3"><span class="n">Settings</span></a> <span class="always">▸ always</span></div>
+</header>
+
+<section class="part" id="p0">
+<span class="pnum">00</span>
+<h2>Project setup</h2>
+<p>Five minutes of editor work that the rest of the sheet assumes. Do it first — half of the "why doesn't this work" moments in Godot are a missing input action or a wrong collision mask.</p>
+
+<h3>Input map</h3>
+<p>Project → Project Settings → Input Map. Add these actions:</p>
+<table>
+<tr><th>Action</th><th>Bound to</th></tr>
+<tr><td>move_forward</td><td>W</td></tr>
+<tr><td>move_back</td><td>S</td></tr>
+<tr><td>move_left</td><td>A</td></tr>
+<tr><td>move_right</td><td>D</td></tr>
+<tr><td>jump</td><td>Space</td></tr>
+<tr><td>shoot</td><td>Mouse button 1</td></tr>
+<tr><td>pause</td><td>Escape</td></tr>
+</table>
+<p>Keep the names exactly as written — part A of the post section rebinds them by name at runtime.</p>
+
+<h3>Audio buses</h3>
+<p>Open the Audio panel at the bottom of the editor and add two buses below Master, both routed to Master:</p>
+<table>
+<tr><th>Bus</th><th>Sends to</th><th>What plays on it</th></tr>
+<tr><td>Master</td><td>—</td><td>everything, master volume slider</td></tr>
+<tr><td>Music</td><td>Master</td><td>menu and combat tracks</td></tr>
+<tr><td>SFX</td><td>Master</td><td>guns, hits, footsteps, UI</td></tr>
+</table>
+<div class="note why"><b>why buses matter</b>Three sliders in a settings menu are three lines of code if the buses exist, and a rewrite of every audio player if they don't. Set this up before you write a single <code>play()</code>.</div>
+
+<h3>Collision layers</h3>
+<p>Project Settings → Layer Names → 3D Physics. Naming them now makes every mask in the inspector readable.</p>
+<table>
+<tr><th>Layer</th><th>Name</th><th>Used by</th></tr>
+<tr><td>1</td><td>world</td><td>arena geometry, floors, walls</td></tr>
+<tr><td>2</td><td>player</td><td>the player body</td></tr>
+<tr><td>3</td><td>enemy</td><td>enemy bodies</td></tr>
+<tr><td>4</td><td>hurtbox</td><td>Area3D that <i>receives</i> damage</td></tr>
+<tr><td>5</td><td>hitbox</td><td>Area3D that <i>deals</i> damage</td></tr>
+<tr><td>6</td><td>pickup</td><td>health drops</td></tr>
+</table>
+
+<h3>Folders</h3>
+<div class="code"><div class="code-head"><span class="path">res://</span><span class="tag">project layout</span></div><pre><code>autoload/     events.gd  game.gd  audio.gd  settings.gd
+components/   health_component.gd  hurtbox.gd  hitbox.gd  hit_flash.gd
+actors/       player.tscn/.gd  enemy.tscn/.gd
+systems/      wave_director.gd  shake_rig.gd  object_pool.gd
+ui/           hud.tscn  pause_menu.tscn  main_menu.tscn  settings_menu.tscn
+fx/           impact.tscn  slam_fx.tscn  death_fx.tscn
+audio/        sfx/  music/
+</code></pre></div>
+</section>
+
+<section class="part" id="p1">
+<span class="pnum">01</span>
+<h2>The architecture, in four rules</h2>
+<p>"Good architecture" in a game this size is not layers of abstraction. It is four habits that keep the node tree from turning into a web of <code>get_parent().get_parent()</code>.</p>
+
+<h4>1 — Behaviour lives in components, not in actors</h4>
+<p>Health is a node. So is the hitbox, the hurtbox, the flash. The player and the enemy are both just a body with a few components bolted on, which is why they can share every damage system in this sheet without a common base class.</p>
+
+<h4>2 — Signals go up, calls go down</h4>
+<p>A parent may call methods on its children. A child never reaches upward — it emits a signal and lets whoever owns it decide. <code>HealthComponent</code> does not know what a player is; it just shouts <code>died</code>.</p>
+
+<h4>3 — Anything global goes through one bus</h4>
+<p>When something needs to be heard across the whole tree — a wave started, an enemy died, the screen should shake — it goes through the <code>Events</code> autoload. The HUD listens to <code>Events</code>, not to the player. Nothing has to find anything.</p>
+
+<h4>4 — Process modes are part of the design</h4>
+<p>Pausing is not an <code>if paused: return</code> in every script. Every node declares how it behaves when the tree is paused, once, in the inspector. Part 09 covers this properly.</p>
+
+<div class="note"><b>the test</b>If you can delete the enemy scene and the project still runs, your coupling is fine. If the HUD breaks because it held a reference to an enemy, route that through <code>Events</code> instead.</div>
+</section>
+<section class="part" id="p2">
+<span class="pnum">02</span>
+<h2>Autoloads</h2>
+<p>Three singletons, registered in Project Settings → Globals → Autoload. Order matters slightly: <code>Events</code> first, since the others connect to it.</p>
+
+<h3>Events — the signal bus</h3>
+<p>No logic, no state. Just the vocabulary the game speaks.</p>
+<div class="code"><div class="code-head"><span class="path">res://autoload/events.gd</span><span class="tag">autoload → Events</span><button class="copy">copy</button></div><pre><code>extends Node
+
+# --- combat -------------------------------------------------------
+signal enemy_died(world_position: Vector3)
+signal damage_dealt(world_position: Vector3, amount: float)
+signal player_health_changed(current: float, maximum: float)
+signal player_died
+
+# --- waves --------------------------------------------------------
+signal wave_started(index: int, enemy_count: int)
+signal wave_cleared(index: int)
+
+# --- feedback requests --------------------------------------------
+# Anyone may ask for shake. Only the camera rig decides what that means.
+signal shake_requested(trauma: float)
+signal hitstop_requested(duration: float)
+</code></pre></div>
+
+<h3>Game — state and pause</h3>
+<div class="code"><div class="code-head"><span class="path">res://autoload/game.gd</span><span class="tag">autoload → Game</span><button class="copy">copy</button></div><pre><code>extends Node
+
+enum State { MENU, PLAYING, PAUSED, GAME_OVER }
+
+var state: State = State.MENU
+var score: int = 0
+
+func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	Events.player_died.connect(_on_player_died)
+	Events.enemy_died.connect(func(_pos): score += 100)
+
+func start_run() -> void:
+	score = 0
+	state = State.PLAYING
+	get_tree().paused = false
+	Engine.time_scale = 1.0
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+func toggle_pause() -> void:
+	match state:
+		State.PLAYING:
+			state = State.PAUSED
+			get_tree().paused = true
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		State.PAUSED:
+			state = State.PLAYING
+			get_tree().paused = false
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+func return_to_menu() -> void:
+	state = State.MENU
+	get_tree().paused = false
+	Engine.time_scale = 1.0
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+func _on_player_died() -> void:
+	state = State.GAME_OVER
+	Engine.time_scale = 1.0
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+</code></pre></div>
+
+<div class="note gotcha"><b>autoloads pause too</b>A node whose process mode is <code>Inherit</code> and whose parent is the tree root behaves as <b>Pausable</b>. That includes every autoload. If you don't set <code>PROCESS_MODE_ALWAYS</code> in <code>_ready()</code>, your audio fades and pause-menu logic will freeze the moment you pause — which is exactly when you need them.</div>
+
+<h3>Audio — pooled players and bus control</h3>
+<p>One node owns every sound. Callers pass a stream and a position; they never create players, never worry about a sound cutting itself off, and never touch a bus directly.</p>
+<div class="code"><div class="code-head"><span class="path">res://autoload/audio.gd</span><span class="tag">autoload → Audio</span><button class="copy">copy</button></div><pre><code>extends Node
+
+const POOL_SIZE := 16
+
+var _flat: Array[AudioStreamPlayer] = []
+var _spatial: Array[AudioStreamPlayer3D] = []
+var _music: AudioStreamPlayer
+
+func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+
+	_music = AudioStreamPlayer.new()
+	_music.bus = "Music"
+	add_child(_music)
+
+	for i in POOL_SIZE:
+		var flat := AudioStreamPlayer.new()
+		flat.bus = "SFX"
+		add_child(flat)
+		_flat.append(flat)
+
+		var spatial := AudioStreamPlayer3D.new()
+		spatial.bus = "SFX"
+		spatial.max_distance = 45.0
+		spatial.unit_size = 6.0
+		add_child(spatial)
+		_spatial.append(spatial)
+
+# --- one-shots ----------------------------------------------------
+
+func play(stream: AudioStream, pitch_jitter := 0.08, volume_db := 0.0) -> void:
+	var p := _free(_flat) as AudioStreamPlayer
+	if p == null or stream == null:
+		return
+	p.stream = stream
+	p.volume_db = volume_db
+	p.pitch_scale = 1.0 + randf_range(-pitch_jitter, pitch_jitter)
+	p.play()
+
+func play_at(stream: AudioStream, position: Vector3, pitch_jitter := 0.08) -> void:
+	var p := _free(_spatial) as AudioStreamPlayer3D
+	if p == null or stream == null:
+		return
+	p.global_position = position
+	p.stream = stream
+	p.pitch_scale = 1.0 + randf_range(-pitch_jitter, pitch_jitter)
+	p.play()
+
+func _free(pool: Array) -> Node:
+	for p in pool:
+		if not p.playing:
+			return p
+	return null   # pool exhausted this frame: drop the sound, don't stutter
+
+# --- music --------------------------------------------------------
+
+func play_music(stream: AudioStream, fade := 0.6) -> void:
+	if _music.stream == stream and _music.playing:
+		return
+	var t := create_tween()
+	t.tween_property(_music, "volume_db", -60.0, fade)
+	t.tween_callback(func():
+		_music.stream = stream
+		_music.play())
+	t.tween_property(_music, "volume_db", 0.0, fade)
+
+# --- bus volume, used by the settings menu ------------------------
+
+func set_bus_volume(bus_name: String, linear: float) -> void:
+	var idx := AudioServer.get_bus_index(bus_name)
+	if idx &lt; 0:
+		return
+	AudioServer.set_bus_volume_db(idx, linear_to_db(clampf(linear, 0.0001, 1.0)))
+	AudioServer.set_bus_mute(idx, linear &lt; 0.001)
+
+func get_bus_volume(bus_name: String) -> float:
+	var idx := AudioServer.get_bus_index(bus_name)
+	if idx &lt; 0:
+		return 1.0
+	return db_to_linear(AudioServer.get_bus_volume_db(idx))
+</code></pre></div>
+
+<div class="note why"><b>linear, not decibels</b>A slider that runs 0 → 1 and gets fed straight into <code>set_bus_volume_db</code> sounds wrong: half the slider is inaudible. <code>linear_to_db()</code> converts a perceptually sane 0 → 1 into the −80 → 0 dB the mixer wants. Mute explicitly at the bottom, because <code>linear_to_db(0)</code> is negative infinity.</div>
+</section>
+<section class="part" id="p3">
+<span class="pnum">03</span>
+<h2>Damage components</h2>
+<p>Four small nodes that the player, the enemies and anything you add later all share. Nothing here knows what an enemy is.</p>
+
+<h3>HealthComponent</h3>
+<div class="code"><div class="code-head"><span class="path">res://components/health_component.gd</span><span class="tag">Node</span><button class="copy">copy</button></div><pre><code>class_name HealthComponent
+extends Node
+
+signal damaged(amount: float, current: float)
+signal healed(amount: float, current: float)
+signal died
+
+@export var max_health: float = 100.0
+@export var invuln_time: float = 0.0   # seconds of grace after a hit
+
+var current: float
+var _invuln_until: float = 0.0
+
+var is_alive: bool:
+	get: return current &gt; 0.0
+
+func _ready() -> void:
+	current = max_health
+
+## Returns true if the hit actually landed, so callers can skip
+## spawning blood and shake on an ignored hit.
+func damage(amount: float) -> bool:
+	if not is_alive:
+		return false
+	var now := Time.get_ticks_msec() / 1000.0
+	if now &lt; _invuln_until:
+		return false
+	_invuln_until = now + invuln_time
+
+	current = maxf(current - amount, 0.0)
+	damaged.emit(amount, current)
+	if current == 0.0:
+		died.emit()
+	return true
+
+func heal(amount: float) -> void:
+	if not is_alive:
+		return
+	var before := current
+	current = minf(current + amount, max_health)
+	if current &gt; before:
+		healed.emit(current - before, current)
+
+func fraction() -> float:
+	return current / max_health
+</code></pre></div>
+
+<h3>Hurtbox — the thing that gets hit</h3>
+<p>An <code>Area3D</code> on layer 4 with no mask of its own. It never detects; it only waits to be detected. Drag the <code>HealthComponent</code> into its exported slot in the inspector.</p>
+<div class="code"><div class="code-head"><span class="path">res://components/hurtbox.gd</span><span class="tag">Area3D · layer 4, mask none</span><button class="copy">copy</button></div><pre><code>class_name Hurtbox
+extends Area3D
+
+@export var health: HealthComponent
+@export var damage_multiplier: float = 1.0   # 2.0 on a head, 0.5 on armour
+
+func take_hit(amount: float, at: Vector3) -> void:
+	if health == null:
+		return
+	var final := amount * damage_multiplier
+	if health.damage(final):
+		Events.damage_dealt.emit(at, final)
+</code></pre></div>
+
+<h3>Hitbox — the thing that does the hitting</h3>
+<p>Turned off until someone calls <code>activate()</code>. It remembers what it already hit so a 0.12&nbsp;s swing can't damage you six physics frames in a row.</p>
+<div class="code"><div class="code-head"><span class="path">res://components/hitbox.gd</span><span class="tag">Area3D · layer 5, mask 4</span><button class="copy">copy</button></div><pre><code>class_name Hitbox
+extends Area3D
+
+@export var damage: float = 18.0
+@export var active_time: float = 0.12
+
+var _already_hit: Array[Node] = []
+
+func _ready() -> void:
+	monitoring = false
+	area_entered.connect(_on_area_entered)
+
+func activate() -> void:
+	_already_hit.clear()
+	monitoring = true
+	await get_tree().create_timer(active_time).timeout
+	if is_instance_valid(self):
+		monitoring = false
+
+func _on_area_entered(area: Area3D) -> void:
+	if area is Hurtbox and not _already_hit.has(area):
+		_already_hit.append(area)
+		(area as Hurtbox).take_hit(damage, area.global_position)
+</code></pre></div>
+<div class="note gotcha"><b>overlaps are one frame late</b>Flipping <code>monitoring</code> to true does not report bodies that are already inside the area until the next physics frame. That's fine for a swing that stays active for a tenth of a second, but if you ever need an instant one-frame hitbox, <code>await get_tree().physics_frame</code> first and then read <code>get_overlapping_areas()</code> directly.</div>
+
+<h3>HitFlash — the white pop on impact</h3>
+<p>Rather than swapping materials, this stacks an unshaded additive overlay on top of whatever the mesh already uses, then tweens its alpha down. Works on any mesh, any material, no shader authoring.</p>
+<div class="code"><div class="code-head"><span class="path">res://components/hit_flash.gd</span><span class="tag">Node</span><button class="copy">copy</button></div><pre><code>class_name HitFlash
+extends Node
+
+@export var meshes: Array[MeshInstance3D] = []
+@export var color: Color = Color(1.0, 0.94, 0.88)
+@export var duration: float = 0.14
+
+var _overlay: StandardMaterial3D
+var _tween: Tween
+
+func _ready() -> void:
+	_overlay = StandardMaterial3D.new()
+	_overlay.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_overlay.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_overlay.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	_overlay.albedo_color = Color(color.r, color.g, color.b, 0.0)
+	for m in meshes:
+		m.material_overlay = _overlay
+
+func flash(strength: float = 1.0) -> void:
+	if _tween != null and _tween.is_running():
+		_tween.kill()
+	_overlay.albedo_color.a = strength
+	_tween = create_tween()
+	_tween.tween_property(_overlay, "albedo_color:a", 0.0, duration) \
+		.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+</code></pre></div>
+<div class="note why"><b>one material per instance</b>Because the overlay is built in <code>_ready()</code>, every spawned enemy gets its own copy. Assign a shared material resource in the inspector instead and one enemy taking a hit will flash the entire wave.</div>
+</section>
+
+<section class="part" id="p4">
+<span class="pnum">04</span>
+<h2>The player</h2>
+<p>Yaw on the body, pitch on the pivot, shake on the rig below it. Keeping those on separate nodes is what stops recoil and screen shake from fighting the mouse for control of the same rotation.</p>
+
+<div class="code"><div class="code-head"><span class="path">Player.tscn</span><span class="tag">scene</span></div><pre><code>Player            CharacterBody3D   layer 2, mask 1
+├─ Collision      CollisionShape3D  capsule 1.8 tall
+├─ CameraPivot    Node3D            y = 1.6
+│  └─ ShakeRig    Node3D            shake_rig.gd
+│     └─ Camera3D
+│        ├─ Muzzle    Node3D        z = -0.6, x = 0.25
+│        └─ ShootRay  RayCast3D     target (0,0,-100), mask 1+4
+├─ HealthComponent                  max_health 100, invuln 0.4
+├─ Hurtbox        Area3D            layer 4, mask none
+└─ ShootCooldown  Timer             0.11 s, one shot
+</code></pre></div>
+
+<div class="code"><div class="code-head"><span class="path">res://actors/player.gd</span><span class="tag">CharacterBody3D</span><button class="copy">copy</button></div><pre><code>class_name Player
+extends CharacterBody3D
+
+@export var speed: float = 6.5
+@export var acceleration: float = 14.0
+@export var air_control: float = 3.0
+@export var jump_velocity: float = 5.2
+@export var mouse_sensitivity: float = 0.0022
+@export var pitch_limit: float = deg_to_rad(88.0)
+
+@onready var pivot: Node3D = $CameraPivot
+@onready var rig: ShakeRig = $CameraPivot/ShakeRig
+@onready var health: HealthComponent = $HealthComponent
+@onready var hurtbox: Hurtbox = $Hurtbox
+
+var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
+
+func _ready() -> void:
+	health.damaged.connect(_on_damaged)
+	health.healed.connect(_on_healed)
+	health.died.connect(_on_died)
+	Events.player_health_changed.emit(health.current, health.max_health)
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		rotate_y(-event.relative.x * mouse_sensitivity)
+		pivot.rotation.x = clampf(
+			pivot.rotation.x - event.relative.y * mouse_sensitivity,
+			-pitch_limit, pitch_limit)
+
+func _physics_process(delta: float) -> void:
+	if not is_on_floor():
+		velocity.y -= _gravity * delta
+	elif Input.is_action_just_pressed("jump"):
+		velocity.y = jump_velocity
+
+	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	var direction := (transform.basis * Vector3(input.x, 0.0, input.y)).normalized()
+	var target := direction * speed
+	var rate := acceleration if is_on_floor() else air_control
+
+	velocity.x = move_toward(velocity.x, target.x, rate * delta * speed)
+	velocity.z = move_toward(velocity.z, target.z, rate * delta * speed)
+	move_and_slide()
+
+# --- damage feedback ----------------------------------------------
+
+func _on_damaged(_amount: float, current: float) -> void:
+	Events.player_health_changed.emit(current, health.max_health)
+	Events.shake_requested.emit(0.55)
+	Audio.play(preload("res://audio/sfx/player_hurt.wav"))
+
+func _on_healed(_amount: float, current: float) -> void:
+	Events.player_health_changed.emit(current, health.max_health)
+	Audio.play(preload("res://audio/sfx/pickup.wav"))
+
+func _on_died() -> void:
+	Events.shake_requested.emit(1.0)
+	Events.player_died.emit()
+	set_physics_process(false)
+</code></pre></div>
+
+<div class="note"><b>the pitch clamp</b><code>deg_to_rad(88)</code> rather than 90. At exactly 90° the camera basis becomes degenerate and looking straight up can flip the view. Everyone hits this once.</div>
+</section>
+<section class="part" id="p5">
+<span class="pnum">05</span>
+<h2>Shooting</h2>
+<p>Hitscan, because it is one raycast and it feels instant. Add this to <code>player.gd</code>.</p>
+
+<div class="code"><div class="code-head"><span class="path">res://actors/player.gd</span><span class="tag">append</span><button class="copy">copy</button></div><pre><code>@export var damage: float = 34.0
+@export var recoil: float = 0.04
+
+@onready var ray: RayCast3D = $CameraPivot/ShakeRig/Camera3D/ShootRay
+@onready var muzzle: Node3D = $CameraPivot/ShakeRig/Camera3D/Muzzle
+@onready var cooldown: Timer = $ShootCooldown
+
+const IMPACT_FX := preload("res://fx/impact.tscn")
+const SHOT_SFX := preload("res://audio/sfx/shoot.wav")
+
+func _process(_delta: float) -> void:
+	if Input.is_action_pressed("shoot") and cooldown.is_stopped():
+		_shoot()
+
+func _shoot() -> void:
+	cooldown.start()
+	Audio.play(SHOT_SFX, 0.12)
+	rig.kick(recoil)
+	Events.shake_requested.emit(0.16)
+
+	ray.force_raycast_update()
+	if not ray.is_colliding():
+		return
+
+	var point := ray.get_collision_point()
+	var normal := ray.get_collision_normal()
+	var hit := ray.get_collider()
+
+	_spawn_impact(point, normal)
+
+	if hit is Hurtbox:
+		(hit as Hurtbox).take_hit(damage, point)
+		Events.hitstop_requested.emit(0.045)
+
+func _spawn_impact(point: Vector3, normal: Vector3) -> void:
+	var fx := IMPACT_FX.instantiate()
+	get_tree().current_scene.add_child(fx)
+	fx.global_position = point
+	# look_at explodes when the direction is parallel to the up vector
+	if absf(normal.dot(Vector3.UP)) &lt; 0.99:
+		fx.look_at(point + normal, Vector3.UP)
+</code></pre></div>
+
+<div class="note gotcha"><b>the ray must be told to see areas</b>On <code>ShootRay</code>, tick <b>Collide With → Areas</b> as well as Bodies, and put layers 1 and 4 in its mask. A <code>RayCast3D</code> ignores <code>Area3D</code> by default, so a hurtbox-based damage system will silently never register a single hit. Also call <code>force_raycast_update()</code> before reading — otherwise you get last frame's result, one frame of aim behind the mouse.</div>
+
+<h3>Self-cleaning particles</h3>
+<p>Every one-shot effect in the project uses the same three-line script, so nothing leaks.</p>
+<div class="code"><div class="code-head"><span class="path">res://fx/one_shot_fx.gd</span><span class="tag">GPUParticles3D · one shot on, emitting off</span><button class="copy">copy</button></div><pre><code>extends GPUParticles3D
+
+func _ready() -> void:
+	emitting = true
+	finished.connect(queue_free)
+</code></pre></div>
+<p>Set <b>One Shot</b> on, <b>Emitting</b> off and <b>Explosiveness</b> to 1.0 in the inspector. Explosiveness is the difference between a puff and a drizzle.</p>
+</section>
+
+<section class="part" id="p6">
+<span class="pnum">06</span>
+<h2>The enemy</h2>
+<p>Chase, plant, lean back, slam forward, spawn a hitbox on the exact frame of impact. The wind-up is the whole design: it is what makes the attack readable, and readable is what makes it fair.</p>
+
+<div class="code"><div class="code-head"><span class="path">Enemy.tscn</span><span class="tag">scene</span></div><pre><code>Enemy               CharacterBody3D   layer 3, mask 1+3
+├─ Collision        CollisionShape3D  capsule
+├─ Pivot            Node3D            y = 0.25  ← everything visual tweens here
+│  ├─ Mesh          MeshInstance3D    capsule, y = 0.85
+│  └─ AttackHitbox  Area3D (Hitbox)   z = -1.1, y = -0.1, monitoring off
+│     └─ SlamFX     GPUParticles3D    one shot, emitting off
+├─ HealthComponent                    max_health 60
+├─ Hurtbox          Area3D            layer 4, mask none
+└─ HitFlash                           meshes → [Mesh]
+</code></pre></div>
+<div class="note why"><b>why a Pivot node</b>The capsule leans, squashes and stretches; the collision shape and the AI must not. Rotating the body itself would tilt the collider into the floor and drag the character controller with it. Give the visuals their own node and the physics never notices the animation.</div>
+
+<h3>Movement and facing</h3>
+<div class="code"><div class="code-head"><span class="path">res://actors/enemy.gd</span><span class="tag">CharacterBody3D</span><button class="copy">copy</button></div><pre><code>class_name Enemy
+extends CharacterBody3D
+
+enum State { CHASE, WINDUP, RECOVER, DEAD }
+
+@export var speed: float = 3.4
+@export var attack_range: float = 2.3
+@export var turn_speed: float = 7.0
+@export var health_scale: float = 1.0   # set by the wave director
+
+@export_group("Slam")
+@export var windup_angle: float = deg_to_rad(-40.0)
+@export var slam_angle: float = deg_to_rad(32.0)
+@export var windup_time: float = 0.45
+@export var hold_time: float = 0.08
+@export var slam_time: float = 0.07
+@export var recover_time: float = 0.45
+
+@onready var pivot: Node3D = $Pivot
+@onready var hitbox: Hitbox = $Pivot/AttackHitbox
+@onready var slam_fx: GPUParticles3D = $Pivot/AttackHitbox/SlamFX
+@onready var health: HealthComponent = $HealthComponent
+@onready var hurtbox: Hurtbox = $Hurtbox
+@onready var flash: HitFlash = $HitFlash
+
+const WINDUP_SFX := preload("res://audio/sfx/enemy_windup.wav")
+const SLAM_SFX := preload("res://audio/sfx/enemy_slam.wav")
+const HIT_SFX := preload("res://audio/sfx/enemy_hit.wav")
+const DEATH_FX := preload("res://fx/death_fx.tscn")
+
+var _state: State = State.CHASE
+var _target: Node3D
+var _tween: Tween
+var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
+
+func _ready() -> void:
+	add_to_group("enemies")
+	_target = get_tree().get_first_node_in_group("player")
+	health.max_health *= health_scale
+	health.current = health.max_health
+	health.damaged.connect(_on_damaged)
+	health.died.connect(_on_died)
+
+func _physics_process(delta: float) -> void:
+	if _state == State.DEAD or _target == null:
+		return
+
+	if not is_on_floor():
+		velocity.y -= _gravity * delta
+
+	var to_target := _target.global_position - global_position
+	to_target.y = 0.0
+
+	# Keep facing the player even mid-swing, so the slam can still track you.
+	if to_target.length_squared() &gt; 0.01:
+		var want := atan2(-to_target.x, -to_target.z)
+		rotation.y = lerp_angle(rotation.y, want, turn_speed * delta)
+
+	match _state:
+		State.CHASE:
+			if to_target.length() &lt;= attack_range:
+				_begin_slam()
+			else:
+				var dir := to_target.normalized()
+				velocity.x = dir.x * speed
+				velocity.z = dir.z * speed
+		State.WINDUP, State.RECOVER:
+			velocity.x = move_toward(velocity.x, 0.0, speed * 6.0 * delta)
+			velocity.z = move_toward(velocity.z, 0.0, speed * 6.0 * delta)
+
+	move_and_slide()
+</code></pre></div>
+
+<h3>The slam, as one tween</h3>
+<p>The entire attack is a single chained tween. Steps run in order; <code>parallel()</code> attaches a step to the one before it. Read it top to bottom and you are reading the animation.</p>
+<div class="code"><div class="code-head"><span class="path">res://actors/enemy.gd</span><span class="tag">append</span><button class="copy">copy</button></div><pre><code>func _begin_slam() -> void:
+	_state = State.WINDUP
+	if _tween != null:
+		_tween.kill()
+	Audio.play_at(WINDUP_SFX, global_position, 0.06)
+
+	_tween = create_tween()
+
+	# 1 — lean back and stretch tall. Slow out: the threat is legible.
+	_tween.tween_property(pivot, "rotation:x", windup_angle, windup_time) \
+		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_tween.parallel().tween_property(pivot, "scale", Vector3(0.86, 1.18, 0.86), windup_time) \
+		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+	# 2 — hang at the top. This pause is the player's window to move.
+	_tween.tween_interval(hold_time)
+
+	# 3 — slam. Six times faster than the wind-up, easing IN so it accelerates.
+	_tween.tween_property(pivot, "rotation:x", slam_angle, slam_time) \
+		.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_IN)
+	_tween.parallel().tween_property(pivot, "scale", Vector3(1.22, 0.8, 1.22), slam_time)
+
+	# 4 — the frame of impact
+	_tween.tween_callback(_land)
+
+	# 5 — recover and settle back upright with a little overshoot
+	_tween.tween_interval(recover_time)
+	_tween.tween_property(pivot, "rotation:x", 0.0, 0.3) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_tween.parallel().tween_property(pivot, "scale", Vector3.ONE, 0.3)
+	_tween.tween_callback(func(): _state = State.CHASE)
+
+func _land() -> void:
+	_state = State.RECOVER
+	hitbox.activate()          # 0.12 s of live damage
+	slam_fx.restart()          # burst of dust at the point of impact
+	Audio.play_at(SLAM_SFX, global_position, 0.1)
+	Events.shake_requested.emit(0.28)
+</code></pre></div>
+
+<div class="note why"><b>the timing is the tell</b>0.45&nbsp;s back, 0.08&nbsp;s hold, 0.07&nbsp;s down. Slow-then-fast is what the eye reads as force. If you make the wind-up quick and the slam slow it will look like the enemy is politely leaning on you, no matter how much dust you spawn.</div>
+
+<h3>Damage and death</h3>
+<div class="code"><div class="code-head"><span class="path">res://actors/enemy.gd</span><span class="tag">append</span><button class="copy">copy</button></div><pre><code>func _on_damaged(_amount: float, _current: float) -> void:
+	flash.flash()
+	Audio.play_at(HIT_SFX, global_position, 0.15)
+
+func _on_died() -> void:
+	_state = State.DEAD
+	if _tween != null:
+		_tween.kill()
+
+	# stop existing in every sense that matters, then play out
+	set_physics_process(false)
+	hitbox.monitoring = false
+	collision_layer = 0
+	hurtbox.collision_layer = 0
+
+	Events.enemy_died.emit(global_position)
+	Events.shake_requested.emit(0.22)
+
+	var fx := DEATH_FX.instantiate()
+	get_tree().current_scene.add_child(fx)
+	fx.global_position = global_position + Vector3.UP
+
+	var t := create_tween()
+	t.tween_property(pivot, "scale", Vector3(1.6, 0.05, 1.6), 0.14) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	t.tween_callback(queue_free)
+</code></pre></div>
+
+<div class="note"><b>tweens clean up after themselves</b><code>create_tween()</code> called on a node is bound to that node: it dies with the node and — crucially — it obeys that node's process mode, so every wind-up freezes correctly when the game pauses. You get pause-aware animation for free, provided you never use <code>get_tree().create_tween()</code> here.</div>
+<div class="note"><b>upgrading the AI</b>Straight-line chasing is fine in an open arena. For anything with corners, drop a <code>NavigationAgent3D</code> under the enemy, bake a navigation mesh on the arena, and replace <code>to_target.normalized()</code> with <code>agent.get_next_path_position() - global_position</code>. The state machine above does not change.</div>
+</section>
+<section class="part" id="p7">
+<span class="pnum">07</span>
+<h2>Waves</h2>
+<p>One node, no state machine. It counts enemies, waits for zero, then does it again slightly harder.</p>
+
+<div class="code"><div class="code-head"><span class="path">res://systems/wave_director.gd</span><span class="tag">Node</span><button class="copy">copy</button></div><pre><code>class_name WaveDirector
+extends Node
+
+@export var enemy_scene: PackedScene
+@export var spawn_root: Node3D          # a Node3D full of Marker3Ds
+@export var base_count: int = 4
+@export var count_growth: int = 2
+@export var health_growth: float = 0.15
+@export var spawn_interval: float = 0.35
+@export var break_time: float = 4.0
+
+var wave: int = 0
+
+var _alive: int = 0
+var _spawning: bool = false
+var _running: bool = false
+
+func _ready() -> void:
+	Events.enemy_died.connect(_on_enemy_died)
+
+func start() -> void:
+	wave = 0
+	_running = true
+	_next_wave()
+
+func stop() -> void:
+	_running = false
+	get_tree().call_group("enemies", "queue_free")
+
+func _next_wave() -> void:
+	if not _running:
+		return
+	wave += 1
+	var count := base_count + (wave - 1) * count_growth
+	_alive = count
+	_spawning = true
+	Events.wave_started.emit(wave, count)
+
+	var points := spawn_root.get_children()
+	points.shuffle()
+
+	for i in count:
+		if not _running:
+			return
+		_spawn(points[i % points.size()])
+		await get_tree().create_timer(spawn_interval, false).timeout
+
+	_spawning = false
+	if _alive &lt;= 0:          # the player cleared them faster than we spawned
+		_finish_wave()
+
+func _spawn(point: Node3D) -> void:
+	var e := enemy_scene.instantiate() as Enemy
+	e.health_scale = 1.0 + (wave - 1) * health_growth
+	e.speed += (wave - 1) * 0.12
+	get_tree().current_scene.add_child(e)
+	e.global_position = point.global_position
+
+func _on_enemy_died(_pos: Vector3) -> void:
+	if not _running:
+		return
+	_alive -= 1
+	if _alive &lt;= 0 and not _spawning:
+		_finish_wave()
+
+func _finish_wave() -> void:
+	Events.wave_cleared.emit(wave)
+	await get_tree().create_timer(break_time, false).timeout
+	_next_wave()
+</code></pre></div>
+
+<div class="note gotcha"><b>SceneTreeTimer ignores pause by default</b><code>get_tree().create_timer(t)</code> has <code>process_always</code> set to <b>true</b>. Leave it and your waves keep spawning while the pause menu is open, and the break between waves ticks away while the player reads the settings screen. Pass <code>false</code> as the second argument for anything that is gameplay timing. The only timers that should ignore pause are the ones driving the pause menu itself.</div>
+</section>
+
+<section class="part" id="p8">
+<span class="pnum">08</span>
+<h2>Juice</h2>
+<p>Screen shake, recoil, hit stop and damage numbers. All of it is driven by signals on <code>Events</code>, so any system can ask for feedback without knowing the camera exists.</p>
+
+<h3>ShakeRig — shake and recoil on one node</h3>
+<p>Noise-driven rather than random, so the motion is continuous instead of jittery, and trauma is squared so light hits stay light while a death rattles the room.</p>
+<div class="code"><div class="code-head"><span class="path">res://systems/shake_rig.gd</span><span class="tag">Node3D, between CameraPivot and Camera3D</span><button class="copy">copy</button></div><pre><code>class_name ShakeRig
+extends Node3D
+
+@export var max_pitch: float = deg_to_rad(3.0)
+@export var max_yaw: float = deg_to_rad(3.5)
+@export var max_roll: float = deg_to_rad(5.0)
+@export var decay: float = 1.9        # trauma lost per second
+@export var noise_speed: float = 40.0
+@export var recoil_recovery: float = 14.0
+
+var trauma: float = 0.0
+
+var _noise := FastNoiseLite.new()
+var _t: float = 0.0
+var _recoil: float = 0.0
+
+func _ready() -> void:
+	_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX
+	_noise.frequency = 0.9
+	Events.shake_requested.connect(add_trauma)
+
+func add_trauma(amount: float) -> void:
+	trauma = clampf(trauma + amount, 0.0, 1.0)
+
+func kick(amount: float) -> void:
+	_recoil += amount
+
+func _process(delta: float) -> void:
+	_t += delta * noise_speed
+	trauma = maxf(trauma - decay * delta, 0.0)
+	_recoil = lerpf(_recoil, 0.0, clampf(recoil_recovery * delta, 0.0, 1.0))
+
+	var s := trauma * trauma   # squared falloff
+
+	rotation.x = max_pitch * s * _noise.get_noise_2d(_t, 0.0) + _recoil
+	rotation.y = max_yaw   * s * _noise.get_noise_2d(_t, 137.0)
+	rotation.z = max_roll  * s * _noise.get_noise_2d(_t, 419.0)
+</code></pre></div>
+<div class="note why"><b>trauma, not "shake for 0.3 s"</b>Three hits landing at once add up to one bigger shake instead of three overlapping timers fighting over the same rotation. And because the rig owns the rotation completely, it can overwrite it every frame without ever conflicting with mouse look — which lives one node up.</div>
+
+<h3>Hit stop</h3>
+<p>Forty milliseconds of near-frozen time on a connecting shot. It costs almost nothing and it is the single most effective piece of feel in the list. Add to <code>game.gd</code>:</p>
+<div class="code"><div class="code-head"><span class="path">res://autoload/game.gd</span><span class="tag">append</span><button class="copy">copy</button></div><pre><code>func _ready_hitstop() -> void:
+	Events.hitstop_requested.connect(hitstop)
+
+func hitstop(duration: float) -> void:
+	if Engine.time_scale &lt; 1.0:
+		return                              # already stopped, don't stack
+	Engine.time_scale = 0.04
+	# fourth argument: ignore time scale — or the timer freezes with the game
+	await get_tree().create_timer(duration, true, false, true).timeout
+	Engine.time_scale = 1.0
+</code></pre></div>
+<div class="note gotcha"><b>the timer that never fires</b><code>Engine.time_scale = 0.04</code> also slows every <code>SceneTreeTimer</code>. A 0.045&nbsp;s hit stop measured with a normal timer takes 1.1 real seconds to end. Pass <code>ignore_time_scale = true</code>. Call <code>_ready_hitstop()</code> from <code>_ready()</code>, and always reset <code>time_scale</code> to 1.0 on game over and on returning to the menu — a crash mid-hitstop otherwise leaves the menu running in slow motion.</div>
+
+<h3>Damage numbers</h3>
+<div class="code"><div class="code-head"><span class="path">res://fx/damage_number.gd</span><span class="tag">Label3D · billboard enabled, no depth test</span><button class="copy">copy</button></div><pre><code>extends Label3D
+
+func _ready() -> void:
+	position += Vector3(randf_range(-0.2, 0.2), 0.0, randf_range(-0.2, 0.2))
+	var t := create_tween()
+	t.tween_property(self, "position:y", position.y + 1.1, 0.65) \
+		.set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+	t.parallel().tween_property(self, "modulate:a", 0.0, 0.45).set_delay(0.2)
+	t.tween_callback(queue_free)
+</code></pre></div>
+<p>One listener spawns them. Put this on the <code>Main</code> node:</p>
+<div class="code"><div class="code-head"><span class="path">res://main.gd</span><span class="tag">append</span><button class="copy">copy</button></div><pre><code>const DAMAGE_NUMBER := preload("res://fx/damage_number.tscn")
+
+func _spawn_damage_number(at: Vector3, amount: float) -> void:
+	var n := DAMAGE_NUMBER.instantiate() as Label3D
+	add_child(n)
+	n.global_position = at
+	n.text = str(roundi(amount))
+</code></pre></div>
+
+<h3>The rest of the juice list</h3>
+<table>
+<tr><th>Effect</th><th>How</th></tr>
+<tr><td>crosshair punch</td><td>tween <code>scale</code> 1 → 1.4 → 1 over 0.12 s on <code>Events.damage_dealt</code></td></tr>
+<tr><td>health bar lag</td><td>two bars: front snaps, back tweens down over 0.35 s with a 0.15 s delay</td></tr>
+<tr><td>damage vignette</td><td>full-rect <code>ColorRect</code>, tween <code>modulate:a</code> 0.35 → 0 on player damage</td></tr>
+<tr><td>weapon sway</td><td><code>lerp</code> the muzzle's local position against mouse velocity</td></tr>
+<tr><td>landing dip</td><td>tween <code>CameraPivot.position:y</code> down 0.12 and back when <code>is_on_floor()</code> flips true</td></tr>
+<tr><td>pitch variance</td><td>already in <code>Audio.play()</code> — repeated sounds stop sounding synthetic</td></tr>
+</table>
+<div class="note"><b>restraint</b>Shake on every single bullet is noise. The values here are deliberately lopsided: 0.16 trauma for firing, 0.28 for a slam landing on you, 1.0 for death. If everything shouts, nothing reads.</div>
+</section>
+<section class="part" id="p9">
+<span class="pnum">09</span>
+<h2>Pausing and menus</h2>
+<p>Godot pauses the whole tree with one boolean. What each node does about it is declared once, in the inspector, under <b>Node → Process → Mode</b>. No script in this project ever checks <code>if paused</code>.</p>
+
+<table>
+<tr><th>Node</th><th>Process mode</th><th>Result</th></tr>
+<tr><td>World, Player, Enemy</td><td>Inherit</td><td>freezes — resolves to Pausable</td></tr>
+<tr><td>WaveDirector</td><td>Inherit</td><td>spawning stops mid-wave</td></tr>
+<tr><td>UI (CanvasLayer)</td><td>Always</td><td>can hear the pause key at any time</td></tr>
+<tr><td>HUD</td><td>Inherit</td><td>stays on screen, stops animating</td></tr>
+<tr><td>PauseMenu</td><td>When Paused</td><td>only alive while paused</td></tr>
+<tr><td>SettingsMenu</td><td>Always</td><td>reachable from the main menu too</td></tr>
+<tr><td>MainMenu</td><td>Always</td><td>works before the game starts</td></tr>
+<tr><td>every autoload</td><td>Always</td><td>set it in <code>_ready()</code>, see part 02</td></tr>
+</table>
+
+<div class="note why"><b>Inherit is not "always on"</b>Inherit takes the parent's mode, and the tree root resolves to Pausable. So Inherit means "pauses with the game" for anything under your scene root. The four explicit modes — Pausable, When Paused, Always, Disabled — ignore the parent entirely, which is why a <b>When Paused</b> menu can sit inside a <b>Pausable</b> UI branch and still work.</div>
+
+<h3>The UI layer holds the pause key</h3>
+<div class="code"><div class="code-head"><span class="path">res://ui/ui.gd</span><span class="tag">CanvasLayer · process mode Always</span><button class="copy">copy</button></div><pre><code>extends CanvasLayer
+
+@onready var hud: Control = $HUD
+@onready var pause_menu: Control = $PauseMenu
+@onready var settings_menu: Control = $SettingsMenu
+@onready var main_menu: Control = $MainMenu
+
+func _ready() -> void:
+	pause_menu.resume_pressed.connect(_toggle_pause)
+	pause_menu.settings_pressed.connect(_open_settings)
+	pause_menu.quit_pressed.connect(_to_menu)
+	main_menu.start_pressed.connect(_start)
+	main_menu.settings_pressed.connect(_open_settings)
+	settings_menu.closed.connect(_close_settings)
+	Events.player_died.connect(_on_player_died)
+	_to_menu()
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not event.is_action_pressed("pause"):
+		return
+	if settings_menu.visible:
+		_close_settings()
+	elif Game.state == Game.State.PLAYING or Game.state == Game.State.PAUSED:
+		_toggle_pause()
+	get_viewport().set_input_as_handled()
+
+func _toggle_pause() -> void:
+	Game.toggle_pause()
+	pause_menu.visible = Game.state == Game.State.PAUSED
+
+func _start() -> void:
+	main_menu.hide()
+	hud.show()
+	Game.start_run()
+	Events.run_started.emit()
+
+func _to_menu() -> void:
+	Game.return_to_menu()
+	pause_menu.hide()
+	settings_menu.hide()
+	hud.hide()
+	main_menu.show()
+	Events.run_ended.emit()
+
+func _open_settings() -> void:
+	settings_menu.open()
+
+func _close_settings() -> void:
+	Settings.save()
+
+func _on_player_died() -> void:
+	await get_tree().create_timer(1.6, true, false, true).timeout
+	_to_menu()
+</code></pre></div>
+<p>Add <code>signal run_started</code> and <code>signal run_ended</code> to <code>events.gd</code> — the wave director and the world listen for those.</p>
+
+<h3>Pause menu</h3>
+<p>Buttons emit; they never call into the game. Wiring lives one level up, which is the whole of rule&nbsp;2 in one file.</p>
+<div class="code"><div class="code-head"><span class="path">res://ui/pause_menu.gd</span><span class="tag">Control · process mode When Paused</span><button class="copy">copy</button></div><pre><code>extends Control
+
+signal resume_pressed
+signal settings_pressed
+signal quit_pressed
+
+func _ready() -> void:
+	hide()
+	%Resume.pressed.connect(resume_pressed.emit)
+	%Settings.pressed.connect(settings_pressed.emit)
+	%Quit.pressed.connect(quit_pressed.emit)
+	visibility_changed.connect(func():
+		if visible:
+			%Resume.grab_focus())
+</code></pre></div>
+<div class="note gotcha"><b>a hidden Control still eats clicks</b>If a full-screen menu covers the HUD, set its <b>Mouse → Filter</b> to <code>Ignore</code> on the background panel, or set the root Control to <code>Pass</code>. Otherwise the invisible-but-present main menu will swallow your shooting input and you'll spend an hour blaming the raycast.</div>
+
+<h3>Settings menu</h3>
+<div class="code"><div class="code-head"><span class="path">res://ui/settings_menu.gd</span><span class="tag">Control · process mode Always</span><button class="copy">copy</button></div><pre><code>extends Control
+
+signal closed
+
+const BLIP := preload("res://audio/sfx/ui_blip.wav")
+
+@onready var sliders := {
+	"Master": %MasterSlider,
+	"Music": %MusicSlider,
+	"SFX": %SfxSlider,
+}
+
+func _ready() -> void:
+	hide()
+	for bus_name in sliders:
+		var s: HSlider = sliders[bus_name]
+		s.min_value = 0.0
+		s.max_value = 1.0
+		s.step = 0.01
+		s.value = Audio.get_bus_volume(bus_name)
+		s.value_changed.connect(func(v): Audio.set_bus_volume(bus_name, v))
+
+	# audition the level when the player lets go of the SFX slider
+	sliders["SFX"].drag_ended.connect(func(changed):
+		if changed:
+			Audio.play(BLIP))
+
+	%Sensitivity.value_changed.connect(func(v): Settings.mouse_sensitivity = v)
+	%Back.pressed.connect(func():
+		hide()
+		closed.emit())
+
+func open() -> void:
+	for bus_name in sliders:
+		sliders[bus_name].value = Audio.get_bus_volume(bus_name)
+	%Sensitivity.value = Settings.mouse_sensitivity
+	show()
+	%MasterSlider.grab_focus()
+</code></pre></div>
+<div class="note why"><b>the slider reads the bus, not a variable</b><code>open()</code> pulls the current value straight out of the audio server. There is no second copy of the volume to drift out of sync, and a value loaded from disk at startup shows up in the UI automatically.</div>
+
+<h3>HUD</h3>
+<div class="code"><div class="code-head"><span class="path">res://ui/hud.gd</span><span class="tag">Control</span><button class="copy">copy</button></div><pre><code>extends Control
+
+@onready var bar: ProgressBar = %HealthBar        # snaps instantly
+@onready var ghost: ProgressBar = %HealthGhost    # trails behind, drawn under
+@onready var wave_label: Label = %WaveLabel
+@onready var crosshair: Control = %Crosshair
+
+func _ready() -> void:
+	crosshair.pivot_offset = crosshair.size * 0.5
+	Events.player_health_changed.connect(_on_health_changed)
+	Events.damage_dealt.connect(func(_at, _amount): _punch_crosshair())
+	Events.wave_started.connect(func(i, c): wave_label.text = "Wave %d  ·  %d" % [i, c])
+	Events.wave_cleared.connect(func(i): wave_label.text = "Wave %d cleared" % i)
+
+func _on_health_changed(current: float, maximum: float) -> void:
+	bar.max_value = maximum
+	ghost.max_value = maximum
+	bar.value = current
+	var t := create_tween()
+	t.tween_interval(0.15)
+	t.tween_property(ghost, "value", current, 0.35).set_trans(Tween.TRANS_CUBIC)
+
+func _punch_crosshair() -> void:
+	var t := create_tween()
+	t.tween_property(crosshair, "scale", Vector2(1.45, 1.45), 0.05)
+	t.tween_property(crosshair, "scale", Vector2.ONE, 0.13) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+</code></pre></div>
+<div class="note"><b>the trailing bar</b>Two ProgressBars stacked, the trailing one behind and tinted dark red. The front bar drops instantly so the hit registers; the one behind catches up a third of a second later so you can see how much you just lost. It is two extra lines and it is the reason health bars in good action games feel legible.</div>
+</section>
+
+<section class="part" id="p10">
+<span class="pnum">10</span>
+<h2>Health pickups</h2>
+<p>Dropped by dying enemies, on a roll. Anything with a <code>HealthComponent</code> can pick one up — no type checks against <code>Player</code>.</p>
+
+<div class="code"><div class="code-head"><span class="path">res://actors/health_pickup.gd</span><span class="tag">Area3D · layer 6, mask 2</span><button class="copy">copy</button></div><pre><code>extends Area3D
+
+@export var amount: float = 25.0
+@export var bob_height: float = 0.25
+@export var lifetime: float = 20.0
+
+@onready var mesh: MeshInstance3D = $Mesh
+
+const PICKUP_FX := preload("res://fx/pickup_fx.tscn")
+const PICKUP_SFX := preload("res://audio/sfx/pickup.wav")
+
+func _ready() -> void:
+	body_entered.connect(_on_body_entered)
+
+	var t := create_tween().set_loops()
+	t.tween_property(mesh, "position:y", bob_height, 0.9) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	t.tween_property(mesh, "position:y", 0.0, 0.9) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+	await get_tree().create_timer(lifetime, false).timeout
+	if is_instance_valid(self):
+		queue_free()
+
+func _on_body_entered(body: Node3D) -> void:
+	var health := body.get_node_or_null("HealthComponent") as HealthComponent
+	if health == null or not health.is_alive or health.current &gt;= health.max_health:
+		return
+
+	health.heal(amount)
+	Audio.play_at(PICKUP_SFX, global_position)
+
+	var fx := PICKUP_FX.instantiate()
+	get_tree().current_scene.add_child(fx)
+	fx.global_position = global_position
+	queue_free()
+</code></pre></div>
+
+<p>Drop them from the wave director, so the enemy stays ignorant of loot:</p>
+<div class="code"><div class="code-head"><span class="path">res://systems/wave_director.gd</span><span class="tag">append</span><button class="copy">copy</button></div><pre><code>@export var pickup_scene: PackedScene
+@export var drop_chance: float = 0.22
+
+# inside _on_enemy_died(pos), before the alive count check:
+	if randf() &lt; drop_chance:
+		var p := pickup_scene.instantiate()
+		get_tree().current_scene.add_child(p)
+		p.global_position = pos + Vector3.UP * 0.5
+</code></pre></div>
+<div class="note"><b>a small mercy</b>Bumping <code>drop_chance</code> when the player is below a third health turns a difficulty curve into a comeback. One line: <code>var chance := drop_chance * (2.0 if player_low else 1.0)</code>.</div>
+</section>
+
+<section class="part" id="p11">
+<span class="pnum">11</span>
+<h2>Wiring it up</h2>
+<p><code>main.gd</code> owns nothing except the connections between things that already work.</p>
+
+<div class="code"><div class="code-head"><span class="path">res://main.gd</span><span class="tag">Node3D · the main scene</span><button class="copy">copy</button></div><pre><code>extends Node3D
+
+const DAMAGE_NUMBER := preload("res://fx/damage_number.tscn")
+const MENU_MUSIC := preload("res://audio/music/menu.ogg")
+const COMBAT_MUSIC := preload("res://audio/music/combat.ogg")
+
+@onready var director: WaveDirector = $WaveDirector
+@onready var player: Player = $World/Player
+
+func _ready() -> void:
+	player.add_to_group("player")
+	Events.run_started.connect(_on_run_started)
+	Events.run_ended.connect(_on_run_ended)
+	Events.damage_dealt.connect(_spawn_damage_number)
+	Audio.play_music(MENU_MUSIC)
+
+func _on_run_started() -> void:
+	player.global_position = $World/PlayerStart.global_position
+	player.health.current = player.health.max_health
+	player.set_physics_process(true)
+	Events.player_health_changed.emit(player.health.current, player.health.max_health)
+	Audio.play_music(COMBAT_MUSIC)
+	director.start()
+
+func _on_run_ended() -> void:
+	director.stop()
+	Audio.play_music(MENU_MUSIC)
+
+func _spawn_damage_number(at: Vector3, amount: float) -> void:
+	var n := DAMAGE_NUMBER.instantiate() as Label3D
+	add_child(n)
+	n.global_position = at
+	n.text = str(roundi(amount))
+</code></pre></div>
+
+<h3>Checklist before you run it</h3>
+<ul>
+<li>Player is in the group <code>player</code>, enemies add themselves to <code>enemies</code>.</li>
+<li><code>ShootRay</code> has <b>Collide With Areas</b> ticked and mask 1&nbsp;+&nbsp;4.</li>
+<li>Every hurtbox has its <code>HealthComponent</code> dragged into the export slot.</li>
+<li>Autoloads set <code>PROCESS_MODE_ALWAYS</code> in <code>_ready()</code>.</li>
+<li>Gameplay timers pass <code>false</code> for <code>process_always</code>; the hit stop timer passes <code>true, false, true</code>.</li>
+<li>All one-shot particle scenes have <b>One Shot</b> on and <b>Emitting</b> off.</li>
+<li>The arena has a floor on layer 1, or everything falls through the world forever.</li>
+</ul>
+</section>
+<section class="post" id="post">
+<h2 class="post-head">After the loop</h2>
+<p style="max-width:66ch;color:var(--dim)">Three things that aren't part of the game but are part of shipping one. Each is self-contained — take them in any order.</p>
+
+<details open id="x1">
+<summary>A — Key rebinding at runtime</summary>
+<div class="details-body">
+<p>Godot's <code>InputMap</code> is fully writable at runtime. A rebind button is one node that listens for the next input event, swaps it into the map by action name, and hands the new binding to the settings file. Because every script asks for actions by name, nothing else in the project changes.</p>
+
+<div class="code"><div class="code-head"><span class="path">res://ui/rebind_button.gd</span><span class="tag">Button</span><button class="copy">copy</button></div><pre><code>extends Button
+
+@export var action: StringName = &amp;"move_forward"
+
+var _listening: bool = false
+
+func _ready() -> void:
+	set_process_unhandled_input(false)   # stay quiet until asked
+	pressed.connect(_listen)
+	_refresh()
+
+func _listen() -> void:
+	_listening = true
+	text = "press any key…"
+	set_process_unhandled_input(true)
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not _listening:
+		return
+	var usable := event is InputEventKey \
+		or event is InputEventMouseButton \
+		or event is InputEventJoypadButton
+	if not usable or not event.is_pressed():
+		return
+
+	if event is InputEventKey and event.keycode == KEY_ESCAPE:
+		_stop()
+		return
+
+	_clear_conflicts(event)
+	InputMap.action_erase_events(action)
+	InputMap.action_add_event(action, event)
+	Settings.binds[String(action)] = var_to_str(event)
+	Settings.save()
+
+	get_viewport().set_input_as_handled()
+	_stop()
+
+## If this key already belongs to something else, take it away.
+func _clear_conflicts(event: InputEvent) -> void:
+	for other in InputMap.get_actions():
+		if other == action or String(other).begins_with("ui_"):
+			continue
+		if InputMap.action_has_event(other, event):
+			InputMap.action_erase_events(other)
+			Settings.binds.erase(String(other))
+
+func _stop() -> void:
+	_listening = false
+	set_process_unhandled_input(false)
+	_refresh()
+
+func _refresh() -> void:
+	var events := InputMap.action_get_events(action)
+	text = events[0].as_text() if not events.is_empty() else "unbound"
+</code></pre></div>
+
+<div class="note gotcha"><b>physical keys, not labels</b>Build your default bindings with <b>physical keycodes</b>. A keycode binding for W lands on Z for a French AZERTY keyboard; a physical binding lands on the key in the same place. When a player rebinds, store the event they actually pressed and it will already be physical if their defaults were.</div>
+<div class="note"><b>skip the ui_ actions</b><code>InputMap.get_actions()</code> returns Godot's own built-ins — <code>ui_accept</code>, <code>ui_cancel</code>, and friends. Filter them out of conflict checks and out of any rebinding screen, or a player can unbind their own ability to press a button.</div>
+<p>Build the screen as one row per action, with the label on the left and a <code>RebindButton</code> on the right carrying the action name in its export. Add a "reset to defaults" button that calls <code>InputMap.load_from_project_settings()</code> and clears <code>Settings.binds</code>.</p>
+</div>
+</details>
+
+<details id="x2">
+<summary>B — Object pooling for effects</summary>
+<div class="details-body">
+<p>Every impact spawns a particle scene and every hit spawns a <code>Label3D</code>. At ten shots a second that is a lot of instancing and freeing, and it shows up as periodic stutter once the waves get large. A pool trades that for a fixed allocation at load.</p>
+
+<div class="code"><div class="code-head"><span class="path">res://systems/object_pool.gd</span><span class="tag">Node</span><button class="copy">copy</button></div><pre><code>class_name ObjectPool
+extends Node
+
+@export var scene: PackedScene
+@export var prefill: int = 24
+
+var _idle: Array[Node] = []
+
+func _ready() -> void:
+	for i in prefill:
+		_idle.append(_build())
+
+func _build() -> Node:
+	var n := scene.instantiate()
+	n.set_meta("pool", self)
+	return n
+
+func acquire(parent: Node) -> Node:
+	var n: Node = _idle.pop_back() if not _idle.is_empty() else _build()
+	parent.add_child(n)
+	if n.has_method("on_acquire"):
+		n.on_acquire()
+	return n
+
+func release(n: Node) -> void:
+	if n.get_parent() != null:
+		n.get_parent().remove_child(n)
+	if n.has_method("on_release"):
+		n.on_release()
+	_idle.append(n)
+
+func _exit_tree() -> void:
+	for n in _idle:
+		n.queue_free()   # nodes outside the tree are ours to free
+</code></pre></div>
+
+<p>A pooled effect returns itself instead of freeing:</p>
+<div class="code"><div class="code-head"><span class="path">res://fx/pooled_fx.gd</span><span class="tag">GPUParticles3D</span><button class="copy">copy</button></div><pre><code>extends GPUParticles3D
+
+func _ready() -> void:
+	finished.connect(_return)
+
+func on_acquire() -> void:
+	restart()          # per-spawn setup goes HERE, not in _ready
+
+func on_release() -> void:
+	emitting = false
+
+func _return() -> void:
+	var pool := get_meta("pool", null) as ObjectPool
+	if pool != null:
+		pool.release(self)
+	else:
+		queue_free()
+</code></pre></div>
+
+<div class="note gotcha"><b>_ready runs once, forever</b>A pooled node is instantiated a single time and re-used for the rest of the session. Anything you put in <code>_ready()</code> — resetting position, resetting health, restarting a timer — will run for the first spawn and never again. That is the bug people spend an afternoon on. Put per-spawn work in <code>on_acquire()</code>.</div>
+<div class="note"><b>where it's worth it</b>Impacts, damage numbers, shell casings, decals, projectiles. Not enemies: a handful of spawns every few seconds is nowhere near the cost of keeping thirty capsules resident, and enemy state is much harder to reset cleanly than a particle burst.</div>
+</div>
+</details>
+
+<details id="x3">
+<summary>C — Saving settings and bindings</summary>
+<div class="details-body">
+<p>The fourth autoload. <code>ConfigFile</code> writes an INI-shaped file that you can open in a text editor while debugging, which is worth a great deal compared with a binary blob.</p>
+
+<div class="code"><div class="code-head"><span class="path">res://autoload/settings.gd</span><span class="tag">autoload → Settings, listed after Audio</span><button class="copy">copy</button></div><pre><code>extends Node
+
+const PATH := "user://settings.cfg"
+const BUSES := ["Master", "Music", "SFX"]
+
+var mouse_sensitivity: float = 1.0
+var binds: Dictionary = {}
+
+func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	load_from_disk()
+
+func load_from_disk() -> void:
+	var cfg := ConfigFile.new()
+	if cfg.load(PATH) != OK:
+		return                    # first launch: the defaults above are correct
+
+	for bus_name in BUSES:
+		Audio.set_bus_volume(bus_name, cfg.get_value("audio", bus_name, 1.0))
+
+	mouse_sensitivity = cfg.get_value("game", "mouse_sensitivity", 1.0)
+	binds = cfg.get_value("input", "binds", {})
+	_apply_binds()
+
+func save() -> void:
+	var cfg := ConfigFile.new()
+	for bus_name in BUSES:
+		cfg.set_value("audio", bus_name, Audio.get_bus_volume(bus_name))
+	cfg.set_value("game", "mouse_sensitivity", mouse_sensitivity)
+	cfg.set_value("input", "binds", binds)
+	cfg.save(PATH)
+
+func _apply_binds() -> void:
+	for action_name in binds:
+		var event := str_to_var(binds[action_name]) as InputEvent
+		if event == null or not InputMap.has_action(action_name):
+			continue
+		InputMap.action_erase_events(action_name)
+		InputMap.action_add_event(action_name, event)
+</code></pre></div>
+
+<p>Then in <code>player.gd</code>, multiply rather than replace, so the exported tuning value stays meaningful:</p>
+<div class="code"><div class="code-head"><span class="path">res://actors/player.gd</span><span class="tag">edit</span><button class="copy">copy</button></div><pre><code>var look := mouse_sensitivity * Settings.mouse_sensitivity
+rotate_y(-event.relative.x * look)
+</code></pre></div>
+
+<div class="note gotcha"><b>autoload order is load order</b><code>Settings._ready()</code> calls <code>Audio.set_bus_volume()</code>. If <code>Settings</code> sits above <code>Audio</code> in the autoload list it runs first, against an <code>Audio</code> node that hasn't built its pool yet. Drag it to the bottom. The list order in Project Settings is the initialisation order.</div>
+<div class="note"><b>where the file goes</b><code>user://</code> resolves to <code>%APPDATA%\Godot\app_userdata\&lt;project&gt;</code> on Windows and <code>~/.local/share/godot/app_userdata/&lt;project&gt;</code> on Linux. Print <code>OS.get_user_data_dir()</code> once and bookmark it — deleting that file is how you test the first-launch path.</div>
+<p>Call <code>Settings.save()</code> when the settings screen closes, not on every slider frame. Writing a file sixty times a second while someone drags a volume slider is a real thing people ship.</p>
+</div>
+</details>
+</section>
+
+<footer>
+Built for Godot 4.3+ · every snippet is plain GDScript, no plugins · start at part 00 and the tree at the top will exist by part 11.
+</footer>
+</main>
+</div>
+
+<script>
+(function () {
+  const RE = new RegExp([
+    "(#[^\\n]*)",
+    "(\"[^\"\\n]*\"|'[^'\\n]*')",
+    "(@[A-Za-z_]\\w*)",
+    "\\b(func|var|const|extends|class_name|signal|enum|if|elif|else|for|while|match|return|break|continue|pass|and|or|not|in|is|as|await|static|self|super|preload|load|assert)\\b",
+    "\\b(true|false|null|PI|INF|NAN)\\b",
+    "\\b([A-Z][A-Za-z0-9_]*)\\b",
+    "\\b(\\d[\\d_]*\\.?\\d*)\\b",
+    "([A-Za-z_]\\w*)(?=\\s*\\()"
+  ].join("|"), "g");
+
+  function esc(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function highlight(src) {
+    let out = "", last = 0, m;
+    RE.lastIndex = 0;
+    while ((m = RE.exec(src)) !== null) {
+      out += esc(src.slice(last, m.index));
+      const cls = m[1] ? "cm" : m[2] ? "st" : m[3] ? "an" : m[4] ? "k"
+                : m[5] ? "cn" : m[6] ? "ty" : m[7] ? "nu" : "fn";
+      out += '<span class="' + cls + '">' + esc(m[0]) + "</span>";
+      last = m.index + m[0].length;
+      if (m[0].length === 0) RE.lastIndex++;
+    }
+    return out + esc(src.slice(last));
+  }
+
+  document.querySelectorAll(".code pre code").forEach(el => {
+    const raw = el.textContent;
+    el.dataset.raw = raw;
+    if (el.closest(".code").querySelector(".copy")) el.innerHTML = highlight(raw);
+  });
+
+  document.querySelectorAll(".copy").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const code = btn.closest(".code").querySelector("code");
+      navigator.clipboard.writeText(code.dataset.raw || code.textContent).then(() => {
+        btn.textContent = "copied";
+        btn.classList.add("done");
+        setTimeout(() => { btn.textContent = "copy"; btn.classList.remove("done"); }, 1400);
+      });
+    });
+  });
+
+  const links = [...document.querySelectorAll(".rail a")];
+  const targets = links.map(a => document.querySelector(a.getAttribute("href"))).filter(Boolean);
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      links.forEach(a => a.classList.toggle("on", a.getAttribute("href") === "#" + e.target.id));
+    });
+  }, { rootMargin: "-10% 0px -80% 0px" });
+  targets.forEach(t => obs.observe(t));
+})();
+</script>
+</body>
+</html>

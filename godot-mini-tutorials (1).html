@@ -1,0 +1,2875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Godot 4.7 — Ten Mini Tutorials</title>
+<meta name="description" content="Ten self-contained Godot 4.7 tutorials that build one small project: menus, pause, transitions, a player, remapping, signals, HUD, saving, audio, and export.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ---------- tokens: light is the base, dark overrides below ---------- */
+:root{
+  --bg:#e9edf2;
+  --panel:#ffffff;
+  --panel-2:#f4f7fa;
+  --dock:#e2e7ee;
+  --line:#ccd4df;
+  --line-soft:#e1e7ee;
+  --ink:#141922;
+  --ink-2:#3d4756;
+  --dim:#5f6b7c;
+  --blue:#1d6aad;
+  --blue-soft:#e7f0f9;
+  --green:#45772a;
+  --green-soft:#ecf3e5;
+  --amber:#8e5c0e;
+  --amber-soft:#faf0dc;
+  --rose:#b03544;
+  --rose-soft:#fbe9eb;
+  --violet:#6a4bb0;
+  --code-bg:#f7f9fc;
+  --code-head:#eef2f7;
+  --sel:#cfe2f4;
+  /* syntax */
+  --s-key:#a2246d;
+  --s-str:#2f7a4f;
+  --s-num:#9a5b00;
+  --s-com:#78849a;
+  --s-fn:#1d6aad;
+  --s-type:#6a4bb0;
+  --s-anno:#8e5c0e;
+  --shadow:0 1px 0 rgba(20,25,34,.06), 0 8px 24px -16px rgba(20,25,34,.35);
+  --radius:6px;
+
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#15181f;
+    --panel:#1d2129;
+    --panel-2:#232833;
+    --dock:#191d24;
+    --line:#2f3743;
+    --line-soft:#262c36;
+    --ink:#e2e8f1;
+    --ink-2:#c3ccd9;
+    --dim:#8f9bad;
+    --blue:#61a5e0;
+    --blue-soft:#1b2a3a;
+    --green:#94ce62;
+    --green-soft:#1f2a1c;
+    --amber:#e3ac57;
+    --amber-soft:#2c2417;
+    --rose:#e8767f;
+    --rose-soft:#2d1c1f;
+    --violet:#b39cf0;
+    --code-bg:#181c23;
+    --code-head:#212630;
+    --sel:#2b425c;
+    --s-key:#e695c8;
+    --s-str:#8ad39a;
+    --s-num:#e8b877;
+    --s-com:#6f7c90;
+    --s-fn:#7fbdf0;
+    --s-type:#b39cf0;
+    --s-anno:#e3ac57;
+    --shadow:0 1px 0 rgba(0,0,0,.35), 0 12px 32px -20px rgba(0,0,0,.8);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#15181f; --panel:#1d2129; --panel-2:#232833; --dock:#191d24;
+  --line:#2f3743; --line-soft:#262c36; --ink:#e2e8f1; --ink-2:#c3ccd9; --dim:#8f9bad;
+  --blue:#61a5e0; --blue-soft:#1b2a3a; --green:#94ce62; --green-soft:#1f2a1c;
+  --amber:#e3ac57; --amber-soft:#2c2417; --rose:#e8767f; --rose-soft:#2d1c1f; --violet:#b39cf0;
+  --code-bg:#181c23; --code-head:#212630; --sel:#2b425c;
+  --s-key:#e695c8; --s-str:#8ad39a; --s-num:#e8b877; --s-com:#6f7c90;
+  --s-fn:#7fbdf0; --s-type:#b39cf0; --s-anno:#e3ac57;
+  --shadow:0 1px 0 rgba(0,0,0,.35), 0 12px 32px -20px rgba(0,0,0,.8);
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-behavior:smooth;scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px);-webkit-text-size-adjust:100%}
+@media (prefers-reduced-motion: reduce){
+  html{scroll-behavior:auto}
+  *{animation-duration:.001ms!important;transition-duration:.001ms!important}
+}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:"Newsreader",Georgia,"Times New Roman",serif;
+  font-size:1.0625rem;line-height:1.68;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--sel)}
+h1,h2,h3,h4,.ui,button,nav,label,th,figcaption,.tag,.meta{
+  font-family:"Archivo","Helvetica Neue",Arial,sans-serif;
+}
+a{color:var(--blue);text-decoration:underline;text-underline-offset:2px;text-decoration-thickness:1px}
+a:hover{text-decoration-thickness:2px}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:3px}
+.skip{position:absolute;left:-9999px;top:0;background:var(--panel);color:var(--ink);padding:.6rem 1rem;z-index:99;border:1px solid var(--line)}
+.skip:focus{left:.5rem;top:.5rem}
+
+/* ---------- shell ---------- */
+.shell{display:grid;grid-template-columns:266px minmax(0,1fr);align-items:start;max-width:1320px;margin:0 auto}
+.dock{
+  position:sticky;top:0;height:100vh;height:100dvh;overflow-y:auto;overscroll-behavior:contain;
+  background:var(--dock);border-right:1px solid var(--line);
+  padding:calc(env(safe-area-inset-top,0px) + 1.1rem) .85rem 2rem .95rem;
+}
+.dock-brand{display:flex;align-items:center;gap:.55rem;margin-bottom:1.1rem}
+.dock-brand svg{flex:none}
+.dock-brand b{font-family:"Archivo",sans-serif;font-size:.95rem;letter-spacing:.01em}
+.dock-brand span{display:block;font-family:"Archivo",sans-serif;font-size:.72rem;color:var(--dim);font-weight:500}
+.dock h2{font-size:.7rem;font-weight:600;color:var(--dim);margin:1.4rem 0 .45rem;letter-spacing:.06em}
+.dock ol{list-style:none;margin:0;padding:0}
+.dock ol a{
+  display:grid;grid-template-columns:1.55rem 1fr;gap:.1rem;align-items:baseline;
+  font-family:"Archivo",sans-serif;font-size:.815rem;line-height:1.35;
+  padding:.36rem .45rem;border-radius:5px;color:var(--ink-2);text-decoration:none;
+  border-left:2px solid transparent;
+}
+.dock ol a .n{color:var(--dim);font-variant-numeric:tabular-nums;font-size:.75rem}
+.dock ol a:hover{background:var(--panel-2);color:var(--ink)}
+.dock ol a.on{background:var(--blue-soft);color:var(--ink);border-left-color:var(--blue)}
+.dock ol a.done .n::after{content:"✓";margin-left:.1rem;color:var(--green)}
+.dock .util{display:flex;gap:.4rem;margin-top:1.4rem;flex-wrap:wrap}
+.btn{
+  font-family:"Archivo",sans-serif;font-size:.76rem;font-weight:500;
+  background:var(--panel);color:var(--ink-2);border:1px solid var(--line);
+  border-radius:5px;padding:.34rem .6rem;cursor:pointer;
+}
+.btn:hover{background:var(--panel-2);color:var(--ink)}
+.docktoggle{display:none}
+
+main{min-width:0;padding:0 clamp(1rem,3.2vw,3.2rem) 6rem;max-width:920px}
+
+/* ---------- hero ---------- */
+.hero{padding:clamp(2.2rem,6vw,4.2rem) 0 1.6rem;border-bottom:1px solid var(--line)}
+.hero .kicker{font-family:"Archivo",sans-serif;font-size:.82rem;color:var(--dim);margin:0 0 .9rem}
+.hero .kicker b{color:var(--ink-2);font-weight:600}
+h1{
+  font-size:clamp(2.1rem,5.6vw,3.3rem);line-height:1.02;margin:0 0 .9rem;
+  font-weight:700;letter-spacing:-.022em;
+}
+.hero p.lede{font-size:1.16rem;max-width:34em;margin:0 0 1.5rem;color:var(--ink-2)}
+.hero-split{display:grid;grid-template-columns:minmax(0,1fr);gap:1.4rem}
+@media (min-width:880px){.hero-split{grid-template-columns:minmax(0,1fr) 300px;gap:2.2rem;align-items:start}}
+.factbar{display:flex;flex-wrap:wrap;gap:.45rem;margin:0 0 .4rem;padding:0;list-style:none}
+.factbar li{
+  font-family:"Archivo",sans-serif;font-size:.78rem;color:var(--ink-2);
+  background:var(--panel);border:1px solid var(--line);border-radius:100px;padding:.26rem .7rem;
+}
+
+/* ---------- filesystem / scene tree panels ---------- */
+.fs{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);overflow:hidden;
+}
+.fs > figcaption, .code > figcaption, .tree > figcaption{
+  display:flex;align-items:center;gap:.5rem;justify-content:space-between;
+  background:var(--code-head);border-bottom:1px solid var(--line);
+  padding:.42rem .7rem;font-size:.76rem;color:var(--dim);font-weight:500;
+}
+.fs pre,.tree pre{margin:0;padding:.7rem .8rem;overflow-x:auto}
+.fs pre,.tree pre,.code pre{
+  font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:.795rem;line-height:1.62;tab-size:4;
+}
+.tree{margin:1.35rem 0;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.tree .ty{color:var(--dim)}
+.tree .ty.ctrl{color:var(--green)}
+.tree .ty.node2d{color:var(--blue)}
+.tree .ty.node{color:var(--violet)}
+.tree .ty.res{color:var(--amber)}
+.tree .nm{color:var(--ink)}
+.tree .cm{color:var(--s-com)}
+.fs .dir{color:var(--blue);font-weight:500}
+.fs .new{color:var(--green)}
+.fs .cm{color:var(--s-com)}
+
+/* ---------- code ---------- */
+.code{
+  margin:1.35rem 0;background:var(--code-bg);border:1px solid var(--line);
+  border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);
+}
+.code > figcaption{background:var(--code-head)}
+.code .path{font-family:"JetBrains Mono",monospace;font-size:.74rem;color:var(--ink-2)}
+.code .path em{font-style:normal;color:var(--dim)}
+.code pre{margin:0;padding:.85rem 1rem 1rem;overflow-x:auto;color:var(--ink)}
+.copy{font-family:"Archivo",sans-serif;font-size:.7rem;background:transparent;border:1px solid var(--line);
+  color:var(--dim);border-radius:4px;padding:.18rem .5rem;cursor:pointer;flex:none}
+.copy:hover{color:var(--ink);border-color:var(--dim)}
+.copy.ok{color:var(--green);border-color:var(--green)}
+code{font-family:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;font-size:.86em}
+p code,li code,td code,dd code,summary code{
+  background:var(--panel-2);border:1px solid var(--line-soft);border-radius:4px;
+  padding:.06em .32em;font-size:.82em;color:var(--ink-2);white-space:nowrap;
+}
+/* The rule above must never reach a block: a <code> inside <pre> keeps its
+   own line breaks and its own sizing, wherever the <pre> happens to sit. */
+pre code,
+p pre code,li pre code,td pre code,dd pre code,summary pre code{
+  background:none;border:0;border-radius:0;padding:0;
+  white-space:pre;color:inherit;font-size:inherit;
+}
+.tok-key{color:var(--s-key)}
+.tok-str{color:var(--s-str)}
+.tok-num{color:var(--s-num)}
+.tok-com{color:var(--s-com);font-style:italic}
+.tok-fn{color:var(--s-fn)}
+.tok-type{color:var(--s-type)}
+.tok-anno{color:var(--s-anno)}
+
+/* ---------- tutorial sections ---------- */
+.tut{padding:3.4rem 0 1rem;border-bottom:1px solid var(--line)}
+.tut-head{margin-bottom:2rem}
+.tut-num{
+  font-family:"JetBrains Mono",monospace;font-size:.8rem;color:var(--blue);
+  font-weight:700;margin-bottom:.35rem;
+}
+.tut h2{font-size:clamp(1.55rem,3.6vw,2.15rem);line-height:1.1;margin:0 0 .7rem;letter-spacing:-.018em;font-weight:700}
+.tut-goal{font-size:1.08rem;color:var(--ink-2);max-width:36em;margin:0 0 1.2rem}
+.tut-meta{
+  display:grid;gap:0;margin:0;padding:0;border:1px solid var(--line);border-radius:var(--radius);
+  background:var(--panel);overflow:hidden;
+}
+.tut-meta > div{display:grid;grid-template-columns:8.6rem minmax(0,1fr);gap:.2rem;padding:.5rem .8rem;border-top:1px solid var(--line-soft)}
+.tut-meta > div:first-child{border-top:0}
+.tut-meta dt{font-family:"Archivo",sans-serif;font-size:.74rem;font-weight:600;color:var(--dim);padding-top:.16rem}
+.tut-meta dd{margin:0;font-size:.93rem;color:var(--ink-2)}
+@media (max-width:540px){.tut-meta > div{grid-template-columns:1fr}}
+
+.steps{list-style:none;counter-reset:step;margin:0;padding:0}
+.step{counter-increment:step;position:relative;padding:0 0 .4rem 2.6rem;margin:0 0 2.2rem}
+.step::before{
+  content:counter(step);position:absolute;left:0;top:.08rem;
+  width:1.85rem;height:1.85rem;border-radius:50%;
+  display:grid;place-items:center;
+  font-family:"JetBrains Mono",monospace;font-size:.76rem;font-weight:700;
+  background:var(--panel);border:1px solid var(--line);color:var(--blue);
+}
+.step::after{
+  content:"";position:absolute;left:.925rem;top:2.1rem;bottom:-1.9rem;width:1px;background:var(--line);
+}
+.step:last-child::after{display:none}
+.step h3{font-size:1.06rem;margin:.12rem 0 .55rem;font-weight:600;letter-spacing:-.005em}
+.step > p:first-of-type{margin-top:0}
+p{margin:0 0 1rem;max-width:36em}
+.step p,.step li{max-width:34em}
+ul,ol.plain{padding-left:1.15rem}
+li{margin:.3rem 0}
+
+/* ---------- callouts ---------- */
+.note,.warn,.tip,.new47{
+  border-left:3px solid var(--blue);background:var(--blue-soft);
+  padding:.75rem .95rem;margin:1.2rem 0;border-radius:0 var(--radius) var(--radius) 0;
+  font-size:.96rem;
+}
+.note > :last-child,.warn > :last-child,.tip > :last-child,.new47 > :last-child{margin-bottom:0}
+.note b:first-child,.warn b:first-child,.tip b:first-child,.new47 b:first-child{
+  font-family:"Archivo",sans-serif;font-size:.74rem;font-weight:600;letter-spacing:.03em;
+  display:block;margin-bottom:.22rem;color:var(--blue);
+}
+.warn{border-color:var(--rose);background:var(--rose-soft)}
+.warn b:first-child{color:var(--rose)}
+.tip{border-color:var(--green);background:var(--green-soft)}
+.tip b:first-child{color:var(--green)}
+.new47{border-color:var(--amber);background:var(--amber-soft)}
+.new47 b:first-child{color:var(--amber)}
+
+.verify,.handoff{
+  border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);
+  padding:1rem 1.1rem;margin:2rem 0 0;
+}
+.verify{border-left:3px solid var(--green)}
+.handoff{border-left:3px solid var(--blue);margin-top:1rem}
+.verify h4,.handoff h4{
+  font-size:.76rem;font-weight:600;color:var(--dim);margin:0 0 .5rem;letter-spacing:.03em;
+}
+.verify ol{margin:0;padding-left:1.15rem;font-size:.96rem}
+.handoff p{margin:0;font-size:.96rem;max-width:40em}
+.verify label{display:flex;gap:.55rem;align-items:flex-start;margin-top:.9rem;font-size:.82rem;color:var(--dim);cursor:pointer;font-weight:500}
+.verify input{margin-top:.28rem;accent-color:var(--blue);width:.95rem;height:.95rem;flex:none}
+
+table{border-collapse:collapse;width:100%;margin:1.3rem 0;font-size:.92rem;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius)}
+th,td{text-align:left;padding:.5rem .7rem;border-bottom:1px solid var(--line-soft);vertical-align:top}
+th{font-size:.76rem;font-weight:600;color:var(--dim);background:var(--code-head)}
+tr:last-child td{border-bottom:0}
+.scroller{overflow-x:auto;margin:1.3rem 0}
+.scroller table{margin:0}
+
+details{border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);padding:.6rem .85rem;margin:1.2rem 0}
+summary{cursor:pointer;font-family:"Archivo",sans-serif;font-size:.9rem;font-weight:500;color:var(--ink-2)}
+summary:hover{color:var(--ink)}
+details[open] summary{margin-bottom:.7rem;padding-bottom:.5rem;border-bottom:1px solid var(--line-soft)}
+
+.kbd{font-family:"JetBrains Mono",monospace;font-size:.76em;background:var(--panel-2);border:1px solid var(--line);
+  border-bottom-width:2px;border-radius:4px;padding:.1em .4em;white-space:nowrap;color:var(--ink-2)}
+
+footer.end{padding:3rem 0 0;color:var(--dim);font-size:.92rem}
+footer.end a{color:var(--blue)}
+
+/* ---------- mobile dock ---------- */
+@media (max-width:900px){
+  .shell{grid-template-columns:minmax(0,1fr)}
+  .dock{
+    position:sticky;top:0;height:auto;max-height:none;z-index:20;
+    border-right:0;border-bottom:1px solid var(--line);
+    padding:calc(env(safe-area-inset-top,0px) + .55rem) .8rem .55rem;
+  }
+  .dock-brand{margin-bottom:0}
+  .dock h2,.dock .util{margin-top:.9rem}
+  .dock-body{display:none}
+  .dock.open .dock-body{display:block;max-height:60vh;overflow-y:auto;padding-bottom:.6rem}
+  .docktoggle{display:inline-block;margin-left:auto}
+  main{padding-bottom:4rem}
+  html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 4.2rem)}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="shell">
+<nav class="dock" id="dock" aria-label="Tutorials">
+  <div class="dock-brand">
+    <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="1" y="1" width="22" height="22" rx="5" fill="currentColor" opacity=".08"/>
+      <path d="M4.6 9.2c0-2.4 3.3-4.3 7.4-4.3s7.4 1.9 7.4 4.3v3.1c0 1-.6 2-1.6 2.7l.3 2.3-3.1 1.2-.7-1.9c-.7.1-1.5.2-2.3.2s-1.6-.1-2.3-.2l-.7 1.9L6 17.3l.3-2.3c-1-.7-1.6-1.7-1.6-2.7V9.2Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+      <circle cx="9.2" cy="10.4" r="1.5" fill="currentColor"/>
+      <circle cx="14.8" cy="10.4" r="1.5" fill="currentColor"/>
+    </svg>
+    <div>
+      <b>Ten Mini Tutorials</b>
+      <span>Godot 4.7 · one small project</span>
+    </div>
+    <button class="btn docktoggle" id="docktoggle" aria-expanded="false" aria-controls="dockbody">Contents</button>
+  </div>
+  <div class="dock-body" id="dockbody">
+    <h2>Start here</h2>
+    <ol>
+      <li><a href="#setup"><span class="n">—</span><span>Project setup &amp; conventions</span></a></li>
+    </ol>
+    <h2>Tutorials</h2>
+    <ol id="toc">
+      <li><a href="#t1"><span class="n">01</span><span>Main menu, play scene, pause</span></a></li>
+      <li><a href="#t2"><span class="n">02</span><span>Options menu that remembers</span></a></li>
+      <li><a href="#t3"><span class="n">03</span><span>Scene transitions &amp; loading</span></a></li>
+      <li><a href="#t4"><span class="n">04</span><span>Player controller &amp; input map</span></a></li>
+      <li><a href="#t5"><span class="n">05</span><span>Rebindable controls</span></a></li>
+      <li><a href="#t6"><span class="n">06</span><span>Signals &amp; the event bus</span></a></li>
+      <li><a href="#t7"><span class="n">07</span><span>A HUD that reacts</span></a></li>
+      <li><a href="#t8"><span class="n">08</span><span>Saving and continuing</span></a></li>
+      <li><a href="#t9"><span class="n">09</span><span>Music &amp; sound effects</span></a></li>
+      <li><a href="#t10"><span class="n">10</span><span>Exporting your game</span></a></li>
+    </ol>
+    <h2>Reference</h2>
+    <ol>
+      <li><a href="#appendix"><span class="n">—</span><span>Finished project map</span></a></li>
+      <li><a href="#trouble"><span class="n">—</span><span>When something breaks</span></a></li>
+    </ol>
+    <div class="util">
+      <button class="btn" id="theme" type="button">Theme</button>
+      <button class="btn" id="resetprog" type="button">Reset ticks</button>
+    </div>
+  </div>
+</nav>
+<main id="main">
+
+<header class="hero">
+  <p class="kicker">Written for <b>Godot 4.7</b> (tested on 4.7.2) · GDScript · 2D</p>
+  <div class="hero-split">
+    <div>
+      <h1>Ten mini tutorials that add up to one small game</h1>
+      <p class="lede">Each tutorial stands on its own: its own goal, its own scenes, its own finished scripts, and a test you can run at the end. Read them in order and they assemble into a single working project — a menu you can ship, a level you can play, and a build you can hand to someone else.</p>
+      <ul class="factbar">
+        <li>10 tutorials</li>
+        <li>~4 hours end to end</li>
+        <li>No art assets needed</li>
+        <li>Every script shown in full</li>
+      </ul>
+    </div>
+    <figure class="fs">
+      <figcaption>What you'll have at the end</figcaption>
+<pre><code><span class="dir">pocket-platformer/</span>
+├─ <span class="dir">autoload/</span>
+│  ├─ events.gd        <span class="cm">06</span>
+│  ├─ settings.gd      <span class="cm">02</span>
+│  ├─ audio.gd         <span class="cm">09</span>
+│  ├─ scene_loader.gd  <span class="cm">03</span>
+│  └─ game.gd          <span class="cm">06</span>
+├─ <span class="dir">game/</span>
+│  ├─ level_01.tscn    <span class="cm">01</span>
+│  ├─ level_01.gd      <span class="cm">06</span>
+│  ├─ player.tscn      <span class="cm">04</span>
+│  ├─ player.gd        <span class="cm">04</span>
+│  ├─ coin.tscn        <span class="cm">06</span>
+│  └─ coin.gd          <span class="cm">06</span>
+├─ <span class="dir">ui/</span>
+│  ├─ main_menu.tscn   <span class="cm">01</span>
+│  ├─ main_menu.gd     <span class="cm">01</span>
+│  ├─ pause_menu.tscn  <span class="cm">01</span>
+│  ├─ pause_menu.gd    <span class="cm">01</span>
+│  ├─ options_menu.tscn<span class="cm">02</span>
+│  ├─ options_menu.gd  <span class="cm">02</span>
+│  ├─ key_row.tscn     <span class="cm">05</span>
+│  ├─ key_row.gd       <span class="cm">05</span>
+│  ├─ hud.tscn         <span class="cm">07</span>
+│  └─ hud.gd           <span class="cm">07</span>
+└─ project.godot</code></pre>
+    </figure>
+  </div>
+</header>
+
+<section id="setup">
+  <h2 style="font-size:1.5rem;margin:2.6rem 0 .8rem;letter-spacing:-.015em">Project setup and conventions</h2>
+  <p>Five minutes here saves confusion in every tutorial that follows. If you already have a project you'd rather use, skim the conventions and adapt the paths as you go — nothing in these tutorials depends on the project being new.</p>
+
+  <ol class="steps">
+    <li class="step">
+      <h3>Create the project</h3>
+      <p>In the Project Manager, click <b>Create</b>, name it <code>pocket-platformer</code>, and pick the <b>Compatibility</b> renderer. Compatibility runs everywhere including the web, and nothing in these ten tutorials needs Forward+. You can switch later in <b>Project → Project Settings → Rendering → Renderer</b>.</p>
+      <p>Create three folders in the FileSystem dock — right-click <code>res://</code> and choose <b>New → Folder</b>: <code>autoload</code>, <code>game</code>, <code>ui</code>.</p>
+    </li>
+    <li class="step">
+      <h3>Set the window size and stretch</h3>
+      <p>Open <b>Project → Project Settings → Display → Window</b> and set:</p>
+      <div class="scroller"><table>
+        <thead><tr><th>Setting</th><th>Value</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td>Viewport Width / Height</td><td><code>640</code> × <code>360</code></td><td>Small design resolution, scales cleanly to 1280×720 and 1920×1080.</td></tr>
+          <tr><td>Window Width / Height Override</td><td><code>1280</code> × <code>720</code></td><td>The window you actually get while testing.</td></tr>
+          <tr><td>Stretch → Mode</td><td><code>canvas_items</code></td><td>Scales the whole UI and 2D world with the window.</td></tr>
+          <tr><td>Stretch → Aspect</td><td><code>expand</code></td><td>Wider screens see more world instead of black bars.</td></tr>
+        </tbody>
+      </table></div>
+      <p>New Godot 4.7 projects already start with <code>canvas_items</code> and <code>expand</code>, so you may only need to change the sizes. Turn on <b>Advanced Settings</b> (top-right toggle in Project Settings) if you can't see the stretch options.</p>
+    </li>
+    <li class="step">
+      <h3>Know how to read the panels in this page</h3>
+      <p>Scene trees are written the way the Scene dock shows them — node name first, node type after the colon, indentation for children:</p>
+      <figure class="tree">
+        <figcaption>an example scene</figcaption>
+<pre><code>MainMenu : Control
+└─ Margin : MarginContainer
+   └─ Buttons : VBoxContainer
+      └─ PlayButton : Button</code></pre>
+      </figure>
+      <p>To build that: add a <code>Control</code>, rename it <code>MainMenu</code>, add a <code>MarginContainer</code> as its child, rename it <code>Margin</code>, and so on. Node types are colour-coded the same way the editor colours its icons — green for UI nodes, blue for 2D nodes, violet for plain nodes and layers.</p>
+      <p>Code panels always name the file they belong to. When a panel says <em>replace the whole file</em>, it is the complete script; when it says <em>add to</em>, paste it at the end of what you already have.</p>
+    </li>
+    <li class="step">
+      <h3>Adopt two naming habits</h3>
+      <p><b>Unique names for nodes you touch from code.</b> Right-click a node and choose <b>Access as Unique Name</b> (or press <span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">A</span> — <span class="kbd">Cmd</span> on macOS). The node gets a <code>%</code> badge, and you can reach it as <code>%PlayButton</code> from anywhere in that scene, no matter how you rearrange the containers later. Every <code>%Name</code> you see in this page assumes you did this.</p>
+      <p><b>Typed variables everywhere.</b> <code>var speed: float = 180.0</code> rather than <code>var speed = 180.0</code>. GDScript catches more mistakes before you run, and the editor autocompletes properly.</p>
+      <div class="tip"><b>Shortcut</b>Drag a node from the Scene dock into the script editor while holding <span class="kbd">Ctrl</span> and Godot writes the <code>@onready</code> line for you, unique name included.</div>
+    </li>
+    <li class="step">
+      <h3>Know where the autoloads are heading</h3>
+      <p>Five scripts end up in <b>Project → Project Settings → Globals → Autoload</b>. You'll add them one at a time, but the order matters because autoloads are readied top to bottom, and a few read each other at startup. This is the order you want by the end — drag rows in the Autoload list to fix the order at any point.</p>
+      <div class="scroller"><table>
+        <thead><tr><th>#</th><th>Name</th><th>Script</th><th>Added in</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><code>Events</code></td><td><code>res://autoload/events.gd</code></td><td>Tutorial 06</td></tr>
+          <tr><td>2</td><td><code>Settings</code></td><td><code>res://autoload/settings.gd</code></td><td>Tutorial 02</td></tr>
+          <tr><td>3</td><td><code>SceneLoader</code></td><td><code>res://autoload/scene_loader.gd</code></td><td>Tutorial 03</td></tr>
+          <tr><td>4</td><td><code>Audio</code></td><td><code>res://autoload/audio.gd</code></td><td>Tutorial 09</td></tr>
+          <tr><td>5</td><td><code>Game</code></td><td><code>res://autoload/game.gd</code></td><td>Tutorial 06</td></tr>
+        </tbody>
+      </table></div>
+      <p>The <b>Name</b> column is what you type in code. <code>Settings.master_volume</code> works from any script in the project because the autoload name becomes a global.</p>
+    </li>
+  </ol>
+
+  <div class="handoff">
+    <h4>Next</h4>
+    <p>Tutorial 01 builds the menu, the empty level, and the pause menu that ties them together. Everything after it hangs off those three scenes.</p>
+  </div>
+</section>
+
+<section class="tut" id="t1">
+  <header class="tut-head">
+    <p class="tut-num">TUTORIAL 01</p>
+    <h2>Main menu, play scene, and a pause menu that gets you home</h2>
+    <p class="tut-goal">Three scenes and two scripts. Press Play and you're in the level; press <span class="kbd">Esc</span> and the world freezes behind a pause menu; choose <b>Quit to menu</b> and you're back at the title with the game running normally again.</p>
+    <dl class="tut-meta">
+      <div><dt>Builds on</dt><dd>Nothing. This is the foundation every other tutorial attaches to.</dd></div>
+      <div><dt>You'll create</dt><dd><code>ui/main_menu.tscn</code>, <code>ui/pause_menu.tscn</code>, <code>game/level_01.tscn</code>, and one input action</dd></div>
+      <div><dt>Key ideas</dt><dd>Containers for layout, <code>SceneTree.paused</code>, process modes, why a pause menu belongs on a <code>CanvasLayer</code></dd></div>
+      <div><dt>Time</dt><dd>About 25 minutes</dd></div>
+    </dl>
+  </header>
+
+  <ol class="steps">
+    <li class="step">
+      <h3>Build the main menu scene</h3>
+      <p>Scene → New Scene → <b>Other Node</b> → <code>Control</code>. Rename the root to <code>MainMenu</code> and save it as <code>res://ui/main_menu.tscn</code>.</p>
+      <figure class="tree">
+        <figcaption>res://ui/main_menu.tscn</figcaption>
+<pre><code>MainMenu : Control
+└─ Layout : MarginContainer
+   └─ Menu : VBoxContainer
+      ├─ Title : Label
+      ├─ PlayButton : Button
+      ├─ OptionsButton : Button
+      └─ QuitButton : Button</code></pre>
+      </figure>
+      <p>Now the four settings that make it look deliberate instead of piled into a corner:</p>
+      <ul>
+        <li><b>MainMenu</b> → toolbar <b>Layout → Anchors Preset → Full Rect</b>. The root now always fills the window.</li>
+        <li><b>Layout</b> → same Full Rect preset, then in the Inspector open <b>Theme Overrides → Constants</b> and set all four margins to <code>48</code>.</li>
+        <li><b>Menu</b> → Inspector: <b>Alignment</b> = <code>Center</code>, <b>Theme Overrides → Constants → Separation</b> = <code>10</code>, <b>Layout → Container Sizing → Horizontal</b> = <code>Shrink Center</code>, and <b>Custom Minimum Size</b> x = <code>220</code>.</li>
+        <li><b>Title</b> → Text <code>Pocket Platformer</code>, <b>Horizontal Alignment</b> = <code>Center</code>, and under <b>Theme Overrides → Font Sizes</b> set <b>Font Size</b> to <code>32</code>.</li>
+      </ul>
+      <p>Set the three buttons' text to <b>Play</b>, <b>Options</b> and <b>Quit</b>. Tick <b>Disabled</b> on <b>OptionsButton</b> — there's nothing behind it until Tutorial 02, and a button that does nothing is worse than a button that says it isn't ready.</p>
+      <p>Finally, select <b>PlayButton</b>, <b>OptionsButton</b> and <b>QuitButton</b> and turn on <b>Access as Unique Name</b> for each (right-click → the option with the <code>%</code> symbol). That's what lets the script find them as <code>%PlayButton</code>.</p>
+      <div class="note"><b>Why containers</b>A <code>VBoxContainer</code> owns the position and size of its children — that's why you set <b>Container Sizing</b> on the box instead of dragging buttons around. Fight it and the layout snaps back the moment the window resizes. Tutorial 07 shows the one property in 4.7 that lets you animate a child anyway.</div>
+    </li>
+
+    <li class="step">
+      <h3>Write the menu script</h3>
+      <p>Select the <code>MainMenu</code> root, click the script icon above the Scene dock, and save the new script as <code>res://ui/main_menu.gd</code>. Replace the template with this.</p>
+      <figure class="code">
+        <figcaption><span class="path">res://ui/main_menu.gd <em>— whole file</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">extends Control
+
+const LEVEL_PATH := "res://game/level_01.tscn"
+
+@onready var play_button: Button = %PlayButton
+@onready var options_button: Button = %OptionsButton
+@onready var quit_button: Button = %QuitButton
+
+
+func _ready() -> void:
+	play_button.pressed.connect(_on_play_pressed)
+	options_button.pressed.connect(_on_options_pressed)
+	quit_button.pressed.connect(_on_quit_pressed)
+
+	# A browser tab can't be closed by the page inside it.
+	if OS.has_feature("web"):
+		quit_button.hide()
+
+	# Without this, a keyboard or gamepad player has nothing selected.
+	play_button.grab_focus()
+
+
+func _on_play_pressed() -> void:
+	get_tree().change_scene_to_file(LEVEL_PATH)
+
+
+func _on_options_pressed() -> void:
+	pass # Tutorial 02 fills this in.
+
+
+func _on_quit_pressed() -> void:
+	get_tree().quit()
+</code></pre>
+      </figure>
+      <div class="note"><b>Connecting in code or in the editor?</b>Both work. Connecting in <code>_ready()</code> keeps every wire in one place you can read top to bottom, and renaming a handler won't silently break a connection stored in the <code>.tscn</code>. If you prefer the Node dock's signal list, use it consistently — mixing the two is how you end up with a handler that runs twice.</div>
+    </li>
+
+    <li class="step">
+      <h3>Make the empty level</h3>
+      <p>Scene → New Scene → <b>2D Scene</b>. Rename the root <code>Level</code> and save it as <code>res://game/level_01.tscn</code>.</p>
+      <figure class="tree">
+        <figcaption>res://game/level_01.tscn</figcaption>
+<pre><code>Level : Node2D
+├─ Background : ColorRect
+└─ Hint : Label</code></pre>
+      </figure>
+      <p>Give <b>Background</b> the Full Rect preset and a colour you can tell apart from the menu — something like <code>#20262e</code>. Set <b>Hint</b>'s text to <code>Nothing here yet. Press Esc.</code>, Full Rect preset, <b>Horizontal</b> and <b>Vertical Alignment</b> both <code>Center</code>.</p>
+      <p>That Label is a placeholder with a job: it proves the scene switched. Tutorial 04 deletes it and drops a player in its place.</p>
+    </li>
+
+    <li class="step">
+      <h3>Add the pause action</h3>
+      <p>Open <b>Project → Project Settings → Input Map</b>. Type <code>pause</code> in the box and click <b>Add</b>. Then click the <b>+</b> on the new row and press <span class="kbd">Esc</span>. Click <b>+</b> again, choose <b>Joypad Button</b> and pick <b>Start</b>.</p>
+      <div class="note"><b>Esc is already taken — sort of</b>Godot's built-in <code>ui_cancel</code> action is also bound to <span class="kbd">Esc</span>, and both actions will fire. That's fine here, and it's why the pause menu below marks the event as handled: so <code>ui_cancel</code> doesn't also close a focused dialog behind it. Always define your own gameplay actions rather than reusing the <code>ui_*</code> ones — those belong to Godot's UI navigation and you'll want to rebind yours in Tutorial 05.</div>
+    </li>
+
+    <li class="step">
+      <h3>Build the pause menu scene</h3>
+      <p>Scene → New Scene → <b>Other Node</b> → <code>CanvasLayer</code>. Rename it <code>PauseMenu</code>, save as <code>res://ui/pause_menu.tscn</code>.</p>
+      <figure class="tree">
+        <figcaption>res://ui/pause_menu.tscn</figcaption>
+<pre><code>PauseMenu : CanvasLayer
+└─ Screen : Control
+   ├─ Dim : ColorRect
+   └─ Menu : VBoxContainer
+      ├─ Title : Label
+      ├─ ResumeButton : Button
+      ├─ OptionsButton : Button
+      └─ QuitButton : Button</code></pre>
+      </figure>
+      <ul>
+        <li><b>PauseMenu</b> → Inspector <b>Layer</b> = <code>10</code>. Tutorial 07 puts the HUD on layer 5, so the pause menu covers it.</li>
+        <li><b>PauseMenu</b> → Inspector <b>Node → Process → Mode</b> = <code>Always</code>. This is the load-bearing setting; the next step explains why.</li>
+        <li><b>Screen</b>, <b>Dim</b> → Full Rect preset. Give <b>Dim</b> a colour with alpha, like black at <code>55%</code>, and set its <b>Mouse Filter</b> to <code>Ignore</code> so it never swallows a click meant for a button.</li>
+        <li><b>Menu</b> → same settings as the main menu's: Alignment <code>Center</code>, Separation <code>10</code>, Container Sizing Horizontal <code>Shrink Center</code>, Custom Minimum Size x <code>220</code>.</li>
+        <li><b>Title</b> → text <code>Paused</code>, centered, font size <code>28</code>. Buttons: <b>Resume</b>, <b>Options</b> (tick <b>Disabled</b> again), <b>Quit to menu</b>.</li>
+        <li>Turn on <b>Access as Unique Name</b> for the three buttons.</li>
+      </ul>
+      <div class="tip"><b>Unique names are per-scene</b>This scene has an <code>%OptionsButton</code> and so does the main menu. They never collide, because <code>%</code> resolves inside the scene that declared it — even when this scene is instanced inside another one.</div>
+    </li>
+
+    <li class="step">
+      <h3>Write the pause script</h3>
+      <p>Attach a script to the <code>PauseMenu</code> root, save it as <code>res://ui/pause_menu.gd</code>.</p>
+      <figure class="code">
+        <figcaption><span class="path">res://ui/pause_menu.gd <em>— whole file</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">extends CanvasLayer
+
+const MAIN_MENU_PATH := "res://ui/main_menu.tscn"
+
+@onready var resume_button: Button = %ResumeButton
+@onready var options_button: Button = %OptionsButton
+@onready var quit_button: Button = %QuitButton
+
+
+func _ready() -> void:
+	visible = false
+	resume_button.pressed.connect(close)
+	options_button.pressed.connect(_on_options_pressed)
+	quit_button.pressed.connect(_on_quit_to_menu_pressed)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not event.is_action_pressed("pause"):
+		return
+	# Claim the event so nothing behind us also reacts to it.
+	get_viewport().set_input_as_handled()
+	if visible:
+		close()
+	else:
+		open()
+
+
+func open() -> void:
+	get_tree().paused = true
+	visible = true
+	resume_button.grab_focus()
+
+
+func close() -> void:
+	visible = false
+	get_tree().paused = false
+
+
+func _on_options_pressed() -> void:
+	pass # Tutorial 02 fills this in.
+
+
+func _on_quit_to_menu_pressed() -> void:
+	# Unpause FIRST. The pause flag lives on the SceneTree, not on the scene,
+	# so it would survive the switch and freeze the main menu.
+	get_tree().paused = false
+	get_tree().change_scene_to_file(MAIN_MENU_PATH)
+</code></pre>
+      </figure>
+      <p>Three decisions in that file are worth understanding, because they're the ones people get wrong:</p>
+      <p><b>Process Mode = Always.</b> Setting <code>get_tree().paused = true</code> stops <code>_process</code>, <code>_physics_process</code> and input on every node whose process mode resolves to <em>Inherit</em> or <em>Stop</em>. A pause menu set to <em>When Paused</em> can close itself but can never open itself, because it isn't running when the game is live. <em>Always</em> means this branch runs in both states — and since children inherit, every button inside stays clickable while the world behind them is frozen.</p>
+      <p><b><code>_unhandled_input</code>, not <code>_input</code>.</b> Input reaches <code>_input</code> before the UI sees it, so a player typing in a text box would trigger a pause. <code>_unhandled_input</code> only fires for events no Control consumed, which is what you want for a global hotkey.</p>
+      <p><b><code>visible</code>, not <code>hide()</code>.</b> <code>CanvasLayer</code> is a plain <code>Node</code>, not a <code>CanvasItem</code>, so it has a <code>visible</code> property but no <code>show()</code> or <code>hide()</code> methods.</p>
+      <div class="note"><b>Why a CanvasLayer at all</b>Controls inside a <code>CanvasLayer</code> ignore the game camera entirely — they don't scroll, zoom or rotate with it, and they draw above everything on lower layers. Put your pause menu directly in the level as a plain <code>Control</code> and it will slide off-screen the first time the camera moves.</div>
+    </li>
+
+    <li class="step">
+      <h3>Put the pause menu in the level</h3>
+      <p>Open <code>level_01.tscn</code>, select the <code>Level</code> root, and click the <b>chain-link icon</b> above the Scene dock (<b>Instantiate Child Scene</b>). Choose <code>pause_menu.tscn</code>.</p>
+      <figure class="tree">
+        <figcaption>res://game/level_01.tscn <span class="cm">— after instancing</span></figcaption>
+<pre><code>Level : Node2D
+├─ Background : ColorRect
+├─ Hint : Label
+└─ PauseMenu : CanvasLayer   <span class="cm"># instance of pause_menu.tscn</span></code></pre>
+      </figure>
+      <p>Every level gets its own copy. That's deliberate: the pause menu belongs to gameplay, so it can't accidentally appear over the main menu, and you can see it in the Scene dock while you work instead of hunting through globals. Tutorial 07 adds the HUD the same way.</p>
+      <div class="note"><b>The alternative</b>Some projects make the pause menu an autoload so it exists exactly once. That works too, but then it has to decide for itself whether the current scene is a level or a menu. Copies-per-level is the simpler default; switch later if you end up with dozens of levels.</div>
+    </li>
+
+    <li class="step">
+      <h3>Set the main scene and run</h3>
+      <p>Press <span class="kbd">F5</span>. Godot asks which scene to run first — pick <code>main_menu.tscn</code>. (You can change it later in <b>Project Settings → Application → Run → Main Scene</b>.)</p>
+      <div class="warn"><b>If Play does nothing</b><code>change_scene_to_file()</code> is deferred: Godot swaps scenes at the end of the current frame, not on the line you call it. So a line after it still runs against the old scene. If the screen doesn't change at all, the path string is wrong — check the Output panel for <code>Cannot open file</code>, and copy paths with right-click → <b>Copy Path</b> in the FileSystem dock rather than typing them.</div>
+    </li>
+  </ol>
+
+  <div class="verify">
+    <h4>Check it works</h4>
+    <ol>
+      <li>The menu is centered and <b>Play</b> has a focus ring the moment the game starts.</li>
+      <li><b>Play</b> lands you on the dark level with the placeholder label.</li>
+      <li><span class="kbd">Esc</span> dims the screen and shows <b>Paused</b> with <b>Resume</b> focused; <span class="kbd">Esc</span> again closes it.</li>
+      <li><b>Quit to menu</b> returns to the title — and <b>Play</b> still works from there. If the menu appears but is frozen and unclickable, you removed the <code>get_tree().paused = false</code> line.</li>
+    </ol>
+    <label><input type="checkbox" data-done="t1"> Mark tutorial 01 done</label>
+  </div>
+
+  <div class="handoff">
+    <h4>What this feeds</h4>
+    <p>Tutorial 02 turns both disabled <b>Options</b> buttons into a real screen. Tutorial 03 replaces the two <code>change_scene_to_file()</code> calls with a fading loader. Tutorial 04 fills the empty level.</p>
+  </div>
+</section>
+
+<section class="tut" id="t2">
+  <header class="tut-head">
+    <p class="tut-num">TUTORIAL 02</p>
+    <h2>An options menu that remembers</h2>
+    <p class="tut-goal">Three volume sliders and a fullscreen toggle, written to disk and re-applied on the next launch. One scene serves both menus: it opens as an overlay from the title screen and from the pause menu, with identical behaviour in each.</p>
+    <dl class="tut-meta">
+      <div><dt>Builds on</dt><dd>Tutorial 01's two menu scenes. Standalone? Build it as its own scene and call <code>open()</code> from any button you like.</dd></div>
+      <div><dt>You'll create</dt><dd>Two audio buses, the <code>Settings</code> autoload, <code>ui/options_menu.tscn</code></dd></div>
+      <div><dt>Key ideas</dt><dd><code>ConfigFile</code>, <code>user://</code>, audio buses, <code>DisplayServer</code> window modes, <code>Callable.bind()</code></dd></div>
+      <div><dt>Time</dt><dd>About 30 minutes</dd></div>
+    </dl>
+  </header>
+
+  <ol class="steps">
+    <li class="step">
+      <h3>Create the audio buses</h3>
+      <p>Open the <b>Audio</b> tab in the bottom panel. You already have <b>Master</b>. Click <b>Add Bus</b> twice and rename the new ones <code>Music</code> and <code>SFX</code> — double-click the name to edit it. Leave both routed to <b>Master</b>.</p>
+      <p>A bus is a volume knob that many sounds share. Everything you play on the <code>Music</code> bus is controlled by one slider, and <b>Master</b> sits above all of them, so the master slider scales the lot.</p>
+      <div class="note"><b>Where the layout lives</b>Godot writes the buses to <code>res://default_bus_layout.tres</code> automatically. It will appear in your FileSystem dock — commit it, it's part of the project. Names are case-sensitive: <code>SFX</code> is not <code>Sfx</code>.</div>
+    </li>
+
+    <li class="step">
+      <h3>Write the Settings autoload</h3>
+      <p>Right-click <code>res://autoload</code> → <b>Create New → Script</b>, name it <code>settings.gd</code>, and make it extend <code>Node</code>.</p>
+      <figure class="code">
+        <figcaption><span class="path">res://autoload/settings.gd <em>— whole file</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">extends Node
+
+const CONFIG_PATH := "user://settings.cfg"
+
+# Every setting the game knows about, with the value used on a fresh install.
+const DEFAULTS := {
+	"audio": {"master": 0.8, "music": 0.8, "sfx": 0.8},
+	"display": {"fullscreen": false},
+}
+
+# Maps our short keys to the bus names you typed in the Audio panel.
+const BUS_NAMES := {"master": "Master", "music": "Music", "sfx": "SFX"}
+
+var _config := ConfigFile.new()
+
+
+func _ready() -> void:
+	load_settings()
+
+
+func load_settings() -> void:
+	var err := _config.load(CONFIG_PATH)
+	if err != OK:
+		# ERR_FILE_NOT_FOUND on a fresh install is expected, not a problem.
+		print("No settings file yet, using defaults.")
+	apply_all()
+
+
+func get_value(section: String, key: String) -> Variant:
+	return _config.get_value(section, key, DEFAULTS[section][key])
+
+
+func set_value(section: String, key: String, value: Variant) -> void:
+	_config.set_value(section, key, value)
+
+
+func save() -> void:
+	var err := _config.save(CONFIG_PATH)
+	if err != OK:
+		push_error("Could not write %s (error %d)" % [CONFIG_PATH, err])
+
+
+func apply_all() -> void:
+	for key: String in BUS_NAMES:
+		apply_volume(key)
+	apply_fullscreen(get_value("display", "fullscreen"))
+
+
+func apply_volume(key: String) -> void:
+	var idx := AudioServer.get_bus_index(BUS_NAMES[key])
+	if idx == -1:
+		push_error("Audio bus '%s' does not exist." % BUS_NAMES[key])
+		return
+	var linear: float = get_value("audio", key)
+	# linear_to_db(0.0) is -INF, which works but also spends CPU on silence.
+	AudioServer.set_bus_mute(idx, linear &lt;= 0.001)
+	AudioServer.set_bus_volume_db(idx, linear_to_db(linear))
+
+
+func apply_fullscreen(on: bool) -> void:
+	var mode := DisplayServer.WINDOW_MODE_FULLSCREEN if on else DisplayServer.WINDOW_MODE_WINDOWED
+	DisplayServer.window_set_mode(mode)
+</code></pre>
+      </figure>
+      <p>Register it: <b>Project → Project Settings → Globals → Autoload</b>, pick <code>res://autoload/settings.gd</code>, set the Node Name to <code>Settings</code>, and click <b>Add</b>. Any script in the project can now say <code>Settings.save()</code>.</p>
+      <div class="note"><b>Why sliders are linear but volume is decibels</b>Human hearing is roughly logarithmic, so audio buses are measured in dB, where <code>0</code> is full volume and <code>-80</code> is effectively silence. A slider that ran from -80 to 0 would feel wrong — the whole bottom half would sound the same. So the slider stays 0–1 and <code>linear_to_db()</code> converts. Godot 4.4 added <code>AudioServer.set_bus_volume_linear()</code> if you'd rather skip the conversion; the mute check above is still worth keeping.</div>
+      <div class="tip"><b>Where <code>user://</code> actually is</b>Run the game and check the Output panel after adding <code>print(OS.get_user_data_dir())</code> — it's under <code>%APPDATA%</code> on Windows, <code>~/Library/Application Support</code> on macOS, <code>~/.local/share</code> on Linux, and browser storage on the web. Never write to <code>res://</code> at runtime: it's read-only once you export.</div>
+    </li>
+
+    <li class="step">
+      <h3>Build the options scene</h3>
+      <p>New Scene → <b>Other Node</b> → <code>Control</code>, rename <code>OptionsMenu</code>, save as <code>res://ui/options_menu.tscn</code>.</p>
+      <figure class="tree">
+        <figcaption>res://ui/options_menu.tscn</figcaption>
+<pre><code>OptionsMenu : Control
+├─ Backdrop : ColorRect
+└─ Center : CenterContainer
+   └─ Panel : PanelContainer
+      └─ Margin : MarginContainer
+         └─ Rows : VBoxContainer
+            ├─ Title : Label
+            ├─ MasterRow : HBoxContainer
+            │  ├─ Name : Label
+            │  └─ MasterSlider : HSlider
+            ├─ MusicRow : HBoxContainer
+            │  ├─ Name : Label
+            │  └─ MusicSlider : HSlider
+            ├─ SfxRow : HBoxContainer
+            │  ├─ Name : Label
+            │  └─ SfxSlider : HSlider
+            ├─ FullscreenRow : HBoxContainer
+            │  ├─ Name : Label
+            │  └─ FullscreenCheck : CheckButton
+            └─ BackButton : Button</code></pre>
+      </figure>
+      <p>Settings that matter:</p>
+      <ul>
+        <li><b>OptionsMenu</b>, <b>Backdrop</b>, <b>Center</b> → Full Rect preset. <b>Backdrop</b> gets black at ~<code>70%</code> alpha and <b>Mouse Filter</b> = <code>Stop</code>, so clicks can't reach the menu underneath.</li>
+        <li><b>Margin</b> → all four margin constants <code>20</code>. <b>Rows</b> → Separation <code>10</code>, <b>Custom Minimum Size</b> x = <code>360</code>.</li>
+        <li>Each row's <b>Name</b> label: <code>Master</code>, <code>Music</code>, <code>Effects</code>, <code>Fullscreen</code>, with <b>Custom Minimum Size</b> x = <code>110</code>.</li>
+        <li>Each <b>HSlider</b>: <b>Layout → Container Sizing → Horizontal</b> = <code>Fill, Expand</code>. Leave min/max alone — the script sets them, so the scene and the code can't drift apart.</li>
+        <li><b>Title</b> text <code>Options</code>, font size <code>24</code>. <b>BackButton</b> text <code>Back</code>.</li>
+        <li><b>Access as Unique Name</b> on: <code>MasterSlider</code>, <code>MusicSlider</code>, <code>SfxSlider</code>, <code>FullscreenCheck</code>, <code>BackButton</code>. Tutorial 05 adds two more to that list.</li>
+      </ul>
+    </li>
+
+    <li class="step">
+      <h3>Write the options script</h3>
+      <figure class="code">
+        <figcaption><span class="path">res://ui/options_menu.gd <em>— whole file</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">class_name OptionsMenu
+extends Control
+
+## Emitted when the player leaves this screen, so the menu that opened
+## it can take focus back.
+signal closed
+
+@onready var master_slider: HSlider = %MasterSlider
+@onready var music_slider: HSlider = %MusicSlider
+@onready var sfx_slider: HSlider = %SfxSlider
+@onready var fullscreen_check: CheckButton = %FullscreenCheck
+@onready var back_button: Button = %BackButton
+
+
+func _ready() -> void:
+	hide()
+	_bind_slider(master_slider, "master")
+	_bind_slider(music_slider, "music")
+	_bind_slider(sfx_slider, "sfx")
+
+	fullscreen_check.button_pressed = Settings.get_value("display", "fullscreen")
+	fullscreen_check.toggled.connect(_on_fullscreen_toggled)
+	back_button.pressed.connect(close)
+
+
+func open() -> void:
+	show()
+	master_slider.grab_focus()
+
+
+func close() -> void:
+	Settings.save()
+	hide()
+	closed.emit()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	# A hidden Control still gets input callbacks, hence the visible check.
+	if visible and event.is_action_pressed("ui_cancel"):
+		get_viewport().set_input_as_handled()
+		close()
+
+
+func _bind_slider(slider: HSlider, key: String) -> void:
+	slider.min_value = 0.0
+	slider.max_value = 1.0
+	slider.step = 0.01
+	slider.value = Settings.get_value("audio", key)
+	# bind() glues the extra argument onto the end of the signal's own.
+	slider.value_changed.connect(_on_volume_changed.bind(key))
+
+
+func _on_volume_changed(value: float, key: String) -> void:
+	Settings.set_value("audio", key, value)
+	Settings.apply_volume(key)
+
+
+func _on_fullscreen_toggled(pressed: bool) -> void:
+	Settings.set_value("display", "fullscreen", pressed)
+	Settings.apply_fullscreen(pressed)
+</code></pre>
+      </figure>
+      <p><code>class_name OptionsMenu</code> registers the script as a type, so other scripts can declare <code>var menu: OptionsMenu</code> and get autocomplete on <code>open()</code> and <code>closed</code>.</p>
+      <div class="note"><b>Apply immediately, save on exit</b>Every slider change is applied the moment it moves, so the player hears the result — but the file is only written in <code>close()</code>. Dragging a slider fires <code>value_changed</code> dozens of times a second; writing to disk on each one is wasted work.</div>
+    </li>
+
+    <li class="step">
+      <h3>Hang it off the main menu</h3>
+      <p>Open <code>main_menu.tscn</code>, select the <code>MainMenu</code> root, and instance <code>options_menu.tscn</code> as a child (chain-link icon). Drag it <b>below</b> <code>Layout</code> so it draws on top, then turn on <b>Access as Unique Name</b> for it.</p>
+      <figure class="tree">
+        <figcaption>res://ui/main_menu.tscn</figcaption>
+<pre><code>MainMenu : Control
+├─ Layout : MarginContainer
+│  └─ Menu : VBoxContainer
+│     └─ <span class="cm">…unchanged…</span>
+└─ OptionsMenu : Control      <span class="cm"># instance, %-unique</span></code></pre>
+      </figure>
+      <p>Select <b>OptionsButton</b> and un-tick <b>Disabled</b>. Then make three edits to <code>main_menu.gd</code>:</p>
+      <figure class="code">
+        <figcaption><span class="path">res://ui/main_menu.gd <em>— add the variable</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">@onready var options_menu: OptionsMenu = %OptionsMenu
+</code></pre>
+      </figure>
+      <figure class="code">
+        <figcaption><span class="path">res://ui/main_menu.gd <em>— add inside _ready(), before grab_focus()</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">	options_menu.closed.connect(_on_options_closed)
+</code></pre>
+      </figure>
+      <figure class="code">
+        <figcaption><span class="path">res://ui/main_menu.gd <em>— replace _on_options_pressed()</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">func _on_options_pressed() -> void:
+	options_menu.open()
+
+
+func _on_options_closed() -> void:
+	options_button.grab_focus()
+</code></pre>
+      </figure>
+    </li>
+
+    <li class="step">
+      <h3>Hang it off the pause menu too</h3>
+      <p>Open <code>pause_menu.tscn</code>. Instance <code>options_menu.tscn</code> as a child of the <code>PauseMenu</code> root — a sibling of <code>Screen</code>, listed <b>after</b> it. Mark it as a unique name and un-tick <b>Disabled</b> on this scene's <b>OptionsButton</b>.</p>
+      <figure class="tree">
+        <figcaption>res://ui/pause_menu.tscn</figcaption>
+<pre><code>PauseMenu : CanvasLayer
+├─ Screen : Control
+│  └─ <span class="cm">…unchanged…</span>
+└─ OptionsMenu : Control      <span class="cm"># instance, %-unique</span></code></pre>
+      </figure>
+      <p>The edits to <code>pause_menu.gd</code> are the same shape:</p>
+      <figure class="code">
+        <figcaption><span class="path">res://ui/pause_menu.gd <em>— add the variable</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">@onready var options_menu: OptionsMenu = %OptionsMenu
+</code></pre>
+      </figure>
+      <figure class="code">
+        <figcaption><span class="path">res://ui/pause_menu.gd <em>— add at the end of _ready()</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">	options_menu.closed.connect(_on_options_closed)
+</code></pre>
+      </figure>
+      <figure class="code">
+        <figcaption><span class="path">res://ui/pause_menu.gd <em>— replace _on_options_pressed()</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">func _on_options_pressed() -> void:
+	options_menu.open()
+
+
+func _on_options_closed() -> void:
+	options_button.grab_focus()
+</code></pre>
+      </figure>
+      <div class="note"><b>Two Esc handlers, no conflict</b>Both the pause menu and the options overlay listen for <span class="kbd">Esc</span>. Unhandled input travels up the tree from the deepest node, and the options overlay is deeper, so it gets first refusal. When it's open it calls <code>set_input_as_handled()</code> and the pause menu never hears the key; when it's hidden the <code>visible</code> check lets the event pass straight through. That's the whole mechanism behind layered menus — no state machine required.</div>
+      <div class="warn"><b>The overlay works while paused for one reason</b>It inherits <code>Process Mode = Always</code> from the <code>PauseMenu</code> root you configured in Tutorial 01. If you ever move the options overlay somewhere that isn't <em>Always</em>, its sliders will freeze the moment the game pauses.</div>
+    </li>
+  </ol>
+
+  <div class="verify">
+    <h4>Check it works</h4>
+    <ol>
+      <li>From the title screen, <b>Options</b> opens the panel and <b>Back</b> returns focus to the Options button.</li>
+      <li>Pause in the level, open <b>Options</b>, and press <span class="kbd">Esc</span> — the overlay closes but the pause menu stays open.</li>
+      <li>Toggle <b>Fullscreen</b>; the window changes immediately.</li>
+      <li>Move a slider, quit the game entirely, relaunch, reopen Options — the slider is where you left it. If it isn't, check the Output panel for the <code>Could not write</code> error.</li>
+      <li>In the FileSystem dock's search box, nothing changes — <code>settings.cfg</code> lives outside the project. Open the path <code>OS.get_user_data_dir()</code> prints if you want to see it.</li>
+    </ol>
+    <label><input type="checkbox" data-done="t2"> Mark tutorial 02 done</label>
+  </div>
+
+  <div class="handoff">
+    <h4>What this feeds</h4>
+    <p>Tutorial 05 adds a rebindable-controls block to this same <code>Rows</code> container and stores it through <code>Settings</code>. Tutorial 09 routes music and sound effects through the <code>Music</code> and <code>SFX</code> buses these sliders drive.</p>
+  </div>
+</section>
+
+<section class="tut" id="t3">
+  <header class="tut-head">
+    <p class="tut-num">TUTORIAL 03</p>
+    <h2>Scene transitions and a loading screen</h2>
+    <p class="tut-goal">One autoload replaces every <code>change_scene_to_file()</code> call in the project. Scenes fade out, load on a background thread with a real progress bar, and fade back in — and a scene that fails to load says so instead of freezing.</p>
+    <dl class="tut-meta">
+      <div><dt>Builds on</dt><dd>Tutorial 01's menu and level. Standalone? The autoload is one self-contained file; call <code>SceneLoader.change_scene(path)</code> from anywhere.</dd></div>
+      <div><dt>You'll create</dt><dd>The <code>SceneLoader</code> autoload; edits to both menu scripts</dd></div>
+      <div><dt>Key ideas</dt><dd>Threaded loading, <code>await</code> in GDScript, <code>Tween</code>, building UI in code</dd></div>
+      <div><dt>Time</dt><dd>About 25 minutes</dd></div>
+    </dl>
+  </header>
+
+  <ol class="steps">
+    <li class="step">
+      <h3>Understand what's wrong with the direct call</h3>
+      <p><code>get_tree().change_scene_to_file()</code> loads the scene on the main thread. For the tiny scenes you have now that's a few milliseconds and nobody notices. Put a level with a hundred sprites, a tileset and three music tracks behind it and the game stops responding — no frames, no animation, no way to tell the player anything — until it's done.</p>
+      <p>The fix has three parts: ask for the scene on a background thread, poll how far along it is, and cover the seam with a fade so there's never a single frame of nothing.</p>
+    </li>
+
+    <li class="step">
+      <h3>Write the loader</h3>
+      <p>Create <code>res://autoload/scene_loader.gd</code>. It extends <code>CanvasLayer</code> and builds its own interface, so there's no scene file to keep in sync.</p>
+      <figure class="code">
+        <figcaption><span class="path">res://autoload/scene_loader.gd <em>— whole file</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">extends CanvasLayer
+
+## Emitted after the new scene is in the tree and the fade has started
+## to lift. Carries the path that was loaded.
+signal scene_changed(path: String)
+
+const FADE_TIME := 0.25
+## Stops the loading screen from flashing for two frames on a fast scene.
+const MIN_VISIBLE := 0.4
+
+var _fade: ColorRect
+var _label: Label
+var _bar: ProgressBar
+var _target_path := ""
+var _progress: Array = []
+var _shown_at := 0
+
+
+func _ready() -> void:
+	layer = 100 # Above everything, including the pause menu on layer 10.
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	_build_ui()
+	set_process(false)
+
+
+func is_busy() -> bool:
+	return _target_path != ""
+
+
+func change_scene(path: String) -> void:
+	if is_busy():
+		return # Ignore a second request while one is in flight.
+	if not ResourceLoader.exists(path):
+		push_error("SceneLoader: no such scene: %s" % path)
+		return
+
+	_target_path = path
+	# A paused tree would freeze the new scene too. Clear it here so no
+	# caller has to remember.
+	get_tree().paused = false
+
+	_bar.value = 0.0
+	_fade.visible = true
+	_shown_at = Time.get_ticks_msec()
+	await _fade_to(1.0)
+
+	var err := ResourceLoader.load_threaded_request(path, "PackedScene")
+	if err != OK:
+		push_error("SceneLoader: could not start loading %s (error %d)" % [path, err])
+		await _abort()
+		return
+	set_process(true)
+
+
+func _process(_delta: float) -> void:
+	var status := ResourceLoader.load_threaded_get_status(_target_path, _progress)
+	match status:
+		ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+			# _progress is filled in by the call above: one float, 0.0 to 1.0.
+			_bar.value = _progress[0] * 100.0
+		ResourceLoader.THREAD_LOAD_LOADED:
+			set_process(false)
+			_swap_in()
+		ResourceLoader.THREAD_LOAD_FAILED, ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+			set_process(false)
+			push_error("SceneLoader: failed to load %s" % _target_path)
+			await _abort()
+
+
+func _swap_in() -> void:
+	var packed: PackedScene = ResourceLoader.load_threaded_get(_target_path)
+	_bar.value = 100.0
+
+	# Hold the screen a moment so a 5 ms load doesn't look like a glitch.
+	var elapsed := float(Time.get_ticks_msec() - _shown_at) / 1000.0
+	if elapsed &lt; MIN_VISIBLE:
+		# The last argument is process_always: it keeps ticking while paused.
+		await get_tree().create_timer(MIN_VISIBLE - elapsed, true, false, true).timeout
+
+	var path := _target_path
+	get_tree().change_scene_to_packed(packed)
+	_target_path = ""
+
+	# Let the new scene actually enter the tree before anyone reacts to it.
+	await get_tree().process_frame
+	scene_changed.emit(path)
+
+	await _fade_to(0.0)
+	_fade.visible = false
+
+
+func _abort() -> void:
+	_target_path = ""
+	await _fade_to(0.0)
+	_fade.visible = false
+
+
+func _fade_to(alpha: float) -> void:
+	var tween := create_tween()
+	# Run even if something re-pauses the tree mid-transition.
+	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tween.tween_property(_fade, "color:a", alpha, FADE_TIME)
+	await tween.finished
+
+
+func _build_ui() -> void:
+	_fade = ColorRect.new()
+	_fade.color = Color(0.04, 0.05, 0.07, 0.0)
+	_fade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_fade.mouse_filter = Control.MOUSE_FILTER_STOP
+	_fade.visible = false
+	add_child(_fade)
+
+	var box := VBoxContainer.new()
+	box.set_anchors_preset(Control.PRESET_CENTER)
+	box.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	box.grow_vertical = Control.GROW_DIRECTION_BOTH
+	box.add_theme_constant_override("separation", 10)
+	_fade.add_child(box)
+
+	_label = Label.new()
+	_label.text = "Loading"
+	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(_label)
+
+	_bar = ProgressBar.new()
+	_bar.custom_minimum_size = Vector2(220, 8)
+	_bar.show_percentage = false
+	box.add_child(_bar)
+</code></pre>
+      </figure>
+      <p>Register it as an autoload named <code>SceneLoader</code>, exactly as you did with <code>Settings</code>.</p>
+      <div class="note"><b>Reading the flow</b>Three <code>await</code>s do the heavy lifting. <code>await _fade_to(1.0)</code> suspends <code>change_scene()</code> until the tween reports finished, then resumes on the next line — the function looks sequential but never blocks a frame. <code>await get_tree().process_frame</code> is the idiom for "let one frame pass", which is how you wait for a freshly swapped scene to finish entering the tree.</div>
+      <div class="warn"><b>Progress is not a smooth line</b><code>load_threaded_get_status()</code> reports progress per sub-resource, so a scene with one big dependency can sit at 0 and then jump to 1. That's expected. A progress bar is honest about <em>something is happening</em>, not about how many seconds remain.</div>
+    </li>
+
+    <li class="step">
+      <h3>Route the menus through it</h3>
+      <p>Two one-line swaps. In <code>main_menu.gd</code>:</p>
+      <figure class="code">
+        <figcaption><span class="path">res://ui/main_menu.gd <em>— replace _on_play_pressed()</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">func _on_play_pressed() -> void:
+	SceneLoader.change_scene(LEVEL_PATH)
+</code></pre>
+      </figure>
+      <p>And in <code>pause_menu.gd</code> — note that the explicit unpause is gone, because <code>change_scene()</code> clears it for you:</p>
+      <figure class="code">
+        <figcaption><span class="path">res://ui/pause_menu.gd <em>— replace _on_quit_to_menu_pressed()</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">func _on_quit_to_menu_pressed() -> void:
+	close()
+	SceneLoader.change_scene(MAIN_MENU_PATH)
+</code></pre>
+      </figure>
+      <p>Calling <code>close()</code> first hides the pause menu so it isn't sitting on screen during the fade. From here on, <b>every</b> scene change in the project goes through <code>SceneLoader</code>; a stray <code>change_scene_to_file()</code> will skip the fade and look like a bug.</p>
+    </li>
+
+    <li class="step">
+      <h3>Prove it with a slow scene</h3>
+      <p>Right now everything loads instantly, so you're only seeing the fade. To watch the progress bar move, temporarily add a heavy dependency to <code>level_01.tscn</code> — a few hundred instanced nodes, or a large imported image — and run again. Remember to take it back out.</p>
+      <div class="tip"><b>Check it on the web too</b>Browsers are where loading time becomes visible: files arrive over the network. Threaded loading still works there, but if you export without thread support the request completes on the main thread, so progress jumps straight to 1.0. The fade keeps it looking intentional either way.</div>
+    </li>
+  </ol>
+
+  <div class="verify">
+    <h4>Check it works</h4>
+    <ol>
+      <li><b>Play</b> fades to black, shows <b>Loading</b> briefly, then fades into the level.</li>
+      <li>Pause and <b>Quit to menu</b> fades back to the title, and the title screen is interactive — not frozen.</li>
+      <li>Temporarily change <code>LEVEL_PATH</code> to a path that doesn't exist. The Output panel prints <code>SceneLoader: no such scene</code> and the game carries on instead of hanging. Put the path back.</li>
+      <li>Click <b>Play</b> twice in quick succession — only one transition runs.</li>
+    </ol>
+    <label><input type="checkbox" data-done="t3"> Mark tutorial 03 done</label>
+  </div>
+
+  <div class="handoff">
+    <h4>What this feeds</h4>
+    <p>Tutorial 08's <b>Continue</b> button loads a saved level through this same call and uses the <code>scene_changed</code> signal to know when the level is ready to receive its saved state. Tutorial 09 fades music across the same transition.</p>
+  </div>
+</section>
+
+<section class="tut" id="t4">
+  <header class="tut-head">
+    <p class="tut-num">TUTORIAL 04</p>
+    <h2>A player controller, and an input map worth rebinding</h2>
+    <p class="tut-goal">Fill the empty level with ground, two platforms and a character that runs and jumps — with coyote time and a jump buffer, because a jump that eats your input feels broken even when the physics are right.</p>
+    <dl class="tut-meta">
+      <div><dt>Builds on</dt><dd>Tutorial 01's <code>level_01.tscn</code>. Standalone? Everything here lives in two scenes and one script.</dd></div>
+      <div><dt>You'll create</dt><dd>Three input actions, <code>game/player.tscn</code>, <code>game/player.gd</code>, and real geometry in the level</dd></div>
+      <div><dt>Key ideas</dt><dd><code>CharacterBody2D</code>, <code>_physics_process</code>, <code>get_gravity()</code>, <code>Input.get_axis()</code>, named actions instead of raw keys</dd></div>
+      <div><dt>Time</dt><dd>About 30 minutes</dd></div>
+    </dl>
+  </header>
+
+  <ol class="steps">
+    <li class="step">
+      <h3>Name the actions before you write any movement</h3>
+      <p>Open <b>Project Settings → Input Map</b> and add three actions alongside the <code>pause</code> action from Tutorial 01.</p>
+      <div class="scroller"><table>
+        <thead><tr><th>Action</th><th>Keyboard</th><th>Gamepad</th></tr></thead>
+        <tbody>
+          <tr><td><code>move_left</code></td><td>A, Left arrow</td><td>Left Stick Left, D-pad Left</td></tr>
+          <tr><td><code>move_right</code></td><td>D, Right arrow</td><td>Left Stick Right, D-pad Right</td></tr>
+          <tr><td><code>jump</code></td><td>Space, W, Up arrow</td><td>Bottom Action Button (A / Cross)</td></tr>
+        </tbody>
+      </table></div>
+      <p>Click <b>+</b> on a row, then either press the key or pick <b>Joypad Axis</b> / <b>Joypad Button</b> from the dropdown. For stick axes, leave the <b>Deadzone</b> at <code>0.2</code> — below that, a worn thumbstick will walk your character across the room while you're not touching it.</p>
+      <div class="note"><b>Why not just read the key?</b><code>Input.is_key_pressed(KEY_A)</code> works and costs you three things: gamepads, the rebinding screen in Tutorial 05, and anyone whose keyboard layout puts A somewhere else. Named actions are the indirection that makes all three possible later, for no extra effort now.</div>
+    </li>
+
+    <li class="step">
+      <h3>Build the player scene</h3>
+      <p>New Scene → <b>Other Node</b> → <code>CharacterBody2D</code>. Rename it <code>Player</code>, save as <code>res://game/player.tscn</code>.</p>
+      <figure class="tree">
+        <figcaption>res://game/player.tscn</figcaption>
+<pre><code>Player : CharacterBody2D
+├─ Sprite2D : Sprite2D
+├─ CollisionShape2D : CollisionShape2D
+└─ Camera2D : Camera2D</code></pre>
+      </figure>
+      <ul>
+        <li><b>Sprite2D</b> → drag <code>res://icon.svg</code> (every new project has it) into the <b>Texture</b> slot. Set <b>Transform → Scale</b> to <code>0.25, 0.25</code>. You now have a 32×32 placeholder that costs nothing to replace later.</li>
+        <li><b>CollisionShape2D</b> → in <b>Shape</b>, choose <b>New CapsuleShape2D</b>. Click the shape to expand it and set <b>Radius</b> <code>10</code>, <b>Height</b> <code>32</code>. A capsule slides over small ledges instead of catching on them the way a rectangle does.</li>
+        <li><b>Camera2D</b> → leave the defaults. It follows the player because it's a child of the player.</li>
+      </ul>
+    </li>
+
+    <li class="step">
+      <h3>Write the movement script</h3>
+      <p>Attach a script to <code>Player</code>, save as <code>res://game/player.gd</code>.</p>
+      <figure class="code">
+        <figcaption><span class="path">res://game/player.gd <em>— whole file</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">class_name Player
+extends CharacterBody2D
+
+@export var speed: float = 180.0
+@export var acceleration: float = 1400.0
+@export var friction: float = 1800.0
+
+@export_group("Jump")
+## How high a full jump reaches, in pixels. The script works out the
+## velocity from this and the project's gravity.
+@export var jump_height: float = 64.0
+## Grace period after walking off a ledge where a jump still counts.
+@export var coyote_time: float = 0.12
+## How early a jump press is remembered before landing.
+@export var jump_buffer: float = 0.12
+## Multiplier applied when the player releases jump on the way up.
+@export var short_hop: float = 0.45
+
+@onready var sprite: Sprite2D = $Sprite2D
+
+var _jump_velocity: float = 0.0
+var _coyote_left: float = 0.0
+var _buffer_left: float = 0.0
+
+
+func _ready() -> void:
+	# v = sqrt(2 * g * h) — the upward speed needed to rise jump_height.
+	var gravity: float = maxf(get_gravity().y, 1.0)
+	_jump_velocity = -sqrt(2.0 * gravity * jump_height)
+
+
+func _physics_process(delta: float) -> void:
+	var grounded := is_on_floor()
+	_coyote_left = coyote_time if grounded else maxf(_coyote_left - delta, 0.0)
+	_buffer_left = jump_buffer if Input.is_action_just_pressed("jump") else maxf(_buffer_left - delta, 0.0)
+
+	if not grounded:
+		# get_gravity() includes any Area2D gravity override the body is in.
+		velocity += get_gravity() * delta
+
+	if _buffer_left &gt; 0.0 and _coyote_left &gt; 0.0:
+		velocity.y = _jump_velocity
+		_buffer_left = 0.0
+		_coyote_left = 0.0
+
+	# Releasing jump early cuts the arc short.
+	if Input.is_action_just_released("jump") and velocity.y &lt; 0.0:
+		velocity.y *= short_hop
+
+	var direction := Input.get_axis("move_left", "move_right")
+	if direction != 0.0:
+		velocity.x = move_toward(velocity.x, direction * speed, acceleration * delta)
+		sprite.flip_h = direction &lt; 0.0
+	else:
+		velocity.x = move_toward(velocity.x, 0.0, friction * delta)
+
+	move_and_slide()
+</code></pre>
+      </figure>
+      <p>Four things in there are the difference between "it moves" and "it feels right":</p>
+      <ul>
+        <li><b>Jump height, not jump velocity.</b> You can picture 64 pixels. You cannot picture -354 pixels per second, and it changes every time you touch gravity.</li>
+        <li><b>Coyote time.</b> For 0.12 s after leaving a ledge the jump still fires. Players read this as responsiveness; without it they read the game as dropping inputs.</li>
+        <li><b>Jump buffer.</b> A press up to 0.12 s before landing is remembered and fires on touchdown.</li>
+        <li><b><code>move_toward</code> instead of assignment.</b> Setting <code>velocity.x</code> directly gives you a character that stops dead. Accelerating toward the target gives weight, and one number tunes it.</li>
+      </ul>
+      <div class="note"><b><code>_physics_process</code>, not <code>_process</code></b>Anything that moves a physics body belongs in <code>_physics_process</code>, which runs at a fixed rate (60 Hz by default) no matter the frame rate. <code>Input.is_action_just_pressed()</code> is safe to read there — Godot holds "just pressed" for the whole physics tick.</div>
+      <div class="tip"><b>Tuning without restarting</b>Every <code>@export</code> shows up in the Inspector. Run the game, switch to the <b>Remote</b> tab of the Scene dock, select the live Player and drag <b>Speed</b> — you feel the change immediately. Values set there are discarded on stop, so write the ones you like back into the <b>Local</b> tab.</div>
+    </li>
+
+    <li class="step">
+      <h3>Give the level something to stand on</h3>
+      <p>Open <code>level_01.tscn</code> and delete the <code>Hint</code> label — it has done its job. Build three static bodies and drop the player in.</p>
+      <figure class="tree">
+        <figcaption>res://game/level_01.tscn</figcaption>
+<pre><code>Level : Node2D
+├─ Background : ColorRect
+├─ Ground : StaticBody2D
+│  ├─ Shape : CollisionShape2D
+│  └─ Visual : ColorRect
+├─ PlatformLeft : StaticBody2D
+│  ├─ Shape : CollisionShape2D
+│  └─ Visual : ColorRect
+├─ PlatformRight : StaticBody2D
+│  ├─ Shape : CollisionShape2D
+│  └─ Visual : ColorRect
+├─ Player : CharacterBody2D    <span class="cm"># instance of player.tscn</span>
+└─ PauseMenu : CanvasLayer      <span class="cm"># from tutorial 01</span></code></pre>
+      </figure>
+      <p>Build <code>Ground</code> once, then select it and press <span class="kbd">Ctrl</span>+<span class="kbd">D</span> twice to duplicate it for the platforms. Numbers for a 640×360 viewport:</p>
+      <div class="scroller"><table>
+        <thead><tr><th>Body</th><th>Body position</th><th>Rectangle shape size</th><th>Visual size</th><th>Visual position</th></tr></thead>
+        <tbody>
+          <tr><td>Ground</td><td><code>320, 330</code></td><td><code>640, 60</code></td><td><code>640, 60</code></td><td><code>-320, -30</code></td></tr>
+          <tr><td>PlatformLeft</td><td><code>170, 250</code></td><td><code>160, 24</code></td><td><code>160, 24</code></td><td><code>-80, -12</code></td></tr>
+          <tr><td>PlatformRight</td><td><code>470, 180</code></td><td><code>160, 24</code></td><td><code>160, 24</code></td><td><code>-80, -12</code></td></tr>
+        </tbody>
+      </table></div>
+      <p>Place the <code>Player</code> instance at <code>120, 260</code>. Give each <code>Visual</code> a colour a shade lighter than the background so you can see the edges.</p>
+      <div class="note"><b>Why the visuals need negative positions</b>A <code>CollisionShape2D</code> is centred on its node. A <code>ColorRect</code> — like every <code>Control</code> — grows right and down from its top-left corner. Offsetting the rect by half its size in each direction lines the two up. Once you're using real sprites this disappears, since <code>Sprite2D</code> is centred by default.</div>
+      <div class="new47"><b>New in 4.7</b><code>CollisionShape2D</code> gained <code>one_way_collision_direction</code>. Turn on <b>One Way Collision</b> on a platform's shape and you can now point the passable direction anywhere, instead of rotating the shape until local-up happened to face the right way. Perfect for jump-through platforms.</div>
+    </li>
+
+    <li class="step">
+      <h3>Run it and tune</h3>
+      <p>Press <span class="kbd">F5</span>, click <b>Play</b>, and move with A/D or the arrows. If the character sinks through the floor, the collision shape has no <b>Shape</b> resource assigned. If it jitters against a wall, its capsule is probably wider than you think — turn on <b>Debug → Visible Collision Shapes</b> and look.</p>
+      <p>Start tuning with <b>Jump Height</b> and <b>Speed</b>. If jumps feel floaty, raise the project's gravity (<b>Project Settings → Physics → 2D → Default Gravity</b>, default <code>980</code>) — the script recalculates the jump velocity from it automatically, so your jump stays 64 pixels tall while getting snappier.</p>
+    </li>
+  </ol>
+
+  <div class="verify">
+    <h4>Check it works</h4>
+    <ol>
+      <li>The player lands on the ground and stops, rather than sinking or bouncing.</li>
+      <li>Holding a direction accelerates; letting go slides to a stop over a few frames.</li>
+      <li>Walk off the edge of a platform and press jump a hair too late — it still jumps. That's coyote time.</li>
+      <li>Press jump just before landing — the jump fires on touchdown. That's the buffer.</li>
+      <li>A gamepad moves and jumps without any extra code, and <span class="kbd">Esc</span> still pauses everything.</li>
+    </ol>
+    <label><input type="checkbox" data-done="t4"> Mark tutorial 04 done</label>
+  </div>
+
+  <div class="handoff">
+    <h4>What this feeds</h4>
+    <p>Tutorial 05 lets players rebind these three actions at runtime. Tutorial 06 gives the player health and a reason to shout about it. Tutorial 07 puts that on screen.</p>
+  </div>
+</section>
+
+<section class="tut" id="t5">
+  <header class="tut-head">
+    <p class="tut-num">TUTORIAL 05</p>
+    <h2>Letting players rebind the controls</h2>
+    <p class="tut-goal">A row per action inside the options screen. Click it, press a key, and the binding changes for the rest of the session and every session after — including the pause key itself, with no extra wiring.</p>
+    <dl class="tut-meta">
+      <div><dt>Builds on</dt><dd>Tutorial 02's options menu and <code>Settings</code>, Tutorial 04's actions. Standalone? The row scene works against any <code>InputMap</code> action.</dd></div>
+      <div><dt>You'll create</dt><dd><code>ui/key_row.tscn</code>, <code>ui/key_row.gd</code>, plus a controls block in the options menu</dd></div>
+      <div><dt>Key ideas</dt><dd><code>InputMap</code> at runtime, physical vs. label keycodes, storing an <code>InputEvent</code> as plain data</dd></div>
+      <div><dt>Time</dt><dd>About 30 minutes</dd></div>
+    </dl>
+  </header>
+
+  <ol class="steps">
+    <li class="step">
+      <h3>Decide what actually gets stored</h3>
+      <p>You cannot drop an <code>InputEvent</code> into a config file and expect to read it back — it's an object, and the file wants plain values. So convert it: a keyboard binding becomes <code>{"kind": "key", "code": 65}</code>, and rebuilding the event on load is three lines.</p>
+      <p>The number stored is the <b>physical</b> keycode — the position of the key on the board, not the letter printed on it. Bind "jump" to the key left of S on a QWERTY board and it stays left of S on AZERTY, where that key is labelled Q. The label is only used for display.</p>
+      <p>Add this block to the end of <code>settings.gd</code>:</p>
+      <figure class="code">
+        <figcaption><span class="path">res://autoload/settings.gd <em>— append</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">## Actions the options screen offers to rebind.
+const REBINDABLE := ["move_left", "move_right", "jump", "pause"]
+
+
+## Replaces the keyboard event on an action and remembers it.
+## Gamepad bindings on the same action are left alone.
+func rebind(action: String, event: InputEventKey) -> void:
+	_erase_keyboard_events(action)
+	InputMap.action_add_event(action, event)
+	_config.set_value("controls", action, event_to_binding(event))
+	save()
+
+
+## Puts every saved binding back into the InputMap. Called at startup.
+func apply_bindings() -> void:
+	for action: String in REBINDABLE:
+		var data: Dictionary = _config.get_value("controls", action, {})
+		if data.is_empty():
+			continue
+		var event := binding_to_event(data)
+		if event == null:
+			continue
+		_erase_keyboard_events(action)
+		InputMap.action_add_event(action, event)
+
+
+## Throws away custom bindings and restores what Project Settings says.
+func reset_bindings() -> void:
+	if _config.has_section("controls"):
+		_config.erase_section("controls")
+	InputMap.load_from_project_settings()
+	save()
+
+
+func _erase_keyboard_events(action: String) -> void:
+	for existing in InputMap.action_get_events(action):
+		if existing is InputEventKey:
+			InputMap.action_erase_event(action, existing)
+
+
+static func event_to_binding(event: InputEventKey) -> Dictionary:
+	return {"kind": "key", "code": event.physical_keycode}
+
+
+static func binding_to_event(data: Dictionary) -> InputEventKey:
+	if data.get("kind", "") != "key":
+		return null
+	var event := InputEventKey.new()
+	event.physical_keycode = int(data.get("code", 0))
+	return event
+
+
+## Human-readable name for a binding, in the current keyboard layout.
+static func binding_text(event: InputEvent) -> String:
+	var key_event := event as InputEventKey
+	if key_event != null:
+		var code := key_event.physical_keycode
+		if code == 0:
+			code = key_event.keycode
+		return OS.get_keycode_string(DisplayServer.keyboard_get_keycode_from_physical(code))
+	var pad_event := event as InputEventJoypadButton
+	if pad_event != null:
+		return "Pad button %d" % pad_event.button_index
+	return event.as_text()
+</code></pre>
+      </figure>
+      <p>Then call it at startup — add one line to <code>apply_all()</code>:</p>
+      <figure class="code">
+        <figcaption><span class="path">res://autoload/settings.gd <em>— add at the end of apply_all()</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">	apply_bindings()
+</code></pre>
+      </figure>
+      <div class="note"><b>Why <code>as</code> instead of <code>is</code></b><code>event as InputEventKey</code> returns the event typed, or <code>null</code> if it's the wrong class. Checking the result gives you a properly typed local variable, so the editor autocompletes <code>physical_keycode</code> and catches typos — which a plain <code>if event is …</code> block doesn't do for you.</div>
+    </li>
+
+    <li class="step">
+      <h3>Build the row scene</h3>
+      <p>New Scene → <b>Other Node</b> → <code>HBoxContainer</code>, rename <code>KeyRow</code>, save as <code>res://ui/key_row.tscn</code>.</p>
+      <figure class="tree">
+        <figcaption>res://ui/key_row.tscn</figcaption>
+<pre><code>KeyRow : HBoxContainer
+├─ ActionName : Label
+└─ KeyButton : Button</code></pre>
+      </figure>
+      <p><b>ActionName</b> → Custom Minimum Size x = <code>110</code>. <b>KeyButton</b> → Container Sizing Horizontal = <code>Fill, Expand</code>. Mark both as unique names.</p>
+      <figure class="code">
+        <figcaption><span class="path">res://ui/key_row.gd <em>— whole file</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">class_name KeyRow
+extends HBoxContainer
+
+signal rebound(action: String)
+
+@onready var action_label: Label = %ActionName
+@onready var key_button: Button = %KeyButton
+
+var action: String = ""
+var _listening := false
+
+
+func _ready() -> void:
+	key_button.pressed.connect(_start_listening)
+	set_process_input(false) # Only listen while waiting for a key.
+
+
+## Call this after adding the row to the tree.
+func setup(action_name: String, display_name: String) -> void:
+	action = action_name
+	action_label.text = display_name
+	refresh()
+
+
+func refresh() -> void:
+	for event in InputMap.action_get_events(action):
+		if event is InputEventKey:
+			key_button.text = Settings.binding_text(event)
+			return
+	key_button.text = "Unbound"
+
+
+func _start_listening() -> void:
+	if _listening:
+		return
+	_listening = true
+	key_button.text = "Press a key"
+	key_button.release_focus() # Or Space would immediately rebind itself.
+	set_process_input(true)
+
+
+func _input(event: InputEvent) -> void:
+	if not _listening or not event.is_pressed() or event.is_echo():
+		return
+
+	var key_event := event as InputEventKey
+	if key_event == null:
+		return # Ignore mouse, gamepad and everything else.
+
+	# Nothing else should see this keypress.
+	get_viewport().set_input_as_handled()
+	_listening = false
+	set_process_input(false)
+
+	if key_event.keycode == KEY_ESCAPE:
+		refresh() # Cancelled: put the old label back.
+		return
+
+	Settings.rebind(action, Settings.binding_to_event(Settings.event_to_binding(key_event)))
+	refresh()
+	rebound.emit(action)
+</code></pre>
+      </figure>
+      <p>That last call looks like a detour, and it is a deliberate one: the event handed to <code>rebind()</code> is rebuilt from the same dictionary that gets written to disk. Store one thing, apply another, and you get the bug where a binding works until you restart.</p>
+      <div class="warn"><b>Three details that bite</b><code>release_focus()</code> before listening, or the focused button will treat <span class="kbd">Space</span> as "press me again". <code>_input</code> rather than <code>_unhandled_input</code>, because you want the key <em>before</em> the UI turns it into navigation. And <code>is_echo()</code>, or holding a key fires the rebind repeatedly.</div>
+    </li>
+
+    <li class="step">
+      <h3>Add the controls block to the options menu</h3>
+      <p>Open <code>options_menu.tscn</code> and add three nodes to <code>Rows</code>, above <code>BackButton</code>:</p>
+      <figure class="tree">
+        <figcaption>res://ui/options_menu.tscn <span class="cm">— additions to Rows</span></figcaption>
+<pre><code>Rows : VBoxContainer
+├─ <span class="cm">…title, sliders, fullscreen…</span>
+├─ Separator : HSeparator
+├─ ControlsTitle : Label
+├─ Controls : VBoxContainer
+├─ ResetButton : Button
+└─ BackButton : Button</code></pre>
+      </figure>
+      <p><b>ControlsTitle</b> text <code>Controls</code>. <b>Controls</b> gets Separation <code>6</code> and stays empty — the script fills it. <b>ResetButton</b> text <code>Reset to defaults</code>. Mark <b>Controls</b> and <b>ResetButton</b> as unique names.</p>
+      <figure class="code">
+        <figcaption><span class="path">res://ui/options_menu.gd <em>— add near the top, after the existing @onready lines</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">const KEY_ROW_SCENE := preload("res://ui/key_row.tscn")
+
+## Action name paired with the label the player reads.
+const CONTROL_ROWS := [
+	{"action": "move_left", "label": "Move left"},
+	{"action": "move_right", "label": "Move right"},
+	{"action": "jump", "label": "Jump"},
+	{"action": "pause", "label": "Pause"},
+]
+
+@onready var controls_box: VBoxContainer = %Controls
+@onready var reset_button: Button = %ResetButton
+</code></pre>
+      </figure>
+      <figure class="code">
+        <figcaption><span class="path">res://ui/options_menu.gd <em>— add at the end of _ready()</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">	_build_control_rows()
+	reset_button.pressed.connect(_on_reset_pressed)
+</code></pre>
+      </figure>
+      <figure class="code">
+        <figcaption><span class="path">res://ui/options_menu.gd <em>— append</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">func _build_control_rows() -> void:
+	for entry: Dictionary in CONTROL_ROWS:
+		var row: KeyRow = KEY_ROW_SCENE.instantiate()
+		# Add first, then set up: setup() touches @onready variables,
+		# which only exist once the node is in the tree.
+		controls_box.add_child(row)
+		row.setup(entry["action"], entry["label"])
+
+
+func _on_reset_pressed() -> void:
+	Settings.reset_bindings()
+	for row in controls_box.get_children():
+		row.refresh()
+</code></pre>
+      </figure>
+      <div class="warn"><b>The ordering rule</b><code>@onready</code> variables are assigned when the node enters the tree. Call a method that uses them on a freshly instantiated node and you get <code>Invalid access to property or key on a base object of type Nil</code>. Always <code>add_child()</code> first.</div>
+    </li>
+
+    <li class="step">
+      <h3>Run it, then quit and run it again</h3>
+      <p>Open <b>Options</b> from either menu. Click the button next to <b>Jump</b>, press <span class="kbd">J</span>, and jump with J. Press <span class="kbd">Esc</span> while a row is waiting and it cancels without changing anything.</p>
+      <p>Rebind <b>Pause</b> to <span class="kbd">P</span> and close the options screen. <span class="kbd">P</span> now pauses the game and <span class="kbd">Esc</span> doesn't — and you didn't touch <code>pause_menu.gd</code>. That's the whole payoff of naming actions in Tutorial 04.</p>
+      <details>
+        <summary>Two things this version deliberately leaves out</summary>
+        <p><b>Conflict detection.</b> Nothing stops the player binding <b>Jump</b> and <b>Move right</b> to the same key. To catch it, loop <code>Settings.REBINDABLE</code> before calling <code>rebind()</code>, compare <code>InputMap.action_get_events()</code> entries against the new keycode, and either refuse or clear the other action first.</p>
+        <p><b>Gamepad rebinding.</b> The row ignores <code>InputEventJoypadButton</code>. To accept it, widen the filter in <code>_input()</code>, add a <code>"joy_button"</code> case to the two converter functions, and give <code>Settings</code> a matching <code>_erase_joypad_events()</code>. Keep the two kinds in separate storage slots so binding a key never removes a pad button.</p>
+      </details>
+    </li>
+  </ol>
+
+  <div class="verify">
+    <h4>Check it works</h4>
+    <ol>
+      <li>Each row shows the current key, spelled the way your keyboard layout spells it.</li>
+      <li>Rebinding takes effect immediately, without leaving the options screen.</li>
+      <li><b>Reset to defaults</b> puts every row back to what Project Settings declares.</li>
+      <li>Quit the game completely, relaunch, and your bindings are still there — that's <code>apply_bindings()</code> running from <code>apply_all()</code>.</li>
+      <li>A gamepad still moves and jumps after you rebind the keyboard.</li>
+    </ol>
+    <label><input type="checkbox" data-done="t5"> Mark tutorial 05 done</label>
+  </div>
+
+  <div class="handoff">
+    <h4>What this feeds</h4>
+    <p>Nothing depends on this tutorial, which is exactly why it's worth doing early: it's the last time the input layer is small enough to change in half an hour.</p>
+  </div>
+</section>
+
+<section class="tut" id="t6">
+  <header class="tut-head">
+    <p class="tut-num">TUTORIAL 06</p>
+    <h2>Signals, and the event bus that keeps scenes apart</h2>
+    <p class="tut-goal">Give the run some state worth caring about — health and coins — and let anything announce a change without knowing who is listening. A coin that vanishes doesn't need a reference to the HUD, and the HUD doesn't need to go looking for coins.</p>
+    <dl class="tut-meta">
+      <div><dt>Builds on</dt><dd>Tutorial 04's player and level. Standalone? The two autoloads are independent; the coin and killzone are just examples of who talks to them.</dd></div>
+      <div><dt>You'll create</dt><dd>The <code>Events</code> and <code>Game</code> autoloads, <code>game/coin.tscn</code>, a killzone, and <code>game/level_01.gd</code></dd></div>
+      <div><dt>Key ideas</dt><dd>Custom signals, when a bus helps and when it hurts, autoload-owned run state</dd></div>
+      <div><dt>Time</dt><dd>About 30 minutes</dd></div>
+    </dl>
+  </header>
+
+  <ol class="steps">
+    <li class="step">
+      <h3>Know which of the two tools you need</h3>
+      <p>Godot gives you two ways to let one node tell another something happened, and picking the wrong one is the most common way a small project turns into an unreadable one.</p>
+      <div class="scroller"><table>
+        <thead><tr><th>Use a direct signal</th><th>Use the event bus</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>The two nodes live in the same scene, or one owns the other.<br><br>The options menu emitting <code>closed</code> to the menu that opened it — Tutorial 02.</td>
+            <td>The sender has no idea who cares, and the listeners come and go.<br><br>A coin being picked up: the HUD, the audio manager and the save system all want to know, and none of them can hold a reference to a coin that might not exist yet.</td>
+          </tr>
+        </tbody>
+      </table></div>
+      <p>The failure mode of a bus is putting everything on it. Once every interaction is a global signal, nothing tells you what talks to what, and a renamed signal fails silently at runtime instead of loudly at parse time. Keep local things local.</p>
+    </li>
+
+    <li class="step">
+      <h3>Declare the bus</h3>
+      <p>Create <code>res://autoload/events.gd</code>. It holds signals and nothing else — no state, no logic. That restraint is what makes it safe to reference from everywhere.</p>
+      <figure class="code">
+        <figcaption><span class="path">res://autoload/events.gd <em>— whole file</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">extends Node
+
+## Fired whenever the player's health changes, including when a run starts.
+signal player_health_changed(current: int, maximum: int)
+
+## Health reached zero.
+signal player_died
+
+## The run's coin total changed.
+signal coin_count_changed(total: int)
+
+## The pause menu opened (true) or closed (false).
+signal game_paused(paused: bool)
+</code></pre>
+      </figure>
+      <p>Register it as an autoload named <code>Events</code>, then drag it to the <b>top</b> of the Autoload list. Autoloads ready in list order, and the ones below are about to emit through it.</p>
+      <div class="tip"><b>Typed signal parameters are not decoration</b><code>signal coin_count_changed(total: int)</code> makes the editor check the arguments at both ends. Without types, a mismatched <code>emit()</code> is a runtime error that only shows up when that code path runs.</div>
+    </li>
+
+    <li class="step">
+      <h3>Give the run some state</h3>
+      <p>Health and coins belong to the run, not to the player node — the player is destroyed and rebuilt every time a level reloads. Create <code>res://autoload/game.gd</code>.</p>
+      <figure class="code">
+        <figcaption><span class="path">res://autoload/game.gd <em>— whole file</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">extends Node
+
+const MAX_HEALTH := 3
+
+var health: int = MAX_HEALTH
+var coins: int = 0
+
+
+## Wipes the run back to its starting values and tells everyone.
+func start_new_run() -> void:
+	health = MAX_HEALTH
+	coins = 0
+	broadcast()
+
+
+## Re-announces the current state. Anything that just appeared on screen
+## can call this to fill itself in.
+func broadcast() -> void:
+	Events.player_health_changed.emit(health, MAX_HEALTH)
+	Events.coin_count_changed.emit(coins)
+
+
+func add_coin(amount: int = 1) -> void:
+	coins += amount
+	Events.coin_count_changed.emit(coins)
+
+
+func damage(amount: int = 1) -> void:
+	if health &lt;= 0:
+		return # Already dead; don't fire player_died twice.
+	health = maxi(health - amount, 0)
+	Events.player_health_changed.emit(health, MAX_HEALTH)
+	if health == 0:
+		Events.player_died.emit()
+</code></pre>
+      </figure>
+      <p>Register it as an autoload named <code>Game</code>, at the <b>bottom</b> of the list.</p>
+      <div class="note"><b>The <code>broadcast()</code> method earns its keep in Tutorial 07</b>A HUD that appears mid-run has missed every signal fired before it existed. Rather than have it reach into <code>Game</code> and read the values — which couples it to the shape of that script — it asks for a re-announcement and fills itself from the same signals it uses for everything else. One code path instead of two.</div>
+    </li>
+
+    <li class="step">
+      <h3>Make a coin</h3>
+      <p>New Scene → <b>Other Node</b> → <code>Area2D</code>, rename <code>Coin</code>, save as <code>res://game/coin.tscn</code>.</p>
+      <figure class="tree">
+        <figcaption>res://game/coin.tscn</figcaption>
+<pre><code>Coin : Area2D
+├─ Sprite2D : Sprite2D
+└─ CollisionShape2D : CollisionShape2D</code></pre>
+      </figure>
+      <p><b>Sprite2D</b> → <code>res://icon.svg</code>, scale <code>0.12, 0.12</code>. <b>CollisionShape2D</b> → <b>New CircleShape2D</b>, radius <code>9</code>.</p>
+      <figure class="code">
+        <figcaption><span class="path">res://game/coin.gd <em>— whole file</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">extends Area2D
+
+
+func _ready() -> void:
+	body_entered.connect(_on_body_entered)
+
+
+func _on_body_entered(body: Node2D) -> void:
+	if body is Player:
+		Game.add_coin()
+		# The coin says what happened and stops existing. It never
+		# learns whether anything was listening.
+		queue_free()
+</code></pre>
+      </figure>
+      <p>Drop four or five coins into <code>level_01.tscn</code> — instance <code>coin.tscn</code>, then <span class="kbd">Ctrl</span>+<span class="kbd">D</span> and drag copies onto the platforms.</p>
+      <div class="warn"><b>If coins ignore the player</b><code>Area2D</code> only notices bodies whose collision layer is in the area's mask. Both default to layer 1, so a fresh project works — but if you've started organising layers, check that the coin's <b>Mask</b> includes the player's <b>Layer</b>. Also make sure <b>Monitoring</b> is on, which it is by default.</div>
+    </li>
+
+    <li class="step">
+      <h3>Add a way to lose health, and a level script to react</h3>
+      <p>Add two nodes to <code>level_01.tscn</code>:</p>
+      <figure class="tree">
+        <figcaption>res://game/level_01.tscn <span class="cm">— additions</span></figcaption>
+<pre><code>Level : Node2D
+├─ <span class="cm">…background, ground, platforms, player, coins…</span>
+├─ SpawnPoint : Marker2D
+├─ Killzone : Area2D
+│  └─ CollisionShape2D : CollisionShape2D
+└─ PauseMenu : CanvasLayer</code></pre>
+      </figure>
+      <p>Put <b>SpawnPoint</b> where the player starts — <code>120, 260</code>. Give <b>Killzone</b> position <code>320, 460</code> and a <code>RectangleShape2D</code> of <code>1600, 80</code>: a wide strip under the level that catches anything that falls off. Mark both as unique names.</p>
+      <p>Attach a script to the <code>Level</code> root, saved as <code>res://game/level_01.gd</code>.</p>
+      <figure class="code">
+        <figcaption><span class="path">res://game/level_01.gd <em>— whole file</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">extends Node2D
+
+@onready var spawn_point: Marker2D = %SpawnPoint
+@onready var killzone: Area2D = %Killzone
+
+
+func _ready() -> void:
+	Events.player_died.connect(_on_player_died)
+	killzone.body_entered.connect(_on_killzone_entered)
+	Game.start_new_run()
+
+
+func _on_killzone_entered(body: Node2D) -> void:
+	var fallen := body as Player
+	if fallen == null:
+		return
+	Game.damage(1)
+	if Game.health &gt; 0:
+		_respawn(fallen)
+
+
+func _respawn(who: Player) -> void:
+	who.velocity = Vector2.ZERO
+	who.global_position = spawn_point.global_position
+
+
+func _on_player_died() -> void:
+	# Let the moment land before restarting.
+	await get_tree().create_timer(0.8).timeout
+	Game.start_new_run()
+	# scene_file_path is this scene's own .tscn path, so the level
+	# reloads itself without hard-coding a string.
+	SceneLoader.change_scene(scene_file_path)
+</code></pre>
+      </figure>
+      <div class="note"><b>Connections clean themselves up</b><code>Events</code> outlives every level, so it's fair to worry about a connection to a level that no longer exists. Godot disconnects automatically when either object is freed, so reloading the level doesn't stack up dead listeners. What it <em>won't</em> save you from is connecting twice to the same still-living object — guard with <code>if not signal.is_connected(callable)</code> if a script can run <code>_ready()</code> more than once.</div>
+    </li>
+
+    <li class="step">
+      <h3>Let the pause menu announce itself</h3>
+      <p>Two lines in <code>pause_menu.gd</code>. Tutorial 09 uses them to duck the music while the game is paused, and you'll find more uses — muting ambience, stopping a timer, dimming a shader.</p>
+      <figure class="code">
+        <figcaption><span class="path">res://ui/pause_menu.gd <em>— replace open() and close()</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">func open() -> void:
+	get_tree().paused = true
+	visible = true
+	resume_button.grab_focus()
+	Events.game_paused.emit(true)
+
+
+func close() -> void:
+	visible = false
+	get_tree().paused = false
+	Events.game_paused.emit(false)
+</code></pre>
+      </figure>
+    </li>
+  </ol>
+
+  <div class="verify">
+    <h4>Check it works</h4>
+    <ol>
+      <li>Walking into a coin makes it disappear. Add <code>print(Game.coins)</code> temporarily inside <code>add_coin()</code> if you want proof before the HUD exists.</li>
+      <li>Falling off the bottom teleports you back to the spawn point, three times.</li>
+      <li>The fourth fall pauses for a beat and reloads the level through the fade from Tutorial 03, with coins restored.</li>
+      <li>The Output panel is silent. Any <code>Invalid call</code> or <code>nonexistent signal</code> error here is a name typo — the bus can't catch those for you.</li>
+    </ol>
+    <label><input type="checkbox" data-done="t6"> Mark tutorial 06 done</label>
+  </div>
+
+  <div class="handoff">
+    <h4>What this feeds</h4>
+    <p>Tutorial 07 builds a HUD that listens to these four signals and touches nothing else. Tutorial 08 saves the two variables in <code>Game</code>. Tutorial 09 plays a sound on every one of them.</p>
+  </div>
+</section>
+
+<section class="tut" id="t7">
+  <header class="tut-head">
+    <p class="tut-num">TUTORIAL 07</p>
+    <h2>A HUD that reacts to the game instead of polling it</h2>
+    <p class="tut-goal">Hearts and a coin counter that update from signals, a red flash when you take a hit, and a coin total that pops — inside a container, which until Godot 4.7 was the one thing you couldn't animate.</p>
+    <dl class="tut-meta">
+      <div><dt>Builds on</dt><dd>Tutorial 06's <code>Events</code> and <code>Game</code>. Standalone? Point the two signal connections at whatever your project already emits.</dd></div>
+      <div><dt>You'll create</dt><dd><code>ui/hud.tscn</code> and <code>ui/hud.gd</code></dd></div>
+      <div><dt>Key ideas</dt><dd>Anchors vs containers, building repeated UI in code, <code>Tween</code> chains, <code>offset_transform_*</code></dd></div>
+      <div><dt>Time</dt><dd>About 25 minutes</dd></div>
+    </dl>
+  </header>
+
+  <ol class="steps">
+    <li class="step">
+      <h3>Build the HUD scene</h3>
+      <p>New Scene → <b>Other Node</b> → <code>CanvasLayer</code>, rename <code>HUD</code>, save as <code>res://ui/hud.tscn</code>. Set its <b>Layer</b> to <code>5</code> — above the world, below the pause menu's layer 10.</p>
+      <figure class="tree">
+        <figcaption>res://ui/hud.tscn</figcaption>
+<pre><code>HUD : CanvasLayer
+├─ Flash : ColorRect
+└─ Root : MarginContainer
+   └─ Top : HBoxContainer
+      ├─ Hearts : HBoxContainer
+      └─ CoinBox : HBoxContainer
+         ├─ CoinIcon : TextureRect
+         └─ CoinLabel : Label</code></pre>
+      </figure>
+      <ul>
+        <li><b>Flash</b> → Full Rect, colour a strong red with <b>alpha 0</b>, <b>Mouse Filter</b> = <code>Ignore</code>. It's invisible until something hits you.</li>
+        <li><b>Root</b> → Full Rect, all four margin constants <code>16</code>.</li>
+        <li><b>Top</b> → <b>Container Sizing → Vertical</b> = <code>Shrink Begin</code>, so the bar hugs the top of the screen instead of stretching down it.</li>
+        <li><b>Hearts</b> → Separation <code>4</code>. Leave it empty; the script fills it.</li>
+        <li><b>CoinBox</b> → <b>Container Sizing → Horizontal</b> = <code>Fill, Expand</code> and <b>Alignment</b> = <code>End</code>. That single expand flag is what pushes the coin counter to the right edge.</li>
+        <li><b>CoinIcon</b> → texture <code>res://icon.svg</code>, <b>Custom Minimum Size</b> <code>20, 20</code>, <b>Expand Mode</b> = <code>Ignore Size</code>, <b>Stretch Mode</b> = <code>Keep Aspect Centered</code>. <b>CoinLabel</b> → text <code>0</code>.</li>
+        <li>Unique names on <b>Flash</b>, <b>Hearts</b>, <b>CoinBox</b> and <b>CoinLabel</b>.</li>
+      </ul>
+      <div class="note"><b>Anchors or containers?</b>Anchors pin one control to an edge. Containers arrange several and own their children's geometry. This HUD uses both, in the right places: anchors put the bar across the top, containers space the hearts and shove the coin group right. Reach for anchors first when a thing is alone on the screen, containers as soon as there are two of them in a row.</div>
+    </li>
+
+    <li class="step">
+      <h3>Write the HUD script</h3>
+      <figure class="code">
+        <figcaption><span class="path">res://ui/hud.gd <em>— whole file</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">extends CanvasLayer
+
+const HEART_TEXTURE := preload("res://icon.svg")
+const HEART_FULL := Color(1, 0.35, 0.42)
+const HEART_EMPTY := Color(1, 1, 1, 0.18)
+
+@onready var flash: ColorRect = %Flash
+@onready var hearts: HBoxContainer = %Hearts
+@onready var coin_box: HBoxContainer = %CoinBox
+@onready var coin_label: Label = %CoinLabel
+
+var _last_health := -1
+var _flash_tween: Tween
+
+
+func _ready() -> void:
+	Events.player_health_changed.connect(_on_health_changed)
+	Events.coin_count_changed.connect(_on_coin_count_changed)
+	# Ask for the current values: every signal so far was fired before
+	# this node existed.
+	Game.broadcast()
+
+
+func _on_health_changed(current: int, maximum: int) -> void:
+	if hearts.get_child_count() != maximum:
+		_rebuild_hearts(maximum)
+
+	var index := 0
+	for heart: TextureRect in hearts.get_children():
+		heart.modulate = HEART_FULL if index &lt; current else HEART_EMPTY
+		index += 1
+
+	if _last_health != -1 and current &lt; _last_health:
+		_flash_red()
+	_last_health = current
+
+
+func _on_coin_count_changed(total: int) -> void:
+	coin_label.text = str(total)
+	_pop(coin_box)
+
+
+func _rebuild_hearts(maximum: int) -> void:
+	for child in hearts.get_children():
+		child.queue_free()
+	for i in maximum:
+		var heart := TextureRect.new()
+		heart.texture = HEART_TEXTURE
+		heart.custom_minimum_size = Vector2(20, 20)
+		heart.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		heart.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		hearts.add_child(heart)
+
+
+func _flash_red() -> void:
+	if _flash_tween != null and _flash_tween.is_running():
+		_flash_tween.kill() # Two hits in a row shouldn't fight each other.
+	flash.color.a = 0.0
+	_flash_tween = create_tween()
+	_flash_tween.tween_property(flash, "color:a", 0.42, 0.05)
+	_flash_tween.tween_property(flash, "color:a", 0.0, 0.28)
+
+
+func _pop(control: Control) -> void:
+	# Godot 4.7: an offset transform sits on top of whatever the parent
+	# container decided, so the container can re-sort without undoing it.
+	control.offset_transform_enabled = true
+	control.offset_transform_pivot_ratio = Vector2(0.5, 0.5)
+
+	var tween := create_tween()
+	tween.tween_property(control, "offset_transform_scale", Vector2(1.22, 1.22), 0.07)
+	tween.tween_property(control, "offset_transform_scale", Vector2.ONE, 0.18) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+</code></pre>
+      </figure>
+      <p>Note what the HUD doesn't do: it never looks for the player, never reads <code>Game.health</code>, and never runs code every frame. It sits idle until a signal arrives. That's also why it survives the player being deleted and rebuilt on every respawn.</p>
+      <div class="new47"><b>New in 4.7 — why the pop works at all</b>A <code>Container</code> sets its children's position, rotation and scale every time it re-sorts. Scale a child the old way and the next layout pass silently resets it, which is why pre-4.7 projects wrap animated UI in an extra <code>Control</code>. <code>offset_transform_*</code> is a second transform applied after layout, so the container never fights it. Because <code>offset_transform_visual_only</code> defaults to <code>true</code>, a button that scales up doesn't drag its click area with it and can't lose the mouse mid-hover.</div>
+      <div class="note"><b>Tween chains run in order</b>Two <code>tween_property()</code> calls on the same tween play one after the other by default. Want them together? Call <code>tween.set_parallel(true)</code> first. <code>kill()</code> on the old tween before starting a new one is the standard guard against two animations writing to the same property.</div>
+    </li>
+
+    <li class="step">
+      <h3>Put it in the level</h3>
+      <p>Open <code>level_01.tscn</code> and instance <code>hud.tscn</code> as a child of <code>Level</code>, next to the pause menu.</p>
+      <figure class="tree">
+        <figcaption>res://game/level_01.tscn</figcaption>
+<pre><code>Level : Node2D
+├─ <span class="cm">…world, player, coins, killzone…</span>
+├─ HUD : CanvasLayer         <span class="cm"># instance, layer 5</span>
+└─ PauseMenu : CanvasLayer   <span class="cm"># instance, layer 10</span></code></pre>
+      </figure>
+      <div class="note"><b>Ready order, and why <code>broadcast()</code> lands correctly</b>Godot calls <code>_ready()</code> on children before parents. The HUD is a child of the level, so it connects its signals and asks for a broadcast first; the level's own <code>_ready()</code> then calls <code>Game.start_new_run()</code>, which broadcasts again with fresh values. The HUD is already listening, so it shows three hearts and zero coins. Depth-first, bottom-up — worth committing to memory.</div>
+    </li>
+  </ol>
+
+  <div class="verify">
+    <h4>Check it works</h4>
+    <ol>
+      <li>Three hearts top-left, coin counter top-right, and both stay put when you resize the window.</li>
+      <li>Collecting a coin bumps the number and the group springs back to size.</li>
+      <li>Falling into the killzone dims a heart and flashes the screen red.</li>
+      <li>Pausing draws the pause menu <em>over</em> the HUD. If it's underneath, the layer numbers are the wrong way round.</li>
+      <li>After a death and reload, the hearts are full again with no extra code — the rebuilt HUD asks for a broadcast on the way in.</li>
+    </ol>
+    <label><input type="checkbox" data-done="t7"> Mark tutorial 07 done</label>
+  </div>
+
+  <div class="handoff">
+    <h4>What this feeds</h4>
+    <p>Tutorial 08 saves the same two numbers the HUD displays, so a loaded game shows the right hearts without the HUD knowing a save system exists.</p>
+  </div>
+</section>
+
+<section class="tut" id="t8">
+  <header class="tut-head">
+    <p class="tut-num">TUTORIAL 08</p>
+    <h2>Saving a run, and a Continue button that means it</h2>
+    <p class="tut-goal">Write the run to a JSON file the moment a level starts and when the player quits, and bring it back from the title screen. The save format is versioned and validated, because the file lives on the player's disk and anything can happen to it there.</p>
+    <dl class="tut-meta">
+      <div><dt>Builds on</dt><dd>Tutorial 06's <code>Game</code> autoload, Tutorial 03's loader, Tutorial 01's menu.</dd></div>
+      <div><dt>You'll create</dt><dd>Save and load methods on <code>Game</code>, a <b>Continue</b> button, autosave points</dd></div>
+      <div><dt>Key ideas</dt><dd><code>FileAccess</code>, <code>JSON</code>, save versioning, why JSON turns your integers into floats</dd></div>
+      <div><dt>Time</dt><dd>About 25 minutes</dd></div>
+    </dl>
+  </header>
+
+  <ol class="steps">
+    <li class="step">
+      <h3>Save data, never objects</h3>
+      <p>The temptation is to save the scene: node positions, the player instance, whatever is currently in memory. Don't. A save file is read by a <em>future</em> version of your game, where that node might be renamed, moved or gone. Save the smallest set of plain values that lets you rebuild the situation, and stamp it with a version number so an old file can be recognised and refused.</p>
+      <p>This game's entire save is four values:</p>
+      <figure class="code">
+        <figcaption><span class="path">user://save_01.json <em>— what gets written</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">{
+	"version": 1,
+	"level": "res://game/level_01.tscn",
+	"health": 2,
+	"coins": 7
+}
+</code></pre>
+      </figure>
+    </li>
+
+    <li class="step">
+      <h3>Teach Game to read and write itself</h3>
+      <p>Append this to <code>res://autoload/game.gd</code>:</p>
+      <figure class="code">
+        <figcaption><span class="path">res://autoload/game.gd <em>— append</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">const SAVE_PATH := "user://save_01.json"
+## Bump this whenever the shape of the save changes.
+const SAVE_VERSION := 1
+
+var current_level: String = ""
+
+
+## Called by a level as it comes up. Records where we are and autosaves.
+func enter_level(path: String) -> void:
+	current_level = path
+	broadcast()
+	save_run()
+
+
+func has_save() -> bool:
+	return FileAccess.file_exists(SAVE_PATH)
+
+
+func save_run() -> void:
+	var data := {
+		"version": SAVE_VERSION,
+		"level": current_level,
+		"health": health,
+		"coins": coins,
+	}
+	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	if file == null:
+		push_error("Save failed: %s" % error_string(FileAccess.get_open_error()))
+		return
+	# The tab argument pretty-prints it, which makes debugging far easier.
+	file.store_string(JSON.stringify(data, "\t"))
+
+
+## Returns true only if the save was readable and usable.
+func load_run() -> bool:
+	if not has_save():
+		return false
+
+	var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
+	if file == null:
+		push_error("Save unreadable: %s" % error_string(FileAccess.get_open_error()))
+		return false
+
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	if typeof(parsed) != TYPE_DICTIONARY:
+		push_error("Save file is not valid JSON. Ignoring it.")
+		return false
+
+	var data: Dictionary = parsed
+	if int(data.get("version", 0)) != SAVE_VERSION:
+		push_warning("Save is from a different version. Ignoring it.")
+		return false
+
+	var level: String = str(data.get("level", ""))
+	if not ResourceLoader.exists(level):
+		push_warning("Saved level no longer exists: %s" % level)
+		return false
+
+	# JSON numbers come back as floats, and every value here came from
+	# a file a player could have edited. Convert and clamp both.
+	current_level = level
+	health = clampi(int(data.get("health", MAX_HEALTH)), 1, MAX_HEALTH)
+	coins = maxi(int(data.get("coins", 0)), 0)
+	return true
+
+
+func delete_save() -> void:
+	if has_save():
+		DirAccess.remove_absolute(SAVE_PATH)
+</code></pre>
+      </figure>
+      <div class="warn"><b>The float trap</b>JSON has one number type. Store <code>coins: 7</code> and it comes back as <code>7.0</code> — a float. Assign that to a variable typed <code>int</code> and GDScript will complain; use it in <code>str()</code> and your HUD reads "7.0". Every number coming out of a parsed save needs <code>int()</code> or <code>float()</code> around it. This is the single most common save-loading bug in Godot projects.</div>
+      <div class="note"><b>Closing the file</b><code>FileAccess</code> is reference-counted: the file is flushed and closed when the last reference to it goes away, which here is when the function ends. Calling <code>file.close()</code> explicitly is fine and sometimes clearer, but forgetting it is not a bug.</div>
+    </li>
+
+    <li class="step">
+      <h3>Move the run's start out of the level</h3>
+      <p>Right now <code>level_01.gd</code> calls <code>Game.start_new_run()</code> in <code>_ready()</code>, which would wipe a loaded save the instant the level appeared. Starting a run is the <em>menu's</em> decision; a level only announces that it has arrived.</p>
+      <figure class="code">
+        <figcaption><span class="path">res://game/level_01.gd <em>— replace the last line of _ready()</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">	Game.enter_level(scene_file_path)
+</code></pre>
+      </figure>
+      <p>And the main menu's <b>Play</b> now means <em>new game</em>, explicitly:</p>
+      <figure class="code">
+        <figcaption><span class="path">res://ui/main_menu.gd <em>— replace _on_play_pressed()</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">func _on_play_pressed() -> void:
+	Game.start_new_run()
+	SceneLoader.change_scene(LEVEL_PATH)
+</code></pre>
+      </figure>
+      <p>The old save is not deleted here — it's overwritten the moment the new level calls <code>enter_level()</code>. If you'd rather make starting over deliberate, call <code>Game.delete_save()</code> first and put a confirmation dialog in front of it.</p>
+    </li>
+
+    <li class="step">
+      <h3>Add the Continue button</h3>
+      <p>Open <code>main_menu.tscn</code> and add a <code>Button</code> named <code>ContinueButton</code> as the <b>first</b> child of <code>Menu</code>, above <code>PlayButton</code>. Text: <code>Continue</code>. Mark it as a unique name.</p>
+      <figure class="tree">
+        <figcaption>res://ui/main_menu.tscn</figcaption>
+<pre><code>MainMenu : Control
+├─ Layout : MarginContainer
+│  └─ Menu : VBoxContainer
+│     ├─ Title : Label
+│     ├─ ContinueButton : Button
+│     ├─ PlayButton : Button
+│     ├─ OptionsButton : Button
+│     └─ QuitButton : Button
+└─ OptionsMenu : Control</code></pre>
+      </figure>
+      <p>Three edits to <code>main_menu.gd</code>. First the variable:</p>
+      <figure class="code">
+        <figcaption><span class="path">res://ui/main_menu.gd <em>— add with the other @onready lines</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">@onready var continue_button: Button = %ContinueButton
+</code></pre>
+      </figure>
+      <p>Then replace the end of <code>_ready()</code> — the <code>grab_focus()</code> call moves inside the new logic, so that whichever button makes sense is the one selected:</p>
+      <figure class="code">
+        <figcaption><span class="path">res://ui/main_menu.gd <em>— replace the grab_focus() line in _ready()</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">	continue_button.pressed.connect(_on_continue_pressed)
+	continue_button.disabled = not Game.has_save()
+	if continue_button.disabled:
+		play_button.grab_focus()
+	else:
+		continue_button.grab_focus()
+</code></pre>
+      </figure>
+      <figure class="code">
+        <figcaption><span class="path">res://ui/main_menu.gd <em>— append</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">func _on_continue_pressed() -> void:
+	if not Game.load_run():
+		# The file was there but unusable. Say so instead of doing nothing.
+		continue_button.disabled = true
+		continue_button.text = "No usable save"
+		play_button.grab_focus()
+		return
+	SceneLoader.change_scene(Game.current_level)
+</code></pre>
+      </figure>
+      <div class="note"><b>A disabled Continue is information</b>A greyed-out button tells a first-time player there's nothing to continue <em>and</em> that the feature exists. Hiding it entirely leaves them wondering whether the game saves at all.</div>
+    </li>
+
+    <li class="step">
+      <h3>Save on the way out</h3>
+      <p>Quitting from the pause menu should keep your progress, not throw it away.</p>
+      <figure class="code">
+        <figcaption><span class="path">res://ui/pause_menu.gd <em>— replace _on_quit_to_menu_pressed()</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">func _on_quit_to_menu_pressed() -> void:
+	Game.save_run()
+	close()
+	SceneLoader.change_scene(MAIN_MENU_PATH)
+</code></pre>
+      </figure>
+      <p>You now have two save points: arriving in a level, and leaving to the menu. That's the shape most games use — save at moments the player understands, not continuously. If you want a visible confirmation, change the button's text to <b>Save and quit</b> so the behaviour isn't a surprise.</p>
+      <details>
+        <summary>Extending this: several slots, and saving what's in the level</summary>
+        <p><b>Slots</b> are a path change: make <code>SAVE_PATH</code> a function of a slot number, <code>"user://save_%02d.json" % slot</code>, and give the menu a row of buttons that read each file's header to show a summary.</p>
+        <p><b>Per-level state</b> — which coins are gone, which doors are open — is the next thing you'll want. Add a <code>"levels"</code> dictionary to the save, keyed by scene path, and have each collectable carry an id it checks on <code>_ready()</code>. Keep it in the save dictionary rather than scattered across nodes, so one <code>JSON.stringify()</code> still captures everything.</p>
+      </details>
+    </li>
+  </ol>
+
+  <div class="verify">
+    <h4>Check it works</h4>
+    <ol>
+      <li>First launch on a clean machine: <b>Continue</b> is greyed out and <b>Play</b> has focus.</li>
+      <li>Play, collect a couple of coins, take a hit, pause, <b>Quit to menu</b>. <b>Continue</b> is now live and focused.</li>
+      <li><b>Continue</b> drops you into the level with the same hearts and coin count — the HUD is filled by <code>broadcast()</code> inside <code>enter_level()</code>, with no save-specific code in it.</li>
+      <li>Quit the game entirely and relaunch. Continue still works.</li>
+      <li>Open the JSON file in a text editor (print <code>OS.get_user_data_dir()</code> to find it), set <code>"coins"</code> to <code>"banana"</code>, and press Continue. The game refuses the save and tells you, rather than crashing.</li>
+    </ol>
+    <label><input type="checkbox" data-done="t8"> Mark tutorial 08 done</label>
+  </div>
+
+  <div class="handoff">
+    <h4>What this feeds</h4>
+    <p>Tutorial 10 covers where this file actually lands on each platform once you export, including the browser, where <code>user://</code> is backed by IndexedDB.</p>
+  </div>
+</section>
+
+<section class="tut" id="t9">
+  <header class="tut-head">
+    <p class="tut-num">TUTORIAL 09</p>
+    <h2>Music that survives scene changes, and sound effects that overlap</h2>
+    <p class="tut-goal">One audio autoload: music that keeps playing across a level reload and ducks when you pause, and a pool of players so ten coins in a second make ten sounds instead of one. Callers say <code>Audio.play("coin")</code> and never touch a file path.</p>
+    <dl class="tut-meta">
+      <div><dt>Builds on</dt><dd>Tutorial 02's audio buses, Tutorial 03's loader, Tutorial 06's bus. Standalone? The autoload is one file; only the two connections in <code>_ready()</code> assume the rest.</dd></div>
+      <div><dt>You'll create</dt><dd>The <code>Audio</code> autoload and a handful of one-line call sites</dd></div>
+      <div><dt>Key ideas</dt><dd>Player pooling, crossfading with <code>Tween</code>, state signals vs. event signals, autoload order</dd></div>
+      <div><dt>Time</dt><dd>About 25 minutes</dd></div>
+    </dl>
+  </header>
+
+  <ol class="steps">
+    <li class="step">
+      <h3>Get some sound, or don't</h3>
+      <p>The script below works with no audio files at all — it warns once per missing sound and stays quiet — so you can wire everything up now and drop files in later. When you're ready, make a <code>res://audio</code> folder and add three files named <code>coin.wav</code>, <code>hurt.wav</code>, <code>click.wav</code>, plus <code>menu.ogg</code> and <code>level.ogg</code>. Freesound, Kenney and the Godot Asset Store all have usable CC0 sets.</p>
+      <div class="scroller"><table>
+        <thead><tr><th>Use</th><th>Format</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td>Sound effects</td><td>WAV</td><td>No decoding, so no latency on a short sound. Size doesn't matter at this length.</td></tr>
+          <tr><td>Music</td><td>OGG Vorbis</td><td>Roughly a tenth the size. Select the file in the FileSystem dock, open the <b>Import</b> tab, tick <b>Loop</b>, click <b>Reimport</b> — otherwise your track plays once and stops.</td></tr>
+        </tbody>
+      </table></div>
+    </li>
+
+    <li class="step">
+      <h3>Write the audio autoload</h3>
+      <p>Create <code>res://autoload/audio.gd</code>.</p>
+      <figure class="code">
+        <figcaption><span class="path">res://autoload/audio.gd <em>— whole file</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">extends Node
+
+## Short sounds, by the name callers use.
+const SOUNDS := {
+	"coin": "res://audio/coin.wav",
+	"hurt": "res://audio/hurt.wav",
+	"click": "res://audio/click.wav",
+}
+
+const MUSIC := {
+	"menu": "res://audio/menu.ogg",
+	"level": "res://audio/level.ogg",
+}
+
+## How many effects can overlap before the oldest is cut off.
+const POOL_SIZE := 8
+const SILENT_DB := -40.0
+## How far the music drops while the game is paused.
+const DUCK_DB := -12.0
+
+var _music: AudioStreamPlayer
+var _pool: Array[AudioStreamPlayer] = []
+var _next := 0
+var _current_track := ""
+var _cache := {}
+
+
+func _ready() -> void:
+	# Keep playing while the tree is paused, so the pause menu has sound
+	# and the music doesn't cut out mid-bar.
+	process_mode = Node.PROCESS_MODE_ALWAYS
+
+	_music = AudioStreamPlayer.new()
+	_music.bus = "Music"
+	add_child(_music)
+
+	for i in POOL_SIZE:
+		var player := AudioStreamPlayer.new()
+		player.bus = "SFX"
+		add_child(player)
+		_pool.append(player)
+
+	Events.game_paused.connect(_on_game_paused)
+	SceneLoader.scene_changed.connect(_on_scene_changed)
+	play_music("menu")
+
+
+## Plays a short sound by name. A little pitch variation stops repeated
+## sounds turning into a machine-gun rattle.
+func play(sound_name: String, pitch_variation: float = 0.06) -> void:
+	var stream := _stream_for(SOUNDS, sound_name)
+	if stream == null:
+		return
+	var player := _pool[_next]
+	_next = (_next + 1) % _pool.size()
+	player.stream = stream
+	player.pitch_scale = randf_range(1.0 - pitch_variation, 1.0 + pitch_variation)
+	player.play()
+
+
+func play_music(track_name: String, fade: float = 0.8) -> void:
+	if track_name == _current_track and _music.playing:
+		return # Already on this track; don't restart it.
+	var stream := _stream_for(MUSIC, track_name)
+	if stream == null:
+		return
+	_current_track = track_name
+
+	if _music.playing:
+		await _fade_music_to(SILENT_DB, fade * 0.4)
+	_music.stream = stream
+	_music.volume_db = SILENT_DB
+	_music.play()
+	_fade_music_to(0.0, fade)
+
+
+func stop_music(fade: float = 0.6) -> void:
+	_current_track = ""
+	await _fade_music_to(SILENT_DB, fade)
+	_music.stop()
+
+
+func _fade_music_to(target_db: float, duration: float) -> void:
+	var tween := create_tween()
+	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tween.tween_property(_music, "volume_db", target_db, duration)
+	await tween.finished
+
+
+func _on_game_paused(paused: bool) -> void:
+	_fade_music_to(DUCK_DB if paused else 0.0, 0.25)
+
+
+func _on_scene_changed(path: String) -> void:
+	play_music("menu" if path.begins_with("res://ui/") else "level")
+
+
+## Loads on first use and remembers the result, including "it's missing",
+## so a absent file warns once instead of every frame.
+func _stream_for(table: Dictionary, key: String) -> AudioStream:
+	if _cache.has(key):
+		return _cache[key]
+	var path: String = table.get(key, "")
+	if path == "" or not ResourceLoader.exists(path):
+		push_warning("Audio: no file for '%s' (%s)" % [key, path])
+		_cache[key] = null
+		return null
+	var stream: AudioStream = load(path)
+	_cache[key] = stream
+	return stream
+</code></pre>
+      </figure>
+      <p>Register it as <code>Audio</code>, and put it <b>below</b> <code>SceneLoader</code> in the Autoload list.</p>
+      <div class="warn"><b>Autoload order is real</b>This script connects to <code>SceneLoader.scene_changed</code> in <code>_ready()</code>. Autoloads are created and readied in list order, so if <code>Audio</code> sits above <code>SceneLoader</code> that global doesn't exist yet and you get <code>Invalid call on a base object of type Nil</code> at startup. Final order: <code>Events</code>, <code>Settings</code>, <code>SceneLoader</code>, <code>Audio</code>, <code>Game</code>.</div>
+      <div class="note"><b>Why a pool</b>One <code>AudioStreamPlayer</code> plays one sound; call <code>play()</code> again and the first is cut off. Eight players used round-robin means eight overlapping sounds before anything gets clipped, and creating them once at startup avoids allocating a node in the middle of a busy frame. <code>AudioStreamPlayer</code> also has a <code>max_polyphony</code> property that does something similar for a single player — the pool is the version you can reason about.</div>
+    </li>
+
+    <li class="step">
+      <h3>Make things audible</h3>
+      <p>Three one-line additions. The coin plays its own pickup sound just before it disappears:</p>
+      <figure class="code">
+        <figcaption><span class="path">res://game/coin.gd <em>— add inside _on_body_entered(), before queue_free()</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">		Audio.play("coin")
+</code></pre>
+      </figure>
+      <p>Damage is announced where the damage happens:</p>
+      <figure class="code">
+        <figcaption><span class="path">res://autoload/game.gd <em>— add inside damage(), after the <code>health = maxi(...)</code> line</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">	Audio.play("hurt")
+</code></pre>
+      </figure>
+      <p>And every button in the project can click at once, because <code>BaseButton</code> already emits the signal — add this to <code>main_menu.gd</code>, <code>pause_menu.gd</code> and <code>options_menu.gd</code>, or to a shared base script if you'd rather:</p>
+      <figure class="code">
+        <figcaption><span class="path">any menu script <em>— add at the end of _ready()</em></span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code class="gd">	# Default arguments keep this inside the current scene, so an
+	# instanced sub-scene that runs the same loop can't double up.
+	for button in find_children("*", "BaseButton"):
+		button.pressed.connect(Audio.play.bind("click"))
+</code></pre>
+      </figure>
+      <div class="note"><b>Why not play the coin sound from the bus?</b>It's tempting to connect <code>Events.coin_count_changed</code> to a sound. Don't: that signal is a <em>state</em> signal — it also fires from <code>broadcast()</code> when a HUD appears and nothing has actually been collected, so your game would ding every time a level loads. Play sounds where the event happens, and keep state signals for things that display state.</div>
+    </li>
+
+    <li class="step">
+      <h3>Listen to the transitions</h3>
+      <p>Run the game. Menu music starts at launch; pressing <b>Play</b> crossfades to the level track as the screen fades; pausing drops the music 12 dB and releasing it brings it back. Dying and reloading the level does <em>not</em> restart the music, because <code>play_music()</code> notices it's already on that track.</p>
+      <p>Open the options screen while music is playing and drag the <b>Music</b> slider. The autoload knows nothing about the slider and the slider knows nothing about the autoload — the bus from Tutorial 02 sits between them.</p>
+      <div class="tip"><b>Watching it work</b>The <b>Audio</b> panel at the bottom of the editor shows live meters on each bus while the game runs. If a sound is playing but silent, that's where you find out whether it's muted, routed to the wrong bus, or never started.</div>
+    </li>
+  </ol>
+
+  <div class="verify">
+    <h4>Check it works</h4>
+    <ol>
+      <li>With no audio files present: the game runs, the Output panel warns once per missing sound, nothing crashes.</li>
+      <li>With files present: coins and hits are audible, and grabbing several coins quickly produces several sounds, slightly different in pitch.</li>
+      <li>Music continues across the fade into the level and across a death-and-reload.</li>
+      <li>Pausing ducks the music; buttons still click while paused.</li>
+      <li>The <b>Music</b> and <b>Effects</b> sliders control their groups independently, and <b>Master</b> controls both.</li>
+    </ol>
+    <label><input type="checkbox" data-done="t9"> Mark tutorial 09 done</label>
+  </div>
+
+  <div class="handoff">
+    <h4>What this feeds</h4>
+    <p>Tutorial 10 exports the project. Audio is one of the two things that most often works in the editor and not in the build — the other is file paths — so it's worth having in place before you make your first build.</p>
+  </div>
+</section>
+
+<section class="tut" id="t10">
+  <header class="tut-head">
+    <p class="tut-num">TUTORIAL 10</p>
+    <h2>Exporting a build someone else can run</h2>
+    <p class="tut-goal">Turn the project into a Windows executable, a Linux binary and a web build — and find the handful of things that work in the editor and quietly don't in a build, before a player finds them for you.</p>
+    <dl class="tut-meta">
+      <div><dt>Builds on</dt><dd>Anything. Do this once early and again before you share; the first export of a project is always the one with surprises.</dd></div>
+      <div><dt>You'll create</dt><dd>Export presets, an <code>export/</code> folder, and a build you can hand to someone</dd></div>
+      <div><dt>Key ideas</dt><dd>Export templates, presets, feature tags, debug vs release, where <code>user://</code> goes</dd></div>
+      <div><dt>Time</dt><dd>About 30 minutes, most of it downloading</dd></div>
+    </dl>
+  </header>
+
+  <ol class="steps">
+    <li class="step">
+      <h3>Get the export templates</h3>
+      <p>The editor can't build for a platform until it has that platform's template — a pre-built copy of the engine your game's data is attached to. Open <b>Editor → Manage Export Templates</b> and download.</p>
+      <div class="new47"><b>New in 4.7</b>The template downloader can fetch individual platforms, and even individual architectures, instead of the old all-or-nothing package. If you only ship Windows and web, you no longer pay for every console-less platform in the set. The templates must match your editor version exactly — <code>4.7.2</code> templates for a <code>4.7.2</code> editor — so expect to download again after every engine update.</div>
+    </li>
+
+    <li class="step">
+      <h3>Create the presets</h3>
+      <p>Open <b>Project → Export</b> and click <b>Add</b> once per platform. For each one set an <b>Export Path</b> inside a new <code>export/</code> folder next to your project — not inside <code>res://</code>, or the next export will try to package the previous one.</p>
+      <div class="scroller"><table>
+        <thead><tr><th>Preset</th><th>Export path</th><th>Worth setting</th></tr></thead>
+        <tbody>
+          <tr><td>Windows Desktop</td><td><code>export/windows/pocket-platformer.exe</code></td><td>Leave <b>Embed PCK</b> on for a single file. <b>Console Wrapper</b> produces a second <code>.console.exe</code> that shows <code>print()</code> output — keep it while testing.</td></tr>
+          <tr><td>Linux</td><td><code>export/linux/pocket-platformer.x86_64</code></td><td>Mark the result executable (<code>chmod +x</code>) if you move it between machines.</td></tr>
+          <tr><td>Web</td><td><code>export/web/index.html</code></td><td>Export into an <b>empty</b> folder: it writes six or seven files that all belong together.</td></tr>
+        </tbody>
+      </table></div>
+      <p>In each preset's <b>Resources</b> tab, leave the mode on <b>Export all resources in the project</b>. Your audio autoload builds paths as strings and calls <code>load()</code> at runtime, and nothing in any scene points at those files — under the "export selected scenes" mode they'd be stripped out and every sound would go missing in the build only.</p>
+      <div class="warn"><b>The class of bug this creates</b>Anything loaded by a string you assembled at runtime is invisible to the exporter's dependency scan. If you ever narrow the resource mode, add those paths to <b>Filters to export non-resource files</b> or keep a scene that references them.</div>
+    </li>
+
+    <li class="step">
+      <h3>Export, then run the build and not the editor</h3>
+      <p>Click <b>Export Project</b>, untick <b>Export With Debug</b> for anything you're giving to a player, and run the result from your file manager. Three things behave differently outside the editor, and this project already deals with two of them:</p>
+      <div class="scroller"><table>
+        <thead><tr><th>In the editor</th><th>In a build</th></tr></thead>
+        <tbody>
+          <tr><td><code>res://</code> is a folder you can write to.</td><td><code>res://</code> is packed and read-only. Anything written at runtime must go to <code>user://</code> — which is why <code>settings.cfg</code> and <code>save_01.json</code> live there.</td></tr>
+          <tr><td><code>print()</code> appears in the Output panel.</td><td>It goes to a terminal. On Windows that means running the <code>.console.exe</code>; otherwise you see nothing.</td></tr>
+          <tr><td>File paths are case-insensitive on Windows and macOS.</td><td>Exported packs are always case-sensitive. <code>res://Audio/Coin.wav</code> will fail in a build even though it worked while you were developing.</td></tr>
+        </tbody>
+      </table></div>
+      <p>Check the things this project actually does: change a volume slider, quit, relaunch the build, and confirm it stuck. Play, quit to menu, relaunch — <b>Continue</b> should be live.</p>
+    </li>
+
+    <li class="step">
+      <h3>Know where the player's files land</h3>
+      <p>After export, <code>user://</code> resolves to <code>app_userdata/&lt;project name&gt;</code> under the platform's data directory — <code>%APPDATA%\Godot</code>, <code>~/Library/Application Support/Godot</code>, or <code>~/.local/share/godot</code>. Two consequences worth knowing before you ship:</p>
+      <ul>
+        <li>Renaming the project in Project Settings moves the folder, and every existing player's saves stop being found. Set <b>Application → Config → Use Custom User Dir</b> and a fixed <b>Custom User Dir Name</b> once, early, and the name is yours regardless of what the project is called.</li>
+        <li>On the web, <code>user://</code> is backed by browser storage. It survives reloads but not a cleared cache, and it's per-origin — the same build on two domains has two separate save files.</li>
+      </ul>
+    </li>
+
+    <li class="step">
+      <h3>Handle the web build's quirks</h3>
+      <p>Don't open the exported <code>index.html</code> by double-clicking it: browsers refuse to load the engine from a <code>file://</code> URL. Use <b>Remote Debug → Run in Browser</b> in the editor, which serves it locally with the headers the engine needs.</p>
+      <p>Those headers are the web build's main deployment problem. Threaded builds require cross-origin isolation (<code>Cross-Origin-Opener-Policy</code> and <code>Cross-Origin-Embedder-Policy</code>), which many static hosts don't send. itch.io has a <b>SharedArrayBuffer support</b> checkbox on the project page that turns them on. GitHub Pages does not, so either host elsewhere or export with thread support off.</p>
+      <p>This is also where the <code>OS.has_feature("web")</code> check from Tutorial 01 pays for itself: <code>get_tree().quit()</code> cannot close a browser tab, so the Quit button hides itself rather than sitting there doing nothing.</p>
+      <details>
+        <summary>Other feature tags worth knowing</summary>
+        <p><code>OS.has_feature("editor")</code> is true in the editor and false in any export — use it to guard developer shortcuts. <code>OS.has_feature("debug")</code> distinguishes a debug export from a release one. <code>"mobile"</code>, <code>"pc"</code>, <code>"windows"</code>, <code>"linux"</code>, <code>"macos"</code>, <code>"android"</code>, <code>"ios"</code> and <code>"web"</code> do what you'd expect. You can also define your own in a preset's <b>Features</b> tab, which is the tidy way to build a demo version from the same project.</p>
+      </details>
+    </li>
+
+    <li class="step">
+      <h3>Tell git what to ignore</h3>
+      <p>Two folders should never be committed: Godot's own cache, and your builds.</p>
+      <figure class="code">
+        <figcaption><span class="path">.gitignore</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code>.godot/
+export/
+*.translation
+</code></pre>
+      </figure>
+      <p>Everything else — <code>.tscn</code>, <code>.tres</code>, <code>.gd</code>, <code>project.godot</code>, <code>default_bus_layout.tres</code>, and the <code>.import</code> files next to your assets — is source and belongs in the repository. The <code>.import</code> files in particular: without them, a fresh clone re-imports every asset with new IDs and your scenes lose their textures.</p>
+    </li>
+  </ol>
+
+  <div class="verify">
+    <h4>Release checklist</h4>
+    <ol>
+      <li>Templates match the editor version exactly.</li>
+      <li><b>Export With Debug</b> is off for the build you distribute.</li>
+      <li>The build runs from a folder that isn't your project, on a machine without Godot if you can manage it.</li>
+      <li>Settings and saves persist across a relaunch of the <em>build</em>.</li>
+      <li>Sound plays. A missing audio file is invisible in the editor if the file is there and packed if it isn't.</li>
+      <li>The window opens at a sensible size and the UI still lays out correctly when it's resized or fullscreened.</li>
+      <li>Quitting works — and on the web, the Quit button is gone.</li>
+    </ol>
+    <label><input type="checkbox" data-done="t10"> Mark tutorial 10 done</label>
+  </div>
+
+  <div class="handoff">
+    <h4>Done</h4>
+    <p>That's a complete loop: title screen, options that persist, a level you can play, a HUD, a save, sound, and a build. The reference below is what the finished project looks like from above.</p>
+  </div>
+</section>
+
+<section class="tut" id="appendix">
+  <header class="tut-head">
+    <p class="tut-num">REFERENCE</p>
+    <h2>The finished project, from above</h2>
+    <p class="tut-goal">Everything the ten tutorials build, and which tutorial touched each piece. Useful when you come back in a month, and when you're checking your project against the page.</p>
+  </header>
+
+  <h3 style="font-size:1.05rem;margin:0 0 .6rem">Files</h3>
+  <figure class="fs" style="margin:0 0 2rem">
+    <figcaption>pocket-platformer/ <span class="cm">— numbers are the tutorials that touch each file</span></figcaption>
+<pre><code><span class="dir">audio/</span>                      <span class="cm">09, optional</span>
+  coin.wav  hurt.wav  click.wav
+  menu.ogg  level.ogg
+<span class="dir">autoload/</span>
+  events.gd                 <span class="cm">06</span>
+  settings.gd               <span class="cm">02, 05</span>
+  scene_loader.gd           <span class="cm">03</span>
+  audio.gd                  <span class="cm">09</span>
+  game.gd                   <span class="cm">06, 08</span>
+<span class="dir">game/</span>
+  level_01.tscn             <span class="cm">01, 04, 06, 07</span>
+  level_01.gd               <span class="cm">06, 08</span>
+  player.tscn / player.gd   <span class="cm">04</span>
+  coin.tscn / coin.gd       <span class="cm">06, 09</span>
+<span class="dir">ui/</span>
+  main_menu.tscn            <span class="cm">01, 02, 08</span>
+  main_menu.gd              <span class="cm">01, 02, 03, 08, 09</span>
+  pause_menu.tscn           <span class="cm">01, 02</span>
+  pause_menu.gd             <span class="cm">01, 02, 03, 06, 08</span>
+  options_menu.tscn / .gd   <span class="cm">02, 05</span>
+  key_row.tscn / .gd        <span class="cm">05</span>
+  hud.tscn / hud.gd         <span class="cm">07</span>
+default_bus_layout.tres     <span class="cm">02</span>
+icon.svg
+project.godot</code></pre>
+  </figure>
+
+  <h3 style="font-size:1.05rem;margin:0 0 .6rem">Autoloads, in the order they must be listed</h3>
+  <div class="scroller"><table>
+    <thead><tr><th>#</th><th>Name</th><th>Holds</th><th>Depends on, at startup</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><code>Events</code></td><td>Four signals, no state</td><td>Nothing</td></tr>
+      <tr><td>2</td><td><code>Settings</code></td><td>Volumes, fullscreen, key bindings</td><td>The audio buses existing</td></tr>
+      <tr><td>3</td><td><code>SceneLoader</code></td><td>The fade layer and transition logic</td><td>Nothing</td></tr>
+      <tr><td>4</td><td><code>Audio</code></td><td>Music player and an eight-strong effects pool</td><td><code>Events</code>, <code>SceneLoader</code></td></tr>
+      <tr><td>5</td><td><code>Game</code></td><td>Health, coins, current level, the save file</td><td><code>Events</code></td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 style="font-size:1.05rem;margin:1.6rem 0 .6rem">Signals on the bus</h3>
+  <div class="scroller"><table>
+    <thead><tr><th>Signal</th><th>Emitted by</th><th>Listened to by</th></tr></thead>
+    <tbody>
+      <tr><td><code>player_health_changed(current, maximum)</code></td><td><code>Game.damage()</code>, <code>Game.broadcast()</code></td><td>HUD</td></tr>
+      <tr><td><code>player_died</code></td><td><code>Game.damage()</code> when health hits 0</td><td><code>level_01.gd</code></td></tr>
+      <tr><td><code>coin_count_changed(total)</code></td><td><code>Game.add_coin()</code>, <code>Game.broadcast()</code></td><td>HUD</td></tr>
+      <tr><td><code>game_paused(paused)</code></td><td><code>pause_menu.gd</code></td><td><code>Audio</code>, for ducking</td></tr>
+    </tbody>
+  </table></div>
+  <p style="font-size:.95rem;color:var(--dim)">Two more signals are deliberately <em>not</em> on the bus: <code>OptionsMenu.closed</code> and <code>SceneLoader.scene_changed</code> belong to the object that emits them, and their listeners already hold a reference.</p>
+
+  <h3 style="font-size:1.05rem;margin:1.6rem 0 .6rem">Canvas layers and process modes</h3>
+  <div class="scroller"><table>
+    <thead><tr><th>Node</th><th>Layer</th><th>Process mode</th><th>Reason</th></tr></thead>
+    <tbody>
+      <tr><td>HUD</td><td>5</td><td>Inherit</td><td>Freezes with the game, which is correct.</td></tr>
+      <tr><td>PauseMenu</td><td>10</td><td>Always</td><td>Must run while unpaused to open, and while paused to close.</td></tr>
+      <tr><td>SceneLoader</td><td>100</td><td>Always</td><td>Transitions can start from a paused game.</td></tr>
+      <tr><td>Audio</td><td>—</td><td>Always</td><td>Music shouldn't stop mid-bar when you pause.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 style="font-size:1.05rem;margin:1.6rem 0 .6rem">Input actions</h3>
+  <div class="scroller"><table>
+    <thead><tr><th>Action</th><th>Default</th><th>Rebindable</th><th>Read by</th></tr></thead>
+    <tbody>
+      <tr><td><code>pause</code></td><td>Esc, gamepad Start</td><td>Yes</td><td><code>pause_menu.gd</code></td></tr>
+      <tr><td><code>move_left</code> / <code>move_right</code></td><td>A/D, arrows, stick, D-pad</td><td>Yes</td><td><code>player.gd</code></td></tr>
+      <tr><td><code>jump</code></td><td>Space/W/Up, gamepad A</td><td>Yes</td><td><code>player.gd</code></td></tr>
+      <tr><td><code>ui_cancel</code></td><td>Esc (built in)</td><td>No</td><td><code>options_menu.gd</code></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="tut" id="trouble">
+  <header class="tut-head">
+    <p class="tut-num">REFERENCE</p>
+    <h2>When something breaks</h2>
+    <p class="tut-goal">The errors this project can actually produce, and what each one means. Read the Output panel first — Godot is usually specific, and the message names the file and line.</p>
+  </header>
+
+  <div class="scroller"><table>
+    <thead><tr><th>What you see</th><th>What it usually is</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>Invalid access to property or key on a base object of type Nil</code></td>
+        <td>An <code>@onready</code> variable used before the node entered the tree — almost always a method called on a freshly <code>instantiate()</code>d node before <code>add_child()</code>. Or the node isn't marked <b>Access as Unique Name</b>, so <code>%Name</code> resolved to nothing.</td>
+      </tr>
+      <tr>
+        <td><code>Node not found: "%Something"</code></td>
+        <td>The <code>%</code> badge is missing in the Scene dock, or the name is spelled differently. Unique names are case-sensitive.</td>
+      </tr>
+      <tr>
+        <td>The main menu appears but nothing responds</td>
+        <td><code>get_tree().paused</code> is still <code>true</code>. Every scene change out of a paused game must clear it — <code>SceneLoader.change_scene()</code> does this for you.</td>
+      </tr>
+      <tr>
+        <td>Esc does nothing in the level</td>
+        <td>The <code>PauseMenu</code> root's process mode isn't <b>Always</b>, or the <code>pause</code> action doesn't exist in the Input Map, or a Control above it consumed the key before <code>_unhandled_input</code> ran.</td>
+      </tr>
+      <tr>
+        <td>Menu buttons can't be clicked</td>
+        <td>Something transparent is on top with <b>Mouse Filter</b> set to <b>Stop</b>. Check the dim rectangles first; they should be <b>Ignore</b> unless they're deliberately blocking.</td>
+      </tr>
+      <tr>
+        <td>Coins ignore the player</td>
+        <td>The <code>Area2D</code>'s mask doesn't include the player's layer, <b>Monitoring</b> is off, or <code>player.gd</code> is missing its <code>class_name Player</code> line so <code>body is Player</code> is never true.</td>
+      </tr>
+      <tr>
+        <td>The HUD shows <code>7.0</code> coins</td>
+        <td>A number came back from <code>JSON.parse_string()</code> as a float. Wrap every value read from a save in <code>int()</code> or <code>float()</code>.</td>
+      </tr>
+      <tr>
+        <td>Settings reset to the default the moment the menu opens</td>
+        <td><code>value_changed</code> was connected <em>before</em> the slider's value was set, so applying the saved value immediately wrote the default back over it. Set the value first, connect second.</td>
+      </tr>
+      <tr>
+        <td><code>Invalid call ... on a base object of type Nil</code> at startup</td>
+        <td>One autoload used another that hadn't been created yet. Reorder the Autoload list; see the table above.</td>
+      </tr>
+      <tr>
+        <td>Sound works in the editor, silence in the build</td>
+        <td>A path whose capitalisation doesn't match the file, or a resource export mode that stripped files only referenced by a runtime string.</td>
+      </tr>
+      <tr>
+        <td>Music restarts every time the level reloads</td>
+        <td><code>play_music()</code> is being called with a different track name than last time, so its early-out doesn't fire. Print <code>_current_track</code> to see what it thinks is playing.</td>
+      </tr>
+    </tbody>
+  </table></div>
+
+  <footer class="end">
+    <p>Written against <b>Godot 4.7</b> and tested on <b>4.7.2</b>. Everything here is GDScript and plain 2D; nothing requires an add-on. Where a feature arrived in 4.7 the page says so, so you can tell what to change if you're on 4.6 or earlier — the main ones are <code>Control.offset_transform_*</code> in Tutorial 07, <code>CollisionShape2D.one_way_collision_direction</code> in Tutorial 04, and the per-platform export template downloader in Tutorial 10.</p>
+    <p>The class reference at <a href="https://docs.godotengine.org/en/stable/">docs.godotengine.org</a> is the authority on any method used here; press <span class="kbd">F1</span> in the editor to search the same documentation offline.</p>
+  </footer>
+</section>
+
+</main>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- theme ---------- */
+  var root = document.documentElement;
+  var store = {
+    get: function(k){ try { return window.localStorage.getItem(k); } catch(e){ return null; } },
+    set: function(k,v){ try { window.localStorage.setItem(k,v); } catch(e){} },
+    del: function(k){ try { window.localStorage.removeItem(k); } catch(e){} }
+  };
+  var saved = store.get("gd-theme");
+  if (saved === "light" || saved === "dark") root.setAttribute("data-theme", saved);
+
+  var themeBtn = document.getElementById("theme");
+  themeBtn.addEventListener("click", function(){
+    var dark = root.getAttribute("data-theme") === "dark" ||
+      (!root.hasAttribute("data-theme") && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    var next = dark ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    store.set("gd-theme", next);
+  });
+
+  /* ---------- mobile contents ---------- */
+  var dock = document.getElementById("dock");
+  var toggle = document.getElementById("docktoggle");
+  toggle.addEventListener("click", function(){
+    var open = dock.classList.toggle("open");
+    toggle.setAttribute("aria-expanded", open ? "true" : "false");
+  });
+  dock.addEventListener("click", function(e){
+    if (e.target.closest("a") && window.matchMedia("(max-width: 900px)").matches){
+      dock.classList.remove("open");
+      toggle.setAttribute("aria-expanded", "false");
+    }
+  });
+
+  /* ---------- GDScript highlighting ---------- */
+  var KEYWORDS = ["extends","class_name","func","var","const","signal","enum","static",
+    "if","elif","else","for","while","match","return","pass","break","continue","await",
+    "and","or","not","in","is","as","self","super","true","false","null","breakpoint","assert"];
+  var TYPES = ["void","int","float","bool","String","StringName","Variant","Array","Dictionary",
+    "Vector2","Vector2i","Color","Callable","Signal","NodePath","Tween","Node"];
+  var kw = {}, ty = {};
+  KEYWORDS.forEach(function(k){ kw[k] = 1; });
+  TYPES.forEach(function(t){ ty[t] = 1; });
+
+  function esc(s){
+    return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  var TOKEN = /(#[^\n]*)|("(?:\\.|[^"\\])*")|('(?:\\.|[^'\\])*')|(@[A-Za-z_]\w*)|(\b\d+(?:\.\d+)?\b)|([A-Za-z_]\w*)/g;
+
+  function highlight(text){
+    var out = "", last = 0, m;
+    TOKEN.lastIndex = 0;
+    while ((m = TOKEN.exec(text)) !== null){
+      out += esc(text.slice(last, m.index));
+      last = TOKEN.lastIndex;
+      var t = m[0];
+      if (m[1]) out += '<span class="tok-com">' + esc(t) + '</span>';
+      else if (m[2] || m[3]) out += '<span class="tok-str">' + esc(t) + '</span>';
+      else if (m[4]) out += '<span class="tok-anno">' + esc(t) + '</span>';
+      else if (m[5]) out += '<span class="tok-num">' + esc(t) + '</span>';
+      else {
+        var after = text.charAt(last);
+        if (kw[t]) out += '<span class="tok-key">' + t + '</span>';
+        else if (ty[t] || /^[A-Z]/.test(t)) out += '<span class="tok-type">' + t + '</span>';
+        else if (after === "(") out += '<span class="tok-fn">' + t + '</span>';
+        else out += t;
+      }
+    }
+    out += esc(text.slice(last));
+    return out;
+  }
+
+  document.querySelectorAll("code.gd").forEach(function(el){
+    el.innerHTML = highlight(el.textContent);
+  });
+
+  /* ---------- scene-tree node types ---------- */
+  function nodeClass(type){
+    if (/2D$/.test(type)) return "node2d";
+    if (type === "Control" || /(Container|Button|Rect|Label|Slider|Separator|Bar|Panel)$/.test(type)) return "ctrl";
+    return "node";
+  }
+  document.querySelectorAll(".tree pre code").forEach(function(el){
+    el.innerHTML = el.innerHTML.replace(/ : ([A-Za-z_]\w*)/g, function(_, type){
+      return ' : <span class="ty ' + nodeClass(type) + '">' + type + "</span>";
+    });
+  });
+
+  /* ---------- copy buttons ---------- */
+  document.querySelectorAll(".copy").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var fig = btn.closest("figure");
+      var code = fig ? fig.querySelector("pre") : null;
+      if (!code) return;
+      var text = code.innerText;
+      var done = function(){
+        var old = btn.textContent;
+        btn.textContent = "Copied";
+        btn.classList.add("ok");
+        setTimeout(function(){ btn.textContent = old; btn.classList.remove("ok"); }, 1400);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(done, function(){ fallback(text, done); });
+      } else {
+        fallback(text, done);
+      }
+    });
+  });
+  function fallback(text, done){
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); done(); } catch(e){}
+    document.body.removeChild(ta);
+  }
+
+  /* ---------- progress ticks ---------- */
+  var PROGRESS_KEY = "gd-progress";
+  function readProgress(){
+    try { return JSON.parse(store.get(PROGRESS_KEY) || "{}") || {}; } catch(e){ return {}; }
+  }
+  function paint(state){
+    document.querySelectorAll("[data-done]").forEach(function(box){
+      var id = box.getAttribute("data-done");
+      box.checked = !!state[id];
+      var link = document.querySelector('#toc a[href="#' + id + '"]');
+      if (link) link.classList.toggle("done", !!state[id]);
+    });
+  }
+  var progress = readProgress();
+  paint(progress);
+  document.querySelectorAll("[data-done]").forEach(function(box){
+    box.addEventListener("change", function(){
+      progress[box.getAttribute("data-done")] = box.checked;
+      store.set(PROGRESS_KEY, JSON.stringify(progress));
+      paint(progress);
+    });
+  });
+  document.getElementById("resetprog").addEventListener("click", function(){
+    progress = {};
+    store.del(PROGRESS_KEY);
+    paint(progress);
+  });
+
+  /* ---------- scrollspy ---------- */
+  var links = {};
+  document.querySelectorAll(".dock a[href^='#']").forEach(function(a){
+    links[a.getAttribute("href").slice(1)] = a;
+  });
+  var targets = Object.keys(links)
+    .map(function(id){ return document.getElementById(id); })
+    .filter(Boolean);
+
+  if ("IntersectionObserver" in window && targets.length){
+    var visible = {};
+    var observer = new IntersectionObserver(function(entries){
+      entries.forEach(function(entry){
+        visible[entry.target.id] = entry.isIntersecting;
+      });
+      var current = null;
+      targets.forEach(function(t){ if (visible[t.id] && !current) current = t.id; });
+      if (!current) return;
+      for (var id in links) links[id].classList.toggle("on", id === current);
+    }, { rootMargin: "-20% 0px -70% 0px", threshold: 0 });
+    targets.forEach(function(t){ observer.observe(t); });
+  }
+})();
+</script>
+</body>
+</html>
