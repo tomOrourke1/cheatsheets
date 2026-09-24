@@ -1,0 +1,2045 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f7f6f2" id="tc">
+<title>Chute Buddies &mdash; a Godot 4 multiplayer tutorial</title>
+<script>
+  (function(){
+    var t = null;
+    try { t = localStorage.getItem("cb-theme"); } catch(e) {}
+    if (t !== "light" && t !== "dark") {
+      t = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+    document.documentElement.setAttribute("data-theme", t);
+  })();
+</script>
+<style>
+  :root{
+    --paper:#f7f6f2;
+    --surface:#ffffff;
+    --raised:#eeefe8;
+    --ink:#1b211e;
+    --ink-soft:#54605a;
+    --rule:#d7d9d1;
+    --accent:#b0215c;
+    --accent-soft:#fbeaf1;
+    --code-bg:#f0f1ea;
+    --code-fg:#25302c;
+    --code-head:#e3e5db;
+    --code-head-fg:#4d5852;
+    --btn:#d4d7cc;
+    --btn-fg:#333c38;
+    --c-kw:#a02058;
+    --c-str:#2c6b40;
+    --c-com:#77817b;
+    --c-num:#8a5300;
+    --c-type:#1d5e86;
+    --c-ann:#8a4c10;
+    --new-bg:#d9eee0; --new-fg:#1d5637;
+    --edit-bg:#fbdbe8; --edit-fg:#8c1747;
+    --editor-bg:#f2e8c9; --editor-fg:#6b5310;
+    --note:#0d6b58; --note-soft:#e6f2ed;
+    --warn:#8a5200; --warn-soft:#f9eedb;
+  }
+  [data-theme="dark"]{
+    --paper:#15181c;
+    --surface:#1c2026;
+    --raised:#222831;
+    --ink:#e3e7e4;
+    --ink-soft:#9ba69f;
+    --rule:#2d343c;
+    --accent:#ff86b4;
+    --accent-soft:#33161f;
+    --code-bg:#11151a;
+    --code-fg:#d5dce3;
+    --code-head:#232a33;
+    --code-head-fg:#96a5b3;
+    --btn:#333d48;
+    --btn-fg:#cdd8e2;
+    --c-kw:#f2a2c0;
+    --c-str:#a8d8a0;
+    --c-com:#7c8894;
+    --c-num:#e0c07a;
+    --c-type:#8fc7e8;
+    --c-ann:#e8a45c;
+    --new-bg:#27402f; --new-fg:#9fe0bd;
+    --edit-bg:#4a1230; --edit-fg:#ffb3d0;
+    --editor-bg:#3b3520; --editor-fg:#e8d98f;
+    --note:#63cdb0; --note-soft:#16302a;
+    --warn:#e0a84e; --warn-soft:#332714;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth;scroll-padding-top:62px;-webkit-text-size-adjust:100%}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font:400 17px/1.7 Georgia,"Iowan Old Style","Times New Roman",serif;
+    overflow-wrap:break-word;
+  }
+
+  header.bar{
+    position:sticky;top:0;z-index:40;
+    display:flex;align-items:center;gap:.5rem;
+    padding:.55rem .8rem;padding-top:calc(.55rem + env(safe-area-inset-top));
+    background:var(--surface);border-bottom:1px solid var(--rule);
+  }
+  .bar-title{flex:1;min-width:0;font:700 15px/1.2 system-ui,-apple-system,sans-serif;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .barbtn{
+    font:600 13px/1 system-ui,sans-serif;color:var(--btn-fg);background:var(--btn);
+    border:0;border-radius:6px;padding:.6em .8em;cursor:pointer;white-space:nowrap;
+    min-height:34px;
+  }
+  .barbtn:active{opacity:.7}
+  #themebtn{font-size:15px;min-width:42px}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:0 1rem}
+  main{padding:1.4rem 0 6rem;max-width:72ch;margin:0 auto}
+
+  nav.toc{display:none}
+  nav.toc.open{
+    display:block;position:fixed;left:0;right:0;
+    top:calc(50px + env(safe-area-inset-top));bottom:0;z-index:35;
+    background:var(--paper);overflow-y:auto;
+    padding:.8rem 1rem calc(2rem + env(safe-area-inset-bottom));
+    border-top:1px solid var(--rule);
+  }
+  nav.toc .toc-head{font:700 12px/1.3 system-ui,sans-serif;letter-spacing:.07em;color:var(--ink-soft);margin:.2rem 0 .7rem}
+  nav.toc ol{list-style:none;margin:0;padding:0;counter-reset:toc}
+  nav.toc li{counter-increment:toc;margin:0}
+  nav.toc a{
+    display:grid;grid-template-columns:1.8rem 1fr;align-items:baseline;
+    font:400 16px/1.4 system-ui,sans-serif;color:var(--ink);text-decoration:none;
+    padding:.7rem .5rem;border-radius:6px;border-bottom:1px solid var(--rule);
+  }
+  nav.toc a::before{content:counter(toc);font-variant-numeric:tabular-nums;color:var(--ink-soft);font-size:13px}
+  nav.toc a.on{color:var(--accent);background:var(--accent-soft)}
+  nav.toc a.on::before{color:var(--accent)}
+
+  h1{font:800 clamp(30px,8vw,48px)/1.06 system-ui,-apple-system,sans-serif;letter-spacing:-.02em;margin:.3rem 0 .5rem}
+  .deck{font-size:1.05rem;color:var(--ink-soft);margin:0 0 1.8rem}
+  h2{
+    font:800 clamp(22px,5.5vw,30px)/1.18 system-ui,sans-serif;letter-spacing:-.015em;
+    margin:3.4rem 0 .4rem;padding-top:1.2rem;border-top:2px solid var(--ink);
+  }
+  h2 .pnum{display:block;font:700 12px/1 system-ui,sans-serif;letter-spacing:.06em;color:var(--accent);margin-bottom:.5rem;font-variant-numeric:tabular-nums}
+  h3{font:700 19px/1.3 system-ui,sans-serif;margin:2rem 0 .4rem}
+  h4{font:700 15px/1.3 system-ui,sans-serif;margin:1.6rem 0 .3rem;color:var(--ink-soft)}
+  p{margin:.8rem 0}
+  a{color:var(--accent)}
+  ul,ol{padding-left:1.2rem}
+  li{margin:.4rem 0}
+  code{font:500 .84em/1.5 ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    background:var(--raised);padding:.12em .35em;border-radius:4px;overflow-wrap:anywhere}
+  hr{border:0;border-top:1px solid var(--rule);margin:2.2rem 0}
+
+  figure.code{margin:1.2rem 0;background:var(--code-bg);border:1px solid var(--rule);border-radius:7px;overflow:hidden}
+  figure.code figcaption{
+    display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;
+    background:var(--code-head);padding:.5rem .7rem;
+    font:600 12px/1.4 ui-monospace,Menlo,monospace;color:var(--code-head-fg);
+  }
+  figure.code figcaption .fname{flex:1 1 60%;min-width:0;overflow-wrap:anywhere}
+  .kind{font:700 10px/1 system-ui,sans-serif;letter-spacing:.06em;padding:.4em .55em;border-radius:4px;white-space:nowrap}
+  .kind.new{background:var(--new-bg);color:var(--new-fg)}
+  .kind.edit{background:var(--edit-bg);color:var(--edit-fg)}
+  .kind.editor{background:var(--editor-bg);color:var(--editor-fg)}
+  button.copy{font:600 11px/1 system-ui,sans-serif;background:var(--btn);color:var(--btn-fg);
+    border:0;padding:.55em .7em;border-radius:5px;cursor:pointer;min-height:28px}
+  figure.code pre{margin:0;padding:.8rem .85rem;overflow-x:auto;overscroll-behavior-x:contain;color:var(--code-fg)}
+  figure.code code{background:none;padding:0;
+    font:500 12.5px/1.6 ui-monospace,"SF Mono",Menlo,Consolas,monospace;white-space:pre}
+  .c-kw{color:var(--c-kw)}.c-str{color:var(--c-str)}.c-com{color:var(--c-com);font-style:italic}
+  .c-num{color:var(--c-num)}.c-type{color:var(--c-type)}.c-ann{color:var(--c-ann)}
+
+  .edit-block{border-left:4px solid var(--accent);background:var(--accent-soft);
+    padding:.85rem .9rem;margin:1.5rem 0;border-radius:0 6px 6px 0}
+  .edit-block > p:first-child{margin-top:0}
+  .edit-block > :last-child{margin-bottom:0}
+  .edit-block figure.code{margin:.8rem 0 0}
+  .where{font:600 15px/1.45 system-ui,sans-serif;color:var(--accent)}
+
+  .note,.warn,.why,.test{padding:.8rem .9rem;margin:1.3rem 0;border-radius:6px;font-size:.95rem}
+  .note{background:var(--note-soft);border-left:3px solid var(--note)}
+  .warn{background:var(--warn-soft);border-left:3px solid var(--warn)}
+  .why{background:var(--raised);border-left:3px solid var(--ink-soft)}
+  .test{background:var(--surface);border:1px solid var(--rule);border-left:3px solid var(--ink)}
+  .note > :first-child,.warn > :first-child,.why > :first-child,.test > :first-child{margin-top:0}
+  .note > :last-child,.warn > :last-child,.why > :last-child,.test > :last-child{margin-bottom:0}
+  .lbl{font:700 12px/1.4 system-ui,sans-serif;letter-spacing:.05em;display:block;margin-bottom:.15rem}
+  .note .lbl{color:var(--note)} .warn .lbl{color:var(--warn)} .why .lbl{color:var(--ink-soft)} .test .lbl{color:var(--ink)}
+
+  pre.tree{background:var(--surface);border:1px solid var(--rule);border-radius:6px;
+    padding:.8rem .85rem;overflow-x:auto;overscroll-behavior-x:contain;
+    font:500 12px/1.75 ui-monospace,Menlo,Consolas,monospace;margin:1.2rem 0;color:var(--ink)}
+  pre.tree b{color:var(--accent);font-weight:700}
+  pre.tree .dim{color:var(--ink-soft)}
+
+  .tablewrap{overflow-x:auto;overscroll-behavior-x:contain;margin:1.2rem 0;
+    border:1px solid var(--rule);border-radius:6px;background:var(--surface)}
+  table{border-collapse:collapse;width:100%;min-width:19rem;font-size:.9rem;margin:0}
+  th,td{text-align:left;padding:.55rem .6rem;border-bottom:1px solid var(--rule);vertical-align:top}
+  tr:last-child th,tr:last-child td{border-bottom:0}
+  th{font:700 12.5px/1.3 system-ui,sans-serif;background:var(--raised)}
+  td code{font-size:.9em}
+
+  .hero{border:2px solid var(--ink);border-radius:8px;padding:1.1rem;margin:1.3rem 0 2.2rem;background:var(--surface)}
+  .hero h2{border:0;margin:0 0 .5rem;padding:0;font-size:18px;letter-spacing:0}
+  .hero ul{margin:.4rem 0 0}
+  .dim-note{color:var(--ink-soft);font-size:.92rem}
+
+  @media (min-width:1000px){
+    body{font-size:18px}
+    html{scroll-padding-top:1rem}
+    .wrap{display:grid;grid-template-columns:250px minmax(0,1fr);gap:3rem;padding:0 1.5rem}
+    main{padding:2rem 0 8rem}
+    #tocbtn{display:none}
+    nav.toc{
+      display:block;position:sticky;top:70px;align-self:start;
+      max-height:calc(100vh - 90px);overflow-y:auto;padding:1.6rem 0 2rem;
+      border-right:1px solid var(--rule);background:transparent;
+    }
+    nav.toc a{font-size:14.5px;padding:.4rem .5rem;border-bottom:0;color:var(--ink-soft)}
+    nav.toc a:hover{background:var(--raised);color:var(--ink)}
+    figure.code code{font-size:13.5px}
+    pre.tree{font-size:13px}
+  }
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <button class="barbtn" id="tocbtn" aria-expanded="false" aria-controls="toc">Contents</button>
+  <span class="bar-title">Chute Buddies</span>
+  <button class="barbtn" id="themebtn" aria-label="Switch to dark theme">&#9789;</button>
+</header>
+
+<div class="wrap">
+
+<nav class="toc" id="toc" aria-label="Contents">
+  <p class="toc-head">TWELVE PARTS</p>
+  <ol id="toclist">
+    <li><a href="#p1">Project and the persistent scene</a></li>
+    <li><a href="#p2">Third-person player, offline</a></li>
+    <li><a href="#p3">Levels and the level registry</a></li>
+    <li><a href="#p4">The network layer</a></li>
+    <li><a href="#p5">Main menu and lobby</a></li>
+    <li><a href="#p6">Match state and level handshake</a></li>
+    <li><a href="#p7">Spawning players over the network</a></li>
+    <li><a href="#p8">Joining and leaving mid-game</a></li>
+    <li><a href="#p9">Picking up and throwing junk</a></li>
+    <li><a href="#p10">The chute, scoring, next level</a></li>
+    <li><a href="#p11">Results screen and rematch</a></li>
+    <li><a href="#p12">Smoothing, failure cases, shipping</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<h1>Chute Buddies</h1>
+<p class="deck">Building a 3D co-op multiplayer game in Godot 4 — from an empty project to hosting a lobby, loading levels together, throwing junk at a chute, and showing who won. Every step runs on its own; nothing is left half-finished until later.</p>
+
+<div class="hero">
+  <h2>What you end up with</h2>
+  <p>Four friends host and join a lobby. Everyone drops into a level full of junk. You grab a crate, chuck it at the chute, and it scores for whoever threw it. Clear the level and the whole group loads the next one. After the last level, a results screen shows who hauled the most. Someone can quit and rejoin halfway through and the game keeps running.</p>
+  <ul>
+    <li>Godot 4.4 (anything 4.3+ works), GDScript</li>
+    <li>ENet peer-to-peer with one player acting as host</li>
+    <li><code>MultiplayerSpawner</code>, <code>MultiplayerSynchronizer</code>, and hand-written RPCs</li>
+    <li>No art assets required — everything is CSG boxes and capsules</li>
+  </ul>
+</div>
+
+<h3>How to read this</h3>
+<p>Every part ends with something you can run. Code is never written against a file that doesn't exist yet. When a later part needs to change an earlier file, you get a pink block that tells you exactly where the new lines go:</p>
+
+<div class="edit-block">
+  <p class="where">Edit <code>res://player/player.gd</code> — add this below <code>_ready()</code></p>
+  <p>Blocks that look like this are insertions into a file you already wrote. Everything else is a complete new file you can paste whole.</p>
+</div>
+
+<p>Code block headers are labelled <span class="kind new">NEW</span> for a file you're creating, <span class="kind edit">EDIT</span> for a change to an existing one, and <span class="kind editor">EDITOR</span> for something you do in the Godot editor rather than in a script.</p>
+
+<h3>The shape of the thing</h3>
+<p>Before any code, here's the architecture, because most Godot networking pain comes from getting this wrong rather than from the RPC syntax.</p>
+
+<pre class="tree">Main.tscn  ..................  loaded once, never unloaded
+ ├─ World
+ │   ├─ LevelHolder .........  level geometry gets swapped in here
+ │   ├─ Players .............  MultiplayerSpawner target
+ │   └─ Props ...............  MultiplayerSpawner target
+ ├─ PlayerSpawner
+ ├─ PropSpawner
+ └─ UI
+     └─ ScreenHolder ........  menu / lobby / HUD / results swap here
+
+Autoloads
+ Net ........................  sockets, peer list, who is in the session
+ GameFlow ...................  match state: which level, scores, who's ready
+ Levels .....................  the list of levels, as data</pre>
+
+<div class="why">
+  <span class="lbl">Why one persistent scene</span>
+  <p>The obvious approach is <code>change_scene_to_file()</code> to move between menu and game. It fights networking constantly: a <code>MultiplayerSpawner</code> replicates its nodes to any peer that connects, and if that peer's scene tree doesn't contain the spawn path yet, the spawn is dropped and you get errors in the console with no player in the world.</p>
+  <p>By loading <code>Main.tscn</code> once at startup and swapping <em>contents</em> instead of scenes, the paths <code>/root/Main/World/Players</code> and <code>/root/Main/World/Props</code> exist on every peer from the moment the game launches. Late joins stop being a special case. This one decision removes an entire category of bug, so we make it first.</p>
+</div>
+
+<p>Three rules the whole tutorial follows:</p>
+<ul>
+  <li><strong>The host is the source of truth</strong> for scores, level progression, and who is holding what. Clients ask; they don't decide.</li>
+  <li><strong>Each player moves their own character.</strong> Movement is client-authoritative — it feels good, it's cheap, and for a game you play with friends it's the right trade. We'll be explicit about what that costs.</li>
+  <li><strong>Authority is per-node.</strong> A player node is owned by the client it belongs to. A junk crate is owned by the host. Getting this straight is most of the work.</li>
+</ul>
+
+<h2 id="p1"><span class="pnum">PART 1</span>Project and the persistent scene</h2>
+
+<p>Create a new Godot 4 project called <code>chute_buddies</code>. Make these folders in the FileSystem dock:</p>
+
+<pre class="tree">res://
+ ├─ autoload/
+ ├─ main/
+ ├─ player/
+ ├─ props/
+ ├─ levels/
+ └─ ui/</pre>
+
+<h3>Input actions</h3>
+<p>Open <strong>Project → Project Settings → Input Map</strong> and add these six actions. Ignore the built-in <code>ui_*</code> actions; we want our own names.</p>
+
+<table>
+  <tr><th>Action</th><th>Keys</th></tr>
+  <tr><td><code>move_forward</code></td><td>W, Up</td></tr>
+  <tr><td><code>move_back</code></td><td>S, Down</td></tr>
+  <tr><td><code>move_left</code></td><td>A, Left</td></tr>
+  <tr><td><code>move_right</code></td><td>D, Right</td></tr>
+  <tr><td><code>jump</code></td><td>Space</td></tr>
+  <tr><td><code>interact</code></td><td>E, and Mouse Button 1</td></tr>
+</table>
+
+<h3>Physics layers</h3>
+<p>In <strong>Project Settings → General → Layer Names → 3D Physics</strong>, name the first three layers. Named layers save you from guessing at checkboxes later.</p>
+
+<table>
+  <tr><th>Layer</th><th>Name</th></tr>
+  <tr><td>1</td><td><code>world</code></td></tr>
+  <tr><td>2</td><td><code>player</code></td></tr>
+  <tr><td>3</td><td><code>junk</code></td></tr>
+</table>
+
+<h3>The Main scene</h3>
+<p>Create a new scene with a plain <code>Node</code> root named <strong>Main</strong>. Build this tree and save it as <code>res://main/main.tscn</code>:</p>
+
+<pre class="tree">Main               <span class="dim">(Node)</span>
+ ├─ World          <span class="dim">(Node3D)</span>
+ │   ├─ LevelHolder  <span class="dim">(Node3D)</span>
+ │   ├─ Players      <span class="dim">(Node3D)</span>
+ │   └─ Props        <span class="dim">(Node3D)</span>
+ └─ UI              <span class="dim">(CanvasLayer)</span>
+     └─ ScreenHolder <span class="dim">(Control)</span></pre>
+
+<p>Select <strong>ScreenHolder</strong> and set its anchors preset to <strong>Full Rect</strong> (the anchor icon in the toolbar), so screens fill the window.</p>
+
+<p>Now the script. Attach it to <strong>Main</strong>. For this part it does one thing: put a screen on the screen. It grows in later parts.</p>
+
+<figure class="code"><figcaption><span class="fname">res://main/main.gd</span><span class="kind new">NEW</span><button class="copy">copy</button></figcaption><pre><code class="gd">extends Node
+
+## Owns the persistent world containers and swaps UI screens in and out.
+## This node is alive for the entire lifetime of the game.
+
+@onready var level_holder: Node3D = $World/LevelHolder
+@onready var players_root: Node3D = $World/Players
+@onready var props_root: Node3D = $World/Props
+@onready var screen_holder: Control = $UI/ScreenHolder
+
+var current_screen: Control = null
+
+
+func show_screen(screen_scene: PackedScene) -> Control:
+	if current_screen != null:
+		current_screen.queue_free()
+		current_screen = null
+	if screen_scene == null:
+		return null
+	current_screen = screen_scene.instantiate()
+	screen_holder.add_child(current_screen)
+	return current_screen
+</code></pre></figure>
+
+<p>Set <code>res://main/main.tscn</code> as the main scene: <strong>Project → Project Settings → Application → Run → Main Scene</strong>.</p>
+
+<div class="test">
+  <span class="lbl">Run it</span>
+  <p>Press F5. You get an empty grey window and no errors. That's the whole checkpoint — the skeleton is standing.</p>
+</div>
+
+<h2 id="p2"><span class="pnum">PART 2</span>Third-person player, offline</h2>
+
+<p>We build the character completely single-player first. Networking a controller you can't drive is guesswork, so we make it feel right, then add the network on top in Part 7.</p>
+
+<h3>The player scene</h3>
+<p>New scene, root <code>CharacterBody3D</code> named <strong>Player</strong>. Build:</p>
+
+<pre class="tree">Player                <span class="dim">(CharacterBody3D)</span>
+ ├─ Collision         <span class="dim">(CollisionShape3D)</span>
+ ├─ Body              <span class="dim">(Node3D)</span>
+ │   ├─ Mesh          <span class="dim">(MeshInstance3D)</span>
+ │   ├─ Nose          <span class="dim">(MeshInstance3D)</span>
+ │   └─ HoldPoint     <span class="dim">(Marker3D)</span>
+ ├─ GrabArea          <span class="dim">(Area3D)</span>
+ │   └─ GrabShape     <span class="dim">(CollisionShape3D)</span>
+ └─ CamRig            <span class="dim">(Node3D)</span>
+     └─ SpringArm     <span class="dim">(SpringArm3D)</span>
+         └─ Camera    <span class="dim">(Camera3D)</span></pre>
+
+<p>Settings for each node:</p>
+<ul>
+  <li><strong>Player</strong> — Collision Layer: <code>player</code> only. Collision Mask: <code>world</code> and <code>junk</code>.</li>
+  <li><strong>Collision</strong> — new <code>CapsuleShape3D</code>, radius <code>0.4</code>, height <code>1.8</code>. Position y = <code>0.9</code>.</li>
+  <li><strong>Mesh</strong> — new <code>CapsuleMesh</code>, radius <code>0.4</code>, height <code>1.8</code>. Position y = <code>0.9</code>.</li>
+  <li><strong>Nose</strong> — new <code>BoxMesh</code>, size <code>(0.2, 0.2, 0.35)</code>, position <code>(0, 1.3, -0.4)</code>. It's a face marker so you can tell which way a player is looking.</li>
+  <li><strong>HoldPoint</strong> — position <code>(0, 1.0, -0.85)</code>. Held junk floats here.</li>
+  <li><strong>GrabArea</strong> — Collision Layer: none. Collision Mask: <code>junk</code> only. <code>GrabShape</code> gets a <code>SphereShape3D</code> with radius <code>2.0</code>, position y = <code>1.0</code>.</li>
+  <li><strong>CamRig</strong> — position y = <code>1.4</code>. This node yaws; the character body does not.</li>
+  <li><strong>SpringArm</strong> — Spring Length <code>4.5</code>. Collision Mask: <code>world</code> only, so the camera pulls in on walls but ignores players and junk.</li>
+  <li><strong>Camera</strong> — position z = <code>0</code>. The spring arm does the pushing back.</li>
+</ul>
+
+<p>Save as <code>res://player/player.tscn</code> and attach this script to the root.</p>
+
+<figure class="code"><figcaption><span class="fname">res://player/player.gd</span><span class="kind new">NEW</span><button class="copy">copy</button></figcaption><pre><code class="gd">class_name Player
+extends CharacterBody3D
+
+const SPEED := 5.5
+const ACCELERATION := 45.0
+const JUMP_VELOCITY := 5.0
+const PITCH_MIN := -1.1
+const PITCH_MAX := 0.5
+
+@export var mouse_sensitivity := 0.0025
+
+@onready var body: Node3D = $Body
+@onready var hold_point: Marker3D = $Body/HoldPoint
+@onready var grab_area: Area3D = $GrabArea
+@onready var cam_rig: Node3D = $CamRig
+@onready var spring_arm: SpringArm3D = $CamRig/SpringArm
+@onready var camera: Camera3D = $CamRig/SpringArm/Camera
+
+var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
+
+var _pitch := 0.0
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		cam_rig.rotate_y(-event.relative.x * mouse_sensitivity)
+		_pitch = clampf(_pitch - event.relative.y * mouse_sensitivity, PITCH_MIN, PITCH_MAX)
+		spring_arm.rotation.x = _pitch
+
+
+func _physics_process(delta: float) -> void:
+	if not is_on_floor():
+		velocity.y -= gravity * delta
+	elif Input.is_action_just_pressed("jump"):
+		velocity.y = JUMP_VELOCITY
+
+	var direction := _wish_direction()
+	var target := direction * SPEED
+	velocity.x = move_toward(velocity.x, target.x, ACCELERATION * delta)
+	velocity.z = move_toward(velocity.z, target.z, ACCELERATION * delta)
+	move_and_slide()
+
+	if direction.length_squared() &gt; 0.01:
+		var wanted_yaw := atan2(-direction.x, -direction.z)
+		body.rotation.y = lerp_angle(body.rotation.y, wanted_yaw, 12.0 * delta)
+
+
+## Movement input, rotated so that "forward" means "away from the camera".
+func _wish_direction() -&gt; Vector3:
+	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	var basis := cam_rig.global_transform.basis
+	var direction := basis.x * input.x + basis.z * input.y
+	direction.y = 0.0
+	return direction.normalized()
+</code></pre></figure>
+
+<div class="why">
+  <span class="lbl">Why the camera rig yaws instead of the body</span>
+  <p><code>CamRig</code> is a child of <code>Player</code>, but we never rotate <code>Player</code> itself. If the root rotated, the camera would be dragged around every time the character turned to face a new direction, and looking around would fight the movement. Instead: <code>CamRig</code> holds the look direction, <code>Body</code> holds the facing direction, and they only relate through <code>_wish_direction()</code>. When we replicate the player over the network in Part 7, this also means we sync exactly two things — the root's position and <code>Body</code>'s rotation — and the camera stays local to whoever owns the character.</p>
+</div>
+
+<h3>Somewhere to stand</h3>
+<p>We need a floor to test against. Make a scene with a <code>Node3D</code> root named <strong>Sandbox</strong>, add a <code>CSGBox3D</code> child named <strong>Floor</strong> with size <code>(30, 1, 30)</code>, position y = <code>-0.5</code>, and tick <strong>Use Collision</strong>. Add a <code>DirectionalLight3D</code> and a <code>WorldEnvironment</code> with a new <code>Environment</code> resource (set Background Mode to <em>Sky</em> and add a new <code>ProceduralSkyMaterial</code>) so you can see something. Save it as <code>res://levels/sandbox.tscn</code>.</p>
+
+<p>Drag <code>player.tscn</code> into the sandbox scene, put it at <code>(0, 1, 0)</code>, and run the scene directly with F6.</p>
+
+<div class="warn">
+  <span class="lbl">The mouse won't be captured</span>
+  <p>Nothing captures the mouse yet, so the camera won't move. That's deliberate — mouse capture is a <em>game state</em> concern, not a player concern, and the player scene shouldn't grab your cursor while you're sitting in a menu. Part 6 hands that job to <code>Main</code>. For now, click into the window and add a temporary line at the top of <code>_unhandled_input</code> if you want to test the camera: <code>Input.mouse_mode = Input.MOUSE_MODE_CAPTURED</code> — then remove it.</p>
+</div>
+
+<div class="test">
+  <span class="lbl">Run it</span>
+  <p>WASD moves the capsule, space jumps, and the nose block turns to face the direction of travel. If movement feels like it's on ice, raise <code>ACCELERATION</code>. Don't move on until this feels good — you'll be playing it a lot.</p>
+</div>
+
+<h2 id="p3"><span class="pnum">PART 3</span>Levels and the level registry</h2>
+
+<p>The group needs to move through several levels together. Before any of that can be networked, a level has to be a thing the game can name, load, and ask questions of.</p>
+
+<h3>What a level scene must provide</h3>
+<p>Every level is a <code>Node3D</code> with the same three children. The host reads the marker nodes to decide where people and junk go, so the contract has to be identical in every level.</p>
+
+<pre class="tree">Level              <span class="dim">(Node3D)</span>
+ ├─ Geometry       <span class="dim">(Node3D — CSG boxes live in here)</span>
+ ├─ SpawnPoints    <span class="dim">(Node3D — Marker3D children, one per player)</span>
+ └─ JunkSpawns     <span class="dim">(Node3D — Marker3D children, one per crate)</span></pre>
+
+<h3>Build the first level</h3>
+<p>New scene, <code>Node3D</code> root named <strong>Level</strong>, saved as <code>res://levels/level_kitchen.tscn</code>. Under <strong>Geometry</strong>:</p>
+<ul>
+  <li>A <code>CSGBox3D</code> named <strong>Floor</strong>, size <code>(30, 1, 30)</code>, position y = <code>-0.5</code>, <strong>Use Collision</strong> on.</li>
+  <li>Four <code>CSGBox3D</code> walls, size <code>(30, 4, 1)</code> and <code>(1, 4, 30)</code>, positioned at the edges, all with <strong>Use Collision</strong> on.</li>
+  <li>Two or three boxes in the middle as obstacles. Vary the heights so there's something to jump on.</li>
+</ul>
+<p>Under <strong>SpawnPoints</strong>, add eight <code>Marker3D</code> nodes spread around the middle at y = <code>1</code>. Under <strong>JunkSpawns</strong>, add six <code>Marker3D</code> nodes scattered around the room at y = <code>1.5</code>.</p>
+<p>Add a <code>DirectionalLight3D</code> and a <code>WorldEnvironment</code> to the level root so it isn't pitch black.</p>
+
+<p>Now duplicate the whole scene (right-click the <code>.tscn</code> in the FileSystem dock → <strong>Duplicate</strong>), name the copy <code>level_garage.tscn</code>, and rearrange the boxes so it plays differently. Two levels is enough to prove the progression works; adding a third later costs one line.</p>
+
+<h3>The registry</h3>
+<p>The list of levels is data, and it lives in exactly one place. Nothing else in the codebase is allowed to hardcode a level path.</p>
+
+<figure class="code"><figcaption><span class="fname">res://levels/levels.gd</span><span class="kind new">NEW</span><button class="copy">copy</button></figcaption><pre><code class="gd">class_name Levels
+extends RefCounted
+
+## The match playlist, in order. Add a level by adding a line here.
+const LIST: Array[Dictionary] = [
+	{"name": "The Kitchen", "scene": "res://levels/level_kitchen.tscn"},
+	{"name": "The Garage", "scene": "res://levels/level_garage.tscn"},
+]
+
+
+static func count() -&gt; int:
+	return LIST.size()
+
+
+static func has_index(index: int) -&gt; bool:
+	return index &gt;= 0 and index &lt; LIST.size()
+
+
+static func scene_path(index: int) -&gt; String:
+	return LIST[index]["scene"] if has_index(index) else ""
+
+
+static func display_name(index: int) -&gt; String:
+	return LIST[index]["name"] if has_index(index) else "Unknown level"
+</code></pre></figure>
+
+<div class="note">
+  <span class="lbl">On using a const array</span>
+  <p>A dictionary array keeps the tutorial moving, and because <code>class_name Levels</code> makes it globally reachable it needs no autoload. If you later want levels editable in the inspector — per-level junk counts, music, a par time — turn each entry into a custom <code>Resource</code> with <code>@export</code> fields and make <code>LIST</code> an array of <code>.tres</code> files. Every call site in this tutorial goes through <code>Levels.scene_path()</code> and <code>Levels.display_name()</code>, so that swap touches this file only.</p>
+</div>
+
+<h3>Teaching Main to build a level</h3>
+
+<div class="edit-block">
+  <p class="where">Edit <code>res://main/main.gd</code> — add the variable below <code>var current_screen</code></p>
+  <figure class="code"><figcaption><span class="fname">res://main/main.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">var current_level: Node3D = null
+</code></pre></figure>
+
+  <p class="where">…and these four functions at the bottom of the file</p>
+  <figure class="code"><figcaption><span class="fname">res://main/main.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">## Swap the level geometry. Every peer calls this for itself.
+func build_level(index: int) -&gt; void:
+	clear_level()
+	var path := Levels.scene_path(index)
+	if path.is_empty():
+		push_error("No level at index %d" % index)
+		return
+	var packed: PackedScene = load(path)
+	current_level = packed.instantiate()
+	level_holder.add_child(current_level)
+
+
+func clear_level() -&gt; void:
+	if current_level != null:
+		current_level.queue_free()
+		current_level = null
+
+
+func spawn_points() -&gt; Array:
+	if current_level == null:
+		return []
+	return current_level.get_node("SpawnPoints").get_children()
+
+
+func junk_spawns() -&gt; Array:
+	if current_level == null:
+		return []
+	return current_level.get_node("JunkSpawns").get_children()
+</code></pre></figure>
+</div>
+
+<div class="edit-block">
+  <p class="where">Edit <code>res://main/main.gd</code> — temporary test, deleted in Part 6</p>
+  <figure class="code"><figcaption><span class="fname">res://main/main.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">func _ready() -&gt; void:
+	# TEMPORARY — Part 6 replaces this with the real match flow.
+	build_level(0)
+	var p := preload("res://player/player.tscn").instantiate()
+	players_root.add_child(p)
+	p.global_position = Vector3(0, 1, 0)
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+</code></pre></figure>
+</div>
+
+<div class="test">
+  <span class="lbl">Run it</span>
+  <p>F5 drops you into the kitchen with a working camera. Change <code>build_level(0)</code> to <code>build_level(1)</code> and you're in the garage instead. Nothing is networked yet, but the level pipeline is done.</p>
+</div>
+
+<h2 id="p4"><span class="pnum">PART 4</span>The network layer</h2>
+
+<p>This part adds one autoload with one job: open a socket, and keep an agreed list of who is in the session. It knows nothing about levels, scores, or players. That separation is what keeps the rest of the game testable.</p>
+
+<h3>How the roster stays in sync</h3>
+<p>The host owns the roster. There is no merging, no partial updates, no ordering problems:</p>
+<ol>
+  <li>A client connects and tells the host its chosen name.</li>
+  <li>The host adds it to the roster dictionary.</li>
+  <li>The host broadcasts the <em>entire</em> roster to everyone.</li>
+</ol>
+<p>A client that joins in the tenth minute of a match gets the full picture in its first packet, because there's only ever one kind of roster message.</p>
+
+<figure class="code"><figcaption><span class="fname">res://autoload/net.gd</span><span class="kind new">NEW</span><button class="copy">copy</button></figcaption><pre><code class="gd">extends Node
+
+## Transport and session membership. Knows nothing about gameplay.
+
+const DEFAULT_PORT := 24565
+const MAX_PLAYERS := 8
+
+signal roster_changed
+signal session_started
+signal session_ended
+signal peer_joined(id: int)   ## host only
+signal peer_left(id: int)     ## host only
+
+## peer_id -&gt; { "name": String }. Identical on every peer.
+var roster: Dictionary = {}
+var local_name := "Player"
+## Shown on the main menu after a disconnect. Empty means nothing to report.
+var last_message := ""
+
+
+func _ready() -&gt; void:
+	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
+	multiplayer.connected_to_server.connect(_on_connected_to_server)
+	multiplayer.connection_failed.connect(_on_connection_failed)
+	multiplayer.server_disconnected.connect(_on_server_disconnected)
+
+
+func host(player_name: String, port: int = DEFAULT_PORT) -&gt; Error:
+	var peer := ENetMultiplayerPeer.new()
+	var err := peer.create_server(port, MAX_PLAYERS)
+	if err != OK:
+		return err
+	local_name = player_name
+	last_message = ""
+	multiplayer.multiplayer_peer = peer
+	roster = {1: {"name": player_name}}
+	roster_changed.emit()
+	session_started.emit()
+	return OK
+
+
+func join(player_name: String, address: String, port: int = DEFAULT_PORT) -&gt; Error:
+	var peer := ENetMultiplayerPeer.new()
+	var err := peer.create_client(address, port)
+	if err != OK:
+		return err
+	local_name = player_name
+	last_message = ""
+	multiplayer.multiplayer_peer = peer
+	# session_started fires once the host answers, not here.
+	return OK
+
+
+func leave(message := "") -&gt; void:
+	if multiplayer.multiplayer_peer != null:
+		multiplayer.multiplayer_peer.close()
+		multiplayer.multiplayer_peer = null
+	roster.clear()
+	last_message = message
+	roster_changed.emit()
+	session_ended.emit()
+
+
+func in_session() -&gt; bool:
+	if multiplayer.multiplayer_peer == null:
+		return false
+	return multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED
+
+
+func is_host() -&gt; bool:
+	return in_session() and multiplayer.is_server()
+
+
+func local_id() -&gt; int:
+	return multiplayer.get_unique_id() if in_session() else 0
+
+
+func display_name(id: int) -&gt; String:
+	return roster.get(id, {}).get("name", "Player %d" % id)
+
+
+# --- signal handlers -------------------------------------------------------
+
+func _on_peer_disconnected(id: int) -&gt; void:
+	if not multiplayer.is_server():
+		return
+	roster.erase(id)
+	_receive_roster.rpc(roster)
+	peer_left.emit(id)
+
+
+func _on_connected_to_server() -&gt; void:
+	_request_join.rpc_id(1, local_name)
+
+
+func _on_connection_failed() -&gt; void:
+	leave("Could not reach that host.")
+
+
+func _on_server_disconnected() -&gt; void:
+	leave("The host closed the game.")
+
+
+# --- rpcs ------------------------------------------------------------------
+
+@rpc("any_peer", "reliable")
+func _request_join(player_name: String) -&gt; void:
+	if not multiplayer.is_server():
+		return
+	var id := multiplayer.get_remote_sender_id()
+	roster[id] = {"name": player_name.strip_edges().left(16)}
+	_receive_roster.rpc(roster)
+	peer_joined.emit(id)
+
+
+@rpc("authority", "reliable")
+func _receive_roster(new_roster: Dictionary) -&gt; void:
+	var was_empty := roster.is_empty()
+	roster = new_roster
+	roster_changed.emit()
+	if was_empty:
+		session_started.emit()
+</code></pre></figure>
+
+<p>Register it: <strong>Project → Project Settings → Autoload</strong>, path <code>res://autoload/net.gd</code>, node name <strong>Net</strong>.</p>
+
+<div class="why">
+  <span class="lbl">Reading the RPC annotations</span>
+  <p><code>@rpc("any_peer", "reliable")</code> on <code>_request_join</code> means any client is allowed to call it on another peer, and the packet is guaranteed to arrive. It is only ever aimed at the host, via <code>rpc_id(1, ...)</code> — peer 1 is always the server in Godot.</p>
+  <p><code>@rpc("authority", "reliable")</code> on <code>_receive_roster</code> means <em>only the node's authority may call it</em>. Autoloads default to an authority of 1, so this is a compile-time-ish guarantee that a client can't forge a roster. Note there's no <code>"call_local"</code>: when the host broadcasts with <code>.rpc()</code>, the host doesn't run the function on itself, which is correct here because the host already edited <code>roster</code> directly.</p>
+  <p>An RPC only works if the node exists at the same path on both peers. Autoloads always do — they're at <code>/root/Net</code> everywhere. This is why session-level messaging lives in an autoload and not on some node inside the level.</p>
+</div>
+
+<div class="edit-block">
+  <p class="where">Edit <code>res://main/main.gd</code> — temporary test, replaced in Part 5</p>
+  <p>Add this at the bottom of the file so you can drive the network without any UI yet.</p>
+  <figure class="code"><figcaption><span class="fname">res://main/main.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">func _unhandled_key_input(event: InputEvent) -&gt; void:
+	if not event.is_pressed():
+		return
+	if event.keycode == KEY_F1:
+		print("host -&gt; ", Net.host("Host"))
+	elif event.keycode == KEY_F2:
+		print("join -&gt; ", Net.join("Guest", "127.0.0.1"))
+	elif event.keycode == KEY_F3:
+		print("roster: ", Net.roster)
+</code></pre></figure>
+</div>
+
+<div class="test">
+  <span class="lbl">Run two copies</span>
+  <p>In the editor, <strong>Debug → Run Multiple Instances → Run 2 Instances</strong>, then F5. Press <strong>F1</strong> in the first window and <strong>F2</strong> in the second. Press <strong>F3</strong> in both: each prints a roster containing peers <code>1</code> and something like <code>1234567890</code>. Close the guest window — the host's roster shrinks back to one entry. Close the host — the guest prints nothing more, but no errors appear either.</p>
+</div>
+
+<div class="warn">
+  <span class="lbl">If F1 returns 1 instead of 0</span>
+  <p><code>ERR_CANT_CREATE</code> means the port is taken, usually by a previous run that didn't shut down. Godot's <code>Error</code> enum prints as an integer here; <code>0</code> is <code>OK</code>.</p>
+</div>
+
+<h2 id="p5"><span class="pnum">PART 5</span>Main menu and lobby</h2>
+
+<p>Two <code>Control</code> scenes, both of which live inside <code>ScreenHolder</code>. Neither one changes the scene tree root, which is the whole point.</p>
+
+<div class="note">
+  <span class="lbl">Unique names</span>
+  <p>Every named node below should be marked <strong>Access as Unique Name</strong> (right-click the node in the Scene dock). That's what lets the scripts write <code>%NameField</code> instead of a brittle path through five containers, so you can rearrange the layout without breaking code.</p>
+</div>
+
+<h3>The main menu</h3>
+<p>New scene, <code>Control</code> root named <strong>MainMenu</strong>, anchors <strong>Full Rect</strong>. Add a <code>PanelContainer</code> centred on screen, and inside it a <code>VBoxContainer</code> with:</p>
+<ul>
+  <li><code>Label</code> with the text <em>Chute Buddies</em></li>
+  <li><code>LineEdit</code> named <strong>NameField</strong>, placeholder <em>Your name</em></li>
+  <li><code>Button</code> named <strong>HostButton</strong>, text <em>Host a game</em></li>
+  <li><code>LineEdit</code> named <strong>AddressField</strong>, text <code>127.0.0.1</code></li>
+  <li><code>Button</code> named <strong>JoinButton</strong>, text <em>Join game</em></li>
+  <li><code>Button</code> named <strong>QuitButton</strong>, text <em>Quit</em></li>
+  <li><code>Label</code> named <strong>Status</strong>, empty, with Autowrap on</li>
+</ul>
+<p>Save as <code>res://ui/main_menu.tscn</code>.</p>
+
+<figure class="code"><figcaption><span class="fname">res://ui/main_menu.gd</span><span class="kind new">NEW</span><button class="copy">copy</button></figcaption><pre><code class="gd">extends Control
+
+@onready var name_field: LineEdit = %NameField
+@onready var address_field: LineEdit = %AddressField
+@onready var status: Label = %Status
+
+
+func _ready() -&gt; void:
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	name_field.text = Net.local_name
+	status.text = Net.last_message
+	%HostButton.pressed.connect(_on_host_pressed)
+	%JoinButton.pressed.connect(_on_join_pressed)
+	%QuitButton.pressed.connect(get_tree().quit)
+
+
+func _chosen_name() -&gt; String:
+	var text := name_field.text.strip_edges()
+	return text if not text.is_empty() else "Player"
+
+
+func _on_host_pressed() -&gt; void:
+	var err := Net.host(_chosen_name())
+	if err != OK:
+		status.text = "Port %d is already in use. Close any other copy that is hosting." % Net.DEFAULT_PORT
+
+
+func _on_join_pressed() -&gt; void:
+	status.text = "Connecting…"
+	var err := Net.join(_chosen_name(), address_field.text.strip_edges())
+	if err != OK:
+		status.text = "That address could not be used. Check the IP and try again."
+</code></pre></figure>
+
+<h3>The lobby</h3>
+<p>New scene, <code>Control</code> root named <strong>Lobby</strong>, anchors <strong>Full Rect</strong>, same panel-and-vbox arrangement, containing:</p>
+<ul>
+  <li><code>Label</code> named <strong>HintLabel</strong></li>
+  <li><code>VBoxContainer</code> named <strong>PlayerList</strong> (leave it empty; it's filled at runtime)</li>
+  <li><code>Button</code> named <strong>StartButton</strong>, text <em>Start match</em></li>
+  <li><code>Button</code> named <strong>LeaveButton</strong>, text <em>Leave lobby</em></li>
+</ul>
+<p>Save as <code>res://ui/lobby.tscn</code>.</p>
+
+<figure class="code"><figcaption><span class="fname">res://ui/lobby.gd</span><span class="kind new">NEW</span><button class="copy">copy</button></figcaption><pre><code class="gd">extends Control
+
+@onready var player_list: VBoxContainer = %PlayerList
+@onready var start_button: Button = %StartButton
+
+
+func _ready() -&gt; void:
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	%HintLabel.text = "Friends join on port %d using your IP address." % Net.DEFAULT_PORT
+	%LeaveButton.pressed.connect(_on_leave_pressed)
+	start_button.pressed.connect(_on_start_pressed)
+	Net.roster_changed.connect(_refresh)
+	_refresh()
+
+
+func _refresh() -&gt; void:
+	for child in player_list.get_children():
+		child.queue_free()
+	for id in Net.roster:
+		var label := Label.new()
+		var tags := []
+		if id == 1:
+			tags.append("host")
+		if id == Net.local_id():
+			tags.append("you")
+		label.text = Net.display_name(id)
+		if not tags.is_empty():
+			label.text += "  (" + ", ".join(tags) + ")"
+		player_list.add_child(label)
+	start_button.visible = Net.is_host()
+
+
+func _on_start_pressed() -&gt; void:
+	print("start pressed")  # Part 6 replaces this line.
+
+
+func _on_leave_pressed() -&gt; void:
+	Net.leave("You left the lobby.")
+</code></pre></figure>
+
+<h3>Wiring the screens to the session</h3>
+<p>Now delete both temporary blocks from <code>main.gd</code> and let the session state decide what's on screen.</p>
+
+<div class="edit-block">
+  <p class="where">Edit <code>res://main/main.gd</code> — delete <code>_unhandled_key_input()</code> and the temporary <code>_ready()</code></p>
+  <p>Replace them with the real versions, and add the two preloads at the top of the file under <code>extends Node</code>.</p>
+  <figure class="code"><figcaption><span class="fname">res://main/main.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">const SCREEN_MAIN_MENU := preload("res://ui/main_menu.tscn")
+const SCREEN_LOBBY := preload("res://ui/lobby.tscn")
+</code></pre></figure>
+  <figure class="code"><figcaption><span class="fname">res://main/main.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">func _ready() -&gt; void:
+	Net.session_started.connect(refresh_screen)
+	Net.session_ended.connect(refresh_screen)
+	refresh_screen()
+
+
+## Single place that decides which screen is visible.
+func refresh_screen() -&gt; void:
+	if Net.in_session():
+		show_screen(SCREEN_LOBBY)
+	else:
+		clear_level()
+		show_screen(SCREEN_MAIN_MENU)
+</code></pre></figure>
+</div>
+
+<div class="test">
+  <span class="lbl">Run two copies</span>
+  <p>Host in one window, join from the other with <code>127.0.0.1</code>. Both lobbies list both players, correctly tagged. Only the host sees <em>Start match</em>. Leaving the lobby from the guest removes it from the host's list; quitting the host sends the guest back to the main menu with "The host closed the game." on the status label.</p>
+</div>
+
+<h2 id="p6"><span class="pnum">PART 6</span>Match state and the level handshake</h2>
+
+<p>Here's the problem this part solves. The host presses <em>Start match</em>. If it immediately spawns players into level 1, the clients haven't loaded any level geometry yet — the spawn arrives, characters appear over nothing, and everyone falls out of the world while the floor loads underneath them.</p>
+
+<p>So loading a level is a two-step conversation:</p>
+
+<pre class="tree">HOST                                 CLIENT
+  |  state = LOADING, level = 0        |
+  |----------------------------------&gt;|  build_level(0)
+  |                                    |  report_level_ready()
+  |&lt;----------------------------------|
+  |  (waits for every peer in roster)  |
+  |  state = PLAYING                   |
+  |----------------------------------&gt;|
+  |  spawn everyone                    |</pre>
+
+<p>Nothing enters the world until every peer says it's standing on a floor. The same handshake is what makes joining halfway through a match work in Part 8, so it's worth getting exactly right.</p>
+
+<h3>The GameFlow autoload</h3>
+
+<figure class="code"><figcaption><span class="fname">res://autoload/game_flow.gd</span><span class="kind new">NEW</span><button class="copy">copy</button></figcaption><pre><code class="gd">extends Node
+
+## Match state: which level we're on, what everyone has scored, who has
+## finished loading. The host decides; everybody else is told.
+
+enum State { LOBBY, LOADING, PLAYING, RESULTS }
+
+signal state_changed(new_state: int)
+signal scores_changed
+
+## Host-only requests aimed at Main, which owns the scene tree.
+signal spawn_all_requested
+signal spawn_player_requested(peer_id: int)
+signal despawn_player_requested(peer_id: int)
+
+var state: int = State.LOBBY
+var level_index := -1
+var scores: Dictionary = {}   ## peer_id -&gt; int
+
+## Host only: peer_id -&gt; true once that peer has the current level built.
+var _peers_ready: Dictionary = {}
+
+
+func _ready() -&gt; void:
+	Net.session_ended.connect(_reset)
+
+
+func _reset() -&gt; void:
+	state = State.LOBBY
+	level_index = -1
+	scores.clear()
+	_peers_ready.clear()
+	scores_changed.emit()
+	state_changed.emit(state)
+
+
+# --- host commands ---------------------------------------------------------
+
+func start_match() -&gt; void:
+	if not Net.is_host():
+		return
+	scores.clear()
+	for id in Net.roster:
+		scores[id] = 0
+	_begin_level(0)
+
+
+func _begin_level(index: int) -&gt; void:
+	_peers_ready.clear()
+	_publish(State.LOADING, index)
+
+
+func _publish(new_state: int, index: int) -&gt; void:
+	_receive_state.rpc(new_state, index, scores)
+
+
+# --- readiness handshake ---------------------------------------------------
+
+## Called locally by Main once this peer has the level in its tree.
+func report_level_ready() -&gt; void:
+	if Net.is_host():
+		_peer_level_ready()
+	else:
+		_peer_level_ready.rpc_id(1)
+
+
+@rpc("any_peer", "reliable")
+func _peer_level_ready() -&gt; void:
+	if not Net.is_host():
+		return
+	var id := multiplayer.get_remote_sender_id()
+	if id == 0:
+		id = 1   # the host calling itself
+	_peers_ready[id] = true
+	_check_everyone_ready()
+
+
+func _check_everyone_ready() -&gt; void:
+	if state != State.LOADING:
+		return
+	for peer_id in Net.roster:
+		if not _peers_ready.has(peer_id):
+			return
+	_publish(State.PLAYING, level_index)
+	spawn_all_requested.emit()
+
+
+# --- replicated state ------------------------------------------------------
+
+@rpc("authority", "call_local", "reliable")
+func _receive_state(new_state: int, index: int, new_scores: Dictionary) -&gt; void:
+	state = new_state
+	level_index = index
+	scores = new_scores
+	scores_changed.emit()
+	state_changed.emit(state)
+</code></pre></figure>
+
+<p>Register it as an autoload named <strong>GameFlow</strong>, <em>below</em> <code>Net</code> in the list — <code>GameFlow._ready()</code> connects to a <code>Net</code> signal, so <code>Net</code> has to exist first.</p>
+
+<div class="why">
+  <span class="lbl">Why GameFlow emits signals instead of spawning</span>
+  <p><code>spawn_all_requested</code> could just as easily be <code>players_root.add_child(...)</code> right here. It isn't, because an autoload has no business reaching into the scene tree at a hardcoded path — the moment you rename a node, an unrelated file breaks.</p>
+  <p><code>GameFlow</code> answers "what should be true right now". <code>Main</code> answers "how do I make that true in the tree". When you later add spectators, or a title screen that shows a demo level, the state machine doesn't change at all.</p>
+</div>
+
+<h3>A minimal HUD</h3>
+<p>New scene, <code>Control</code> root named <strong>HUD</strong>, anchors <strong>Full Rect</strong>, and — importantly — <strong>Mouse Filter set to Ignore</strong> so it never swallows clicks meant for the game. Add a <code>MarginContainer</code> with a <code>VBoxContainer</code> holding two labels named <strong>LevelLabel</strong> and <strong>StatusLabel</strong> (both unique names). Save as <code>res://ui/hud.tscn</code>.</p>
+
+<figure class="code"><figcaption><span class="fname">res://ui/hud.gd</span><span class="kind new">NEW</span><button class="copy">copy</button></figcaption><pre><code class="gd">extends Control
+
+@onready var level_label: Label = %LevelLabel
+@onready var status_label: Label = %StatusLabel
+
+
+func _ready() -&gt; void:
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	GameFlow.state_changed.connect(_refresh)
+	_refresh(GameFlow.state)
+
+
+func _refresh(new_state: int) -&gt; void:
+	level_label.text = Levels.display_name(GameFlow.level_index)
+	if new_state == GameFlow.State.LOADING:
+		status_label.text = "Waiting for everyone to load…"
+	else:
+		status_label.text = ""
+
+
+func _unhandled_input(event: InputEvent) -&gt; void:
+	if event.is_action_pressed("ui_cancel"):
+		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		else:
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		get_viewport().set_input_as_handled()
+</code></pre></figure>
+
+<h3>Main reacts to the state</h3>
+
+<div class="edit-block">
+  <p class="where">Edit <code>res://main/main.gd</code> — add the preload next to the other two</p>
+  <figure class="code"><figcaption><span class="fname">res://main/main.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">const SCREEN_HUD := preload("res://ui/hud.tscn")
+</code></pre></figure>
+
+  <p class="where">…and this variable next to <code>current_level</code></p>
+  <figure class="code"><figcaption><span class="fname">res://main/main.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">## Which level index is currently built in our tree. -1 means none.
+var built_level_index := -1
+var _current_screen_scene: PackedScene = null
+</code></pre></figure>
+
+  <p class="where">…then replace <code>_ready()</code> and <code>refresh_screen()</code> with these</p>
+  <figure class="code"><figcaption><span class="fname">res://main/main.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">func _ready() -&gt; void:
+	Net.session_started.connect(refresh_screen)
+	Net.session_ended.connect(refresh_screen)
+	GameFlow.state_changed.connect(_on_state_changed)
+	refresh_screen()
+
+
+func _on_state_changed(new_state: int) -&gt; void:
+	if new_state == GameFlow.State.LOBBY:
+		clear_level()
+		built_level_index = -1
+	elif built_level_index != GameFlow.level_index:
+		# Covers both "the match moved on" and "we just joined a match
+		# already in progress" — either way we owe the host a level.
+		built_level_index = GameFlow.level_index
+		build_level(GameFlow.level_index)
+		GameFlow.report_level_ready()
+	refresh_screen()
+
+
+func refresh_screen() -&gt; void:
+	if not Net.in_session():
+		clear_level()
+		built_level_index = -1
+		show_screen(SCREEN_MAIN_MENU)
+		return
+	match GameFlow.state:
+		GameFlow.State.LOADING, GameFlow.State.PLAYING:
+			show_screen(SCREEN_HUD)
+		_:
+			show_screen(SCREEN_LOBBY)
+</code></pre></figure>
+
+  <p class="where">…and make <code>show_screen()</code> skip redundant rebuilds</p>
+  <p>Replace the first two lines of <code>show_screen()</code>'s body with this guard, so a screen isn't torn down and rebuilt when two signals ask for the same one.</p>
+  <figure class="code"><figcaption><span class="fname">res://main/main.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">func show_screen(screen_scene: PackedScene) -&gt; Control:
+	if screen_scene == _current_screen_scene and is_instance_valid(current_screen):
+		return current_screen
+	_current_screen_scene = screen_scene
+	if current_screen != null:
+		current_screen.queue_free()
+		current_screen = null
+	if screen_scene == null:
+		return null
+	current_screen = screen_scene.instantiate()
+	screen_holder.add_child(current_screen)
+	return current_screen
+</code></pre></figure>
+</div>
+
+<div class="edit-block">
+  <p class="where">Edit <code>res://ui/lobby.gd</code> — replace the placeholder in <code>_on_start_pressed()</code></p>
+  <figure class="code"><figcaption><span class="fname">res://ui/lobby.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">func _on_start_pressed() -&gt; void:
+	GameFlow.start_match()
+</code></pre></figure>
+</div>
+
+<div class="test">
+  <span class="lbl">Run two copies</span>
+  <p>Host, join, press <em>Start match</em>. Both windows switch to the HUD, both show <em>The Kitchen</em>, and the "waiting" line disappears almost instantly as both peers report in. You're looking at the level from a default camera and there are no characters yet — that's Part 7. If one window stays stuck on "Waiting for everyone to load…", the handshake is one-sided; check that <code>GameFlow</code> is registered as an autoload in <em>both</em> the name and the path.</p>
+</div>
+
+<h2 id="p7"><span class="pnum">PART 7</span>Spawning players over the network</h2>
+
+<p>Three things have to be true for a networked character:</p>
+<ol>
+  <li>The same node exists on every peer, at the same path, with the same name.</li>
+  <li>Exactly one peer decides where it is — its <strong>authority</strong>.</li>
+  <li>Everybody else receives that position instead of computing it.</li>
+</ol>
+
+<h3>The spawner</h3>
+<p>Open <code>main.tscn</code> and add a <code>MultiplayerSpawner</code> as a direct child of <strong>Main</strong>, named <strong>PlayerSpawner</strong>. In the inspector set <strong>Spawn Path</strong> to <code>../World/Players</code>. Leave the Auto Spawn List empty — we're supplying a spawn function in code, which lets us send the spawn position along with the spawn itself.</p>
+
+<pre class="tree">Main
+ ├─ World
+ │   ├─ LevelHolder
+ │   ├─ Players
+ │   └─ Props
+ ├─ <b>PlayerSpawner</b>   <span class="dim">(MultiplayerSpawner, Spawn Path = ../World/Players)</span>
+ └─ UI
+     └─ ScreenHolder</pre>
+
+<div class="edit-block">
+  <p class="where">Edit <code>res://main/main.gd</code> — add these near the top</p>
+  <figure class="code"><figcaption><span class="fname">res://main/main.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">const PLAYER_SCENE := preload("res://player/player.tscn")
+
+@onready var player_spawner: MultiplayerSpawner = $PlayerSpawner
+</code></pre></figure>
+
+  <p class="where">…add three connections and the spawn function inside <code>_ready()</code></p>
+  <p>Put these lines at the top of the existing <code>_ready()</code>, before the <code>Net</code> connections.</p>
+  <figure class="code"><figcaption><span class="fname">res://main/main.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">	player_spawner.spawn_function = _build_player
+	GameFlow.spawn_all_requested.connect(_on_spawn_all_requested)
+	GameFlow.spawn_player_requested.connect(spawn_player)
+	GameFlow.despawn_player_requested.connect(despawn_player)
+</code></pre></figure>
+
+  <p class="where">…and these functions at the bottom of the file</p>
+  <figure class="code"><figcaption><span class="fname">res://main/main.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd"># --- spawning --------------------------------------------------------------
+
+## Runs on every peer, with the data the host passed to spawn().
+func _build_player(data: Dictionary) -&gt; Node:
+	var player := PLAYER_SCENE.instantiate()
+	player.name = str(data["id"])
+	player.position = data["pos"]
+	return player
+
+
+func _on_spawn_all_requested() -&gt; void:
+	for peer_id in Net.roster:
+		spawn_player(peer_id)
+
+
+func spawn_player(peer_id: int) -&gt; void:
+	if not Net.is_host():
+		return
+	if players_root.has_node(str(peer_id)):
+		return
+	player_spawner.spawn({"id": peer_id, "pos": spawn_position_for(peer_id)})
+
+
+func despawn_player(peer_id: int) -&gt; void:
+	if not Net.is_host():
+		return
+	var node := players_root.get_node_or_null(str(peer_id))
+	if node != null:
+		node.queue_free()
+
+
+func spawn_position_for(peer_id: int) -&gt; Vector3:
+	var points := spawn_points()
+	if points.is_empty():
+		return Vector3(0, 1, 0)
+	var slot: int = maxi(Net.roster.keys().find(peer_id), 0)
+	return points[slot % points.size()].global_position
+
+
+func clear_world() -&gt; void:
+	for child in players_root.get_children():
+		child.queue_free()
+	for child in props_root.get_children():
+		child.queue_free()
+</code></pre></figure>
+
+  <p class="where">…and call <code>clear_world()</code> when the match ends</p>
+  <p>In <code>_on_state_changed()</code>, inside the <code>LOBBY</code> branch, add it above <code>clear_level()</code>.</p>
+  <figure class="code"><figcaption><span class="fname">res://main/main.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">	if new_state == GameFlow.State.LOBBY:
+		clear_world()
+		clear_level()
+		built_level_index = -1
+</code></pre></figure>
+</div>
+
+<div class="why">
+  <span class="lbl">Why <code>spawn_function</code> instead of the Auto Spawn List</span>
+  <p>With the Auto Spawn List, the host adds a child and the spawner replicates "instantiate scene 0 and call it 1234". Any property the host set before adding — like the spawn position — is not part of that message. You'd have to follow up with a separate RPC, which can arrive before the node exists.</p>
+  <p><code>spawn_function</code> replicates the <em>argument</em>. Every peer runs <code>_build_player</code> with the same dictionary, so the character exists with the right name at the right coordinates in one atomic step. Keep the data small — it goes over the wire on every spawn.</p>
+</div>
+
+<h3>Authority and the synchronizer</h3>
+<p>The character's node name is the peer id, and that name is what tells every copy who owns it.</p>
+
+<div class="edit-block">
+  <p class="where">Edit <code>res://player/player.gd</code> — add above <code>_unhandled_input()</code></p>
+  <figure class="code"><figcaption><span class="fname">res://player/player.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">## The peer that owns this character. Taken from the node name, which the
+## spawner replicates, so every copy agrees without an extra message.
+var peer_id := 1
+
+
+func _enter_tree() -&gt; void:
+	peer_id = name.to_int()
+	set_multiplayer_authority(peer_id)
+
+
+func _ready() -&gt; void:
+	var mine := is_multiplayer_authority()
+	camera.current = mine
+	set_physics_process(mine)
+	set_process_unhandled_input(mine)
+</code></pre></figure>
+</div>
+
+<div class="warn">
+  <span class="lbl"><code>_enter_tree</code>, not <code>_ready</code></span>
+  <p>Authority must be set before any child's <code>_ready()</code> runs, because <code>MultiplayerSynchronizer</code> checks its own authority the moment it enters the tree to decide whether it sends or receives. <code>set_multiplayer_authority()</code> applies to children recursively by default, so setting it on the root in <code>_enter_tree</code> covers the synchronizer too. Move this to <code>_ready</code> and remote characters will stand still forever.</p>
+</div>
+
+<p>Now open <code>player.tscn</code> and add a <code>MultiplayerSynchronizer</code> as a child of the <strong>Player</strong> root. Select it, open the <strong>Replication</strong> tab at the bottom of the editor, and add two properties with the <em>Add property to replicate</em> button:</p>
+
+<table>
+  <tr><th>Property</th><th>Spawn</th><th>Sync</th><th>Why</th></tr>
+  <tr><td><code>.:position</code></td><td>on</td><td>on</td><td>where the character is</td></tr>
+  <tr><td><code>Body:rotation</code></td><td>on</td><td>on</td><td>which way it's facing</td></tr>
+</table>
+
+<p>That's it. Two floats-and-a-vector per tick, per player. Velocity, the camera rig, and the spring arm all stay local — a remote character's camera is meaningless to you, and its velocity is implied by its position changing.</p>
+
+<figure class="code"><figcaption><span class="fname">player.tscn — final tree</span><span class="kind editor">EDITOR</span><button class="copy">copy</button></figcaption><pre><code class="gd">Player                (CharacterBody3D)  &lt;- authority = peer_id
+ ├─ Collision
+ ├─ Body               &lt;- rotation replicated
+ │   ├─ Mesh
+ │   ├─ Nose
+ │   └─ HoldPoint
+ ├─ GrabArea
+ │   └─ GrabShape
+ ├─ CamRig             &lt;- local only, never replicated
+ │   └─ SpringArm
+ │       └─ Camera
+ └─ MultiplayerSynchronizer
+</code></pre></figure>
+
+<div class="test">
+  <span class="lbl">Run two copies</span>
+  <p>Host, join, start. Both players appear at different spawn markers, each window controls its own capsule, and you can watch the other one run around. Press Escape to free the mouse, click back in to recapture.</p>
+  <p>Movement will look slightly steppy on the remote character — that's the synchronizer delivering discrete positions with no interpolation between them. Part 12 fixes it in four lines. Don't fix it now; it's much easier to reason about the raw signal while you're still adding features.</p>
+</div>
+
+<div class="why">
+  <span class="lbl">The honest cost of client-authoritative movement</span>
+  <p>Each client tells everyone where it is, and nobody checks. A modified client can teleport, fly, or walk through walls. For a game you play with friends on a private host, that's a fine trade for movement that feels perfect on every connection.</p>
+  <p>Notice that this is a <em>per-node</em> decision, not a project-wide one. Junk crates in Part 9 are owned by the host precisely because that's where cheating would actually ruin the game — scoring. You can move any single node's authority to the host later without touching the rest of the architecture, which is the payoff for keeping authority explicit.</p>
+</div>
+
+<h2 id="p8"><span class="pnum">PART 8</span>Joining and leaving mid-game</h2>
+
+<p>Everything needed for this already exists — the handshake in Part 6 doesn't care whether a peer is loading at the start of a match or in the middle of one. What's missing is the host noticing that the roster changed.</p>
+
+<div class="edit-block">
+  <p class="where">Edit <code>res://autoload/game_flow.gd</code> — add two connections in <code>_ready()</code></p>
+  <figure class="code"><figcaption><span class="fname">res://autoload/game_flow.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">func _ready() -&gt; void:
+	Net.session_ended.connect(_reset)
+	Net.peer_joined.connect(_on_peer_joined)
+	Net.peer_left.connect(_on_peer_left)
+</code></pre></figure>
+
+  <p class="where">…and these two handlers at the bottom of the file</p>
+  <figure class="code"><figcaption><span class="fname">res://autoload/game_flow.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd"># --- roster churn (host only) ---------------------------------------------
+
+func _on_peer_joined(peer_id: int) -&gt; void:
+	if not scores.has(peer_id):
+		scores[peer_id] = 0
+	if state == State.LOBBY:
+		return
+	# Catch the newcomer up. They will build the level and report ready,
+	# which lands in _peer_level_ready() below.
+	_receive_state.rpc_id(peer_id, state, level_index, scores)
+
+
+func _on_peer_left(peer_id: int) -&gt; void:
+	_peers_ready.erase(peer_id)
+	scores.erase(peer_id)
+	despawn_player_requested.emit(peer_id)
+	_publish(state, level_index)
+	# If everyone else was waiting on the peer that just left, stop waiting.
+	_check_everyone_ready()
+</code></pre></figure>
+
+  <p class="where">…and handle a peer that reports ready during a live match</p>
+  <p>In <code>_peer_level_ready()</code>, replace the call to <code>_check_everyone_ready()</code> with this branch.</p>
+  <figure class="code"><figcaption><span class="fname">res://autoload/game_flow.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">	_peers_ready[id] = true
+	if state == State.PLAYING:
+		# The match is already running: drop this one player straight in.
+		spawn_player_requested.emit(id)
+	else:
+		_check_everyone_ready()
+</code></pre></figure>
+</div>
+
+<p>Trace what happens when someone joins during level 2:</p>
+<ol>
+  <li><code>Net</code> receives their name, adds them to the roster, broadcasts it.</li>
+  <li><code>GameFlow._on_peer_joined</code> gives them a score of 0 and sends them the current state — <code>PLAYING</code>, level <code>1</code>.</li>
+  <li>On the newcomer, <code>Main._on_state_changed</code> sees <code>built_level_index</code> is <code>-1</code> and the host says <code>1</code>, so it builds the garage and reports ready.</li>
+  <li>The host is in <code>PLAYING</code>, so it spawns just that one player.</li>
+  <li>The spawner replicates every character and crate that already exists to the new peer, into paths that have existed since their game launched.</li>
+</ol>
+
+<div class="note">
+  <span class="lbl">This is the payoff from Part 1</span>
+  <p>Step 5 is the one that breaks in most Godot projects. A <code>MultiplayerSpawner</code> sends its existing spawns to any peer that connects, and if <code>World/Players</code> doesn't exist on that peer yet — because they're still sitting in a separate menu scene — those spawns are dropped with an error and the newcomer sees an empty world. Because <code>Main.tscn</code> is never unloaded, there is no window during which the path is missing.</p>
+</div>
+
+<h3>When someone leaves</h3>
+<p>A disconnect fires <code>multiplayer.peer_disconnected</code> on the host, which <code>Net</code> turns into <code>peer_left</code>, which <code>GameFlow</code> turns into <code>despawn_player_requested</code>, which <code>Main</code> turns into <code>queue_free()</code> on their character. Freeing a spawned node on the host tells every client to free their copy — you don't have to send anything yourself.</p>
+
+<p>The other half is the host quitting. <code>Net._on_server_disconnected</code> already calls <code>leave()</code> with a message, which clears the roster, fires <code>session_ended</code>, and sends everyone back to the main menu with an explanation. <code>GameFlow._reset</code> is on the same signal, so state and scores are wiped at the same moment.</p>
+
+<div class="test">
+  <span class="lbl">Run three copies</span>
+  <p><strong>Debug → Run Multiple Instances → Run 3 Instances.</strong> Host in the first, join with the second, start the match. Now join with the third window: it loads the same level and appears next to you, and its capsule shows up in the other two windows.</p>
+  <p>Close the third window — its character vanishes everywhere within a second. Close the host — the remaining windows land on the main menu reading "The host closed the game."</p>
+</div>
+
+<h2 id="p9"><span class="pnum">PART 9</span>Picking up and throwing junk</h2>
+
+<p>Movement is owned by each client. Junk is owned by the host, and the reason is scoring: a crate's position decides who gets a point, so a client is never allowed to decide it. Clients <em>ask</em>; the host answers by changing state that everyone then receives.</p>
+
+<h3>The junk scene</h3>
+<p>New scene, <code>RigidBody3D</code> root named <strong>Junk</strong>:</p>
+
+<pre class="tree">Junk                    <span class="dim">(RigidBody3D)</span>
+ ├─ Mesh                <span class="dim">(MeshInstance3D — BoxMesh, size 0.6)</span>
+ ├─ Collision           <span class="dim">(CollisionShape3D — BoxShape3D, size 0.6)</span>
+ └─ MultiplayerSynchronizer</pre>
+
+<ul>
+  <li><strong>Junk</strong> — Collision Layer: <code>junk</code>. Collision Mask: <code>world</code>, <code>player</code>, <code>junk</code>. Mass <code>1.5</code>. Turn on <strong>Continuous CD</strong> so fast throws don't tunnel through walls.</li>
+  <li>On the <strong>MultiplayerSynchronizer</strong>, add three properties in the Replication tab: <code>.:position</code>, <code>.:rotation</code>, and <code>.:held_by</code>.</li>
+</ul>
+<p>Save as <code>res://props/junk.tscn</code> and attach:</p>
+
+<figure class="code"><figcaption><span class="fname">res://props/junk.gd</span><span class="kind new">NEW</span><button class="copy">copy</button></figcaption><pre><code class="gd">class_name Junk
+extends RigidBody3D
+
+@onready var collision: CollisionShape3D = $Collision
+
+## Peer id of whoever is carrying this, or 0 for nobody.
+## The host writes it; the synchronizer copies it to everyone else.
+var held_by := 0: set = _set_held_by
+
+## Host only. Who threw it last, so the chute knows who to pay.
+var last_thrower := 0
+
+
+func _enter_tree() -&gt; void:
+	set_multiplayer_authority(1)   # the host owns every crate
+
+
+func _ready() -&gt; void:
+	add_to_group("junk")
+	freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
+	_apply_hold_state()
+
+
+## While carried, every peer parks the crate on the holder's hold point.
+## Running in _process means this wins over the replicated position for
+## the frame that gets drawn, so carrying looks glued rather than laggy.
+func _process(_delta: float) -&gt; void:
+	if held_by == 0:
+		return
+	var holder := _holder()
+	if holder == null:
+		return
+	global_position = holder.hold_point.global_position
+	global_rotation = holder.hold_point.global_rotation
+
+
+func _holder() -&gt; Player:
+	for player in get_tree().get_nodes_in_group("players"):
+		if player.peer_id == held_by:
+			return player
+	return null
+
+
+# --- host-side state changes ----------------------------------------------
+
+func server_grab(peer_id: int) -&gt; void:
+	if not Net.is_host() or held_by != 0:
+		return
+	last_thrower = 0
+	held_by = peer_id
+
+
+func server_throw(impulse: Vector3) -&gt; void:
+	if not Net.is_host() or held_by == 0:
+		return
+	last_thrower = held_by
+	held_by = 0            # unfreezes via the setter
+	linear_velocity = Vector3.ZERO
+	angular_velocity = Vector3.ZERO
+	apply_central_impulse(impulse)
+
+
+## Used when the carrier disconnects.
+func server_drop() -&gt; void:
+	if not Net.is_host():
+		return
+	last_thrower = 0
+	held_by = 0
+
+
+# --- local reaction to held_by changing ------------------------------------
+
+func _set_held_by(value: int) -&gt; void:
+	held_by = value
+	if is_inside_tree():
+		_apply_hold_state()
+
+
+func _apply_hold_state() -&gt; void:
+	var held := held_by != 0
+	# Only the host simulates. Clients are kinematic receivers.
+	freeze = held or not Net.is_host()
+	# A carried crate shouldn't shove its carrier around.
+	collision.set_deferred("disabled", held)
+</code></pre></figure>
+
+<div class="why">
+  <span class="lbl">Why clients don't simulate physics at all</span>
+  <p>Two peers running the same rigid body will diverge — floating point, frame timing, and slightly different contact orders guarantee it. Then the synchronizer yanks the crate back to the host's answer and you get jitter.</p>
+  <p>Setting <code>freeze = true</code> with <code>FREEZE_MODE_KINEMATIC</code> on every non-host peer removes the fight entirely: the crate becomes a thing that is <em>told</em> where it is, while still colliding with characters locally so you can stand on it. All the interesting physics happens once, on the host.</p>
+</div>
+
+<h3>Spawning crates</h3>
+<p>Add a second <code>MultiplayerSpawner</code> to <code>main.tscn</code>, named <strong>PropSpawner</strong>, with <strong>Spawn Path</strong> set to <code>../World/Props</code>.</p>
+
+<div class="edit-block">
+  <p class="where">Edit <code>res://main/main.gd</code> — add near the other constants</p>
+  <figure class="code"><figcaption><span class="fname">res://main/main.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">const JUNK_SCENE := preload("res://props/junk.tscn")
+
+@onready var prop_spawner: MultiplayerSpawner = $PropSpawner
+
+var _next_junk_id := 0
+</code></pre></figure>
+
+  <p class="where">…register the spawn function in <code>_ready()</code>, next to the player one</p>
+  <figure class="code"><figcaption><span class="fname">res://main/main.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">	prop_spawner.spawn_function = _build_junk
+</code></pre></figure>
+
+  <p class="where">…add the builder and the spawner beside the player versions</p>
+  <figure class="code"><figcaption><span class="fname">res://main/main.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">func _build_junk(data: Dictionary) -&gt; Node:
+	var junk := JUNK_SCENE.instantiate()
+	junk.name = "Junk%d" % data["id"]
+	junk.position = data["pos"]
+	return junk
+
+
+func spawn_junk() -&gt; void:
+	if not Net.is_host():
+		return
+	for marker in junk_spawns():
+		prop_spawner.spawn({"id": _next_junk_id, "pos": marker.global_position})
+		_next_junk_id += 1
+</code></pre></figure>
+
+  <p class="where">…and call it when the level starts</p>
+  <p>Add the last line to <code>_on_spawn_all_requested()</code>.</p>
+  <figure class="code"><figcaption><span class="fname">res://main/main.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">func _on_spawn_all_requested() -&gt; void:
+	for peer_id in Net.roster:
+		spawn_player(peer_id)
+	spawn_junk()
+</code></pre></figure>
+
+  <p class="where">…and drop whatever a leaving player was holding</p>
+  <p>Add this loop at the top of <code>despawn_player()</code>, after the host check.</p>
+  <figure class="code"><figcaption><span class="fname">res://main/main.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">	for junk in get_tree().get_nodes_in_group("junk"):
+		if junk.held_by == peer_id:
+			junk.server_drop()
+</code></pre></figure>
+</div>
+
+<div class="note">
+  <span class="lbl">Why crate ids keep counting up</span>
+  <p><code>_next_junk_id</code> never resets. Node names have to be unique inside <code>Props</code>, and <code>queue_free()</code> doesn't take effect until the end of the frame — reusing "Junk0" right after clearing a level is a race waiting to happen. Monotonic ids cost nothing and remove the question.</p>
+</div>
+
+<h3>Reaching out</h3>
+
+<div class="edit-block">
+  <p class="where">Edit <code>res://player/player.gd</code> — add to the constants at the top</p>
+  <figure class="code"><figcaption><span class="fname">res://player/player.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">const GRAB_RANGE := 2.5
+const THROW_FORCE := 11.0
+const THROW_LIFT := 3.0
+const MAX_IMPULSE := 20.0
+</code></pre></figure>
+
+  <p class="where">…join the players group in <code>_ready()</code></p>
+  <p>Junk looks its carrier up through this group, so add it as the first line of <code>_ready()</code>.</p>
+  <figure class="code"><figcaption><span class="fname">res://player/player.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">	add_to_group("players")
+</code></pre></figure>
+
+  <p class="where">…handle the interact button in <code>_unhandled_input()</code></p>
+  <p>Add this branch after the existing <code>if event is InputEventMouseMotion…</code> block.</p>
+  <figure class="code"><figcaption><span class="fname">res://player/player.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">	elif event.is_action_pressed("interact"):
+		_use()
+</code></pre></figure>
+
+  <p class="where">…and add everything below at the bottom of the file</p>
+  <figure class="code"><figcaption><span class="fname">res://player/player.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd"># --- carrying --------------------------------------------------------------
+
+## Runs on the owning client only. Decides *what* to ask for; the host
+## decides whether it happens.
+func _use() -&gt; void:
+	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		return
+	if held_junk() != null:
+		var aim := -camera.global_transform.basis.z
+		var impulse := aim.normalized() * THROW_FORCE + Vector3.UP * THROW_LIFT
+		if Net.is_host():
+			request_throw(impulse)
+		else:
+			request_throw.rpc_id(1, impulse)
+		return
+	var target := nearest_junk()
+	if target != null:
+		if Net.is_host():
+			request_grab(target.name)
+		else:
+			request_grab.rpc_id(1, target.name)
+
+
+func held_junk() -&gt; Junk:
+	for junk in get_tree().get_nodes_in_group("junk"):
+		if junk.held_by == peer_id:
+			return junk
+	return null
+
+
+func nearest_junk() -&gt; Junk:
+	var best: Junk = null
+	var best_distance := INF
+	for body in grab_area.get_overlapping_bodies():
+		if not (body is Junk) or body.held_by != 0:
+			continue
+		var distance := global_position.distance_squared_to(body.global_position)
+		if distance &lt; best_distance:
+			best_distance = distance
+			best = body
+	return best
+
+
+# --- host-side validation --------------------------------------------------
+
+@rpc("any_peer", "reliable")
+func request_grab(junk_name: String) -&gt; void:
+	if not Net.is_host() or _sender() != peer_id:
+		return
+	if held_junk() != null:
+		return
+	var junk := _find_junk(junk_name)
+	if junk == null or junk.held_by != 0:
+		return
+	if global_position.distance_to(junk.global_position) &gt; GRAB_RANGE:
+		return
+	junk.server_grab(peer_id)
+
+
+@rpc("any_peer", "reliable")
+func request_throw(impulse: Vector3) -&gt; void:
+	if not Net.is_host() or _sender() != peer_id:
+		return
+	if impulse.length() &gt; MAX_IMPULSE:
+		return          # a client asking for more force than the game allows
+	var junk := held_junk()
+	if junk != null:
+		junk.server_throw(impulse)
+
+
+## 0 means "we called this on ourselves", which only the host ever does.
+func _sender() -&gt; int:
+	var id := multiplayer.get_remote_sender_id()
+	return peer_id if id == 0 else id
+
+
+func _find_junk(junk_name: String) -&gt; Junk:
+	for junk in get_tree().get_nodes_in_group("junk"):
+		if junk.name == junk_name:
+			return junk
+	return null
+</code></pre></figure>
+</div>
+
+<div class="why">
+  <span class="lbl">Every check in <code>request_grab</code> earns its place</span>
+  <p><code>_sender() != peer_id</code> stops peer 5 from calling grab on peer 6's character. Without it, anyone can make anyone else pick things up.</p>
+  <p>The distance check re-tests on the host what the client's <code>GrabArea</code> already tested. The client's answer is a suggestion; the host's world is the real one, and they can differ by a few frames of lag even with honest players.</p>
+  <p>The impulse cap is the difference between "throw" and "railgun". A client sends a vector, so a client can send an enormous one.</p>
+</div>
+
+<div class="test">
+  <span class="lbl">Run two copies</span>
+  <p>Start a match. Walk into a crate and press E — it snaps to a spot in front of your character, and the other window sees it stuck to you as you run. Press E again to throw it; both windows watch it arc and tumble the same way, because both are watching the host's simulation. Try grabbing a crate someone else is already holding: nothing happens, which is the host refusing.</p>
+</div>
+
+<h2 id="p10"><span class="pnum">PART 10</span>The chute, scoring, and the next level</h2>
+
+<h3>Somewhere to put the junk</h3>
+<p>Open <code>level_kitchen.tscn</code> and add an <code>Area3D</code> named <strong>Chute</strong> as a child of the level root — not inside <code>Geometry</code>, so it's easy to find. Give it:</p>
+<ul>
+  <li>A <code>CollisionShape3D</code> child with a <code>BoxShape3D</code>, size around <code>(3, 3, 3)</code>.</li>
+  <li>A <code>MeshInstance3D</code> child with a matching <code>BoxMesh</code> and a bright, semi-transparent material so players can see the target.</li>
+  <li><strong>Collision Layer:</strong> none. <strong>Collision Mask:</strong> <code>junk</code> only.</li>
+</ul>
+<p>Put it somewhere awkward — up on a ledge is more fun than at eye level. Then do the same in <code>level_garage.tscn</code>.</p>
+
+<figure class="code"><figcaption><span class="fname">res://levels/chute.gd</span><span class="kind new">NEW</span><button class="copy">copy</button></figcaption><pre><code class="gd">extends Area3D
+
+@export var points := 1
+
+
+func _ready() -&gt; void:
+	if not Net.is_host():
+		monitoring = false   # clients never score; they're told the result
+		return
+	body_entered.connect(_on_body_entered)
+
+
+func _on_body_entered(body: Node3D) -&gt; void:
+	if not (body is Junk):
+		return
+	var scorer: int = body.last_thrower if body.last_thrower != 0 else body.held_by
+	if scorer != 0:
+		GameFlow.add_score(scorer, points)
+	body.queue_free()
+</code></pre></figure>
+
+<p>Attach it to the <strong>Chute</strong> node in both levels.</p>
+
+<div class="note">
+  <span class="lbl">Carrying it in also counts</span>
+  <p>If nobody threw it, <code>last_thrower</code> is 0 and the score falls through to <code>held_by</code> — so walking a crate into the chute pays out too. A crate that rolls in on its own credits nobody but still counts toward clearing the level, which is the behaviour you want when a throw knocks a second crate in by accident.</p>
+</div>
+
+<h3>Scores and level progression</h3>
+
+<div class="edit-block">
+  <p class="where">Edit <code>res://autoload/game_flow.gd</code> — add to the host commands section</p>
+  <figure class="code"><figcaption><span class="fname">res://autoload/game_flow.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">func add_score(peer_id: int, amount: int) -&gt; void:
+	if not Net.is_host():
+		return
+	scores[peer_id] = scores.get(peer_id, 0) + amount
+	_receive_scores.rpc(scores)
+
+
+## Called by Main when the last crate leaves the level.
+func level_cleared() -&gt; void:
+	if not Net.is_host() or state != State.PLAYING:
+		return
+	var next := level_index + 1
+	if Levels.has_index(next):
+		_begin_level(next)
+	else:
+		_publish(State.RESULTS, level_index)
+</code></pre></figure>
+
+  <p class="where">…and the scores RPC next to <code>_receive_state</code></p>
+  <figure class="code"><figcaption><span class="fname">res://autoload/game_flow.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">@rpc("authority", "call_local", "reliable")
+func _receive_scores(new_scores: Dictionary) -&gt; void:
+	scores = new_scores
+	scores_changed.emit()
+</code></pre></figure>
+</div>
+
+<div class="edit-block">
+  <p class="where">Edit <code>res://main/main.gd</code> — watch the crate count in <code>_ready()</code></p>
+  <figure class="code"><figcaption><span class="fname">res://main/main.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">	props_root.child_exiting_tree.connect(_on_prop_removed)
+</code></pre></figure>
+
+  <p class="where">…and add the handler at the bottom</p>
+  <figure class="code"><figcaption><span class="fname">res://main/main.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">func _on_prop_removed(_node: Node) -&gt; void:
+	if not Net.is_host():
+		return
+	# The node is still counted as a child while this signal runs, so let
+	# the frame finish before asking how many are left.
+	await get_tree().process_frame
+	if props_root.get_child_count() == 0:
+		GameFlow.level_cleared()
+</code></pre></figure>
+
+  <p class="where">…and clear the old world when the level changes</p>
+  <p>In <code>_on_state_changed()</code>, add the first line of the <code>elif</code> branch.</p>
+  <figure class="code"><figcaption><span class="fname">res://main/main.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">	elif built_level_index != GameFlow.level_index:
+		if Net.is_host():
+			clear_world()   # freeing on the host removes it everywhere
+		built_level_index = GameFlow.level_index
+		build_level(GameFlow.level_index)
+		GameFlow.report_level_ready()
+</code></pre></figure>
+</div>
+
+<div class="warn">
+  <span class="lbl">Only the host clears the world</span>
+  <p>It is tempting to have every peer free its own copies — it looks tidier and it's instant. Don't. Those nodes belong to the <code>MultiplayerSpawner</code>, and when the host's despawn message arrives for a node a client already deleted, you get errors and, in the worst case, a client that misses the <em>next</em> spawn. Let replication do the deleting, in both directions.</p>
+  <p>Note also that <code>level_cleared()</code> is guarded on <code>state == PLAYING</code>. Clearing the world fires <code>_on_prop_removed</code> six times in a row, but by then the state is already <code>LOADING</code>, so the level can't advance twice.</p>
+</div>
+
+<h3>Showing the score</h3>
+<p>Add a <code>VBoxContainer</code> named <strong>ScoreList</strong> (unique name) to <code>hud.tscn</code>, under the two existing labels.</p>
+
+<div class="edit-block">
+  <p class="where">Edit <code>res://ui/hud.gd</code> — add the reference and two connections</p>
+  <figure class="code"><figcaption><span class="fname">res://ui/hud.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">@onready var score_list: VBoxContainer = %ScoreList
+</code></pre></figure>
+  <p class="where">…at the end of <code>_ready()</code></p>
+  <figure class="code"><figcaption><span class="fname">res://ui/hud.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">	GameFlow.scores_changed.connect(_refresh_scores)
+	Net.roster_changed.connect(_refresh_scores)
+	_refresh_scores()
+</code></pre></figure>
+  <p class="where">…and the function at the bottom</p>
+  <figure class="code"><figcaption><span class="fname">res://ui/hud.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">func _refresh_scores() -&gt; void:
+	for child in score_list.get_children():
+		child.queue_free()
+	for peer_id in Net.roster:
+		var label := Label.new()
+		label.text = "%s — %d" % [Net.display_name(peer_id), GameFlow.scores.get(peer_id, 0)]
+		if peer_id == Net.local_id():
+			label.add_theme_color_override("font_color", Color(1, 0.85, 0.3))
+		score_list.add_child(label)
+</code></pre></figure>
+</div>
+
+<div class="test">
+  <span class="lbl">Run two copies</span>
+  <p>Throw a crate into the chute. It disappears, your score goes up in both windows, and the thrower gets the point even if someone else was standing next to the chute. Clear all six crates and the whole group loads the garage together with scores carried over. Clear the garage and both windows go quiet on a lobby screen — the results screen is next.</p>
+</div>
+
+<h2 id="p11"><span class="pnum">PART 11</span>Results screen and rematch</h2>
+
+<p>New scene, <code>Control</code> root named <strong>Results</strong>, anchors <strong>Full Rect</strong>, with a centred panel containing:</p>
+<ul>
+  <li><code>Label</code> named <strong>WinnerLabel</strong></li>
+  <li><code>VBoxContainer</code> named <strong>Standings</strong></li>
+  <li><code>Button</code> named <strong>BackButton</strong>, text <em>Back to lobby</em></li>
+  <li><code>Label</code> named <strong>WaitLabel</strong>, text <em>Waiting for the host…</em></li>
+</ul>
+<p>Save as <code>res://ui/results.tscn</code>.</p>
+
+<figure class="code"><figcaption><span class="fname">res://ui/results.gd</span><span class="kind new">NEW</span><button class="copy">copy</button></figcaption><pre><code class="gd">extends Control
+
+
+func _ready() -&gt; void:
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	%BackButton.visible = Net.is_host()
+	%WaitLabel.visible = not Net.is_host()
+	%BackButton.pressed.connect(GameFlow.return_to_lobby)
+	_build_standings()
+
+
+func _build_standings() -&gt; void:
+	var ranked := Net.roster.keys()
+	ranked.sort_custom(func(a, b): return _score(a) &gt; _score(b))
+
+	%WinnerLabel.text = _headline(ranked)
+
+	for child in %Standings.get_children():
+		child.queue_free()
+	var place := 0
+	for peer_id in ranked:
+		place += 1
+		var label := Label.new()
+		label.text = "%d.  %s  —  %d" % [place, Net.display_name(peer_id), _score(peer_id)]
+		if place == 1:
+			label.add_theme_font_size_override("font_size", 22)
+		%Standings.add_child(label)
+
+
+func _score(peer_id: int) -&gt; int:
+	return GameFlow.scores.get(peer_id, 0)
+
+
+func _headline(ranked: Array) -&gt; String:
+	if ranked.is_empty():
+		return "Nobody hauled anything."
+	var top := _score(ranked[0])
+	var winners: Array = ranked.filter(func(id): return _score(id) == top)
+	if winners.size() &gt; 1:
+		var names: Array = winners.map(func(id): return Net.display_name(id))
+		return "%s tied on %d." % [" and ".join(names), top]
+	return "%s wins with %d." % [Net.display_name(ranked[0]), top]
+</code></pre></figure>
+
+<div class="edit-block">
+  <p class="where">Edit <code>res://autoload/game_flow.gd</code> — add to the host commands</p>
+  <figure class="code"><figcaption><span class="fname">res://autoload/game_flow.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">func return_to_lobby() -&gt; void:
+	if not Net.is_host():
+		return
+	_peers_ready.clear()
+	_publish(State.LOBBY, -1)
+</code></pre></figure>
+</div>
+
+<div class="edit-block">
+  <p class="where">Edit <code>res://main/main.gd</code> — add the preload with the others</p>
+  <figure class="code"><figcaption><span class="fname">res://main/main.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">const SCREEN_RESULTS := preload("res://ui/results.tscn")
+</code></pre></figure>
+  <p class="where">…and give <code>refresh_screen()</code> its third case</p>
+  <p>Insert this above the <code>_:</code> catch-all in the <code>match</code>.</p>
+  <figure class="code"><figcaption><span class="fname">res://main/main.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">		GameFlow.State.RESULTS:
+			show_screen(SCREEN_RESULTS)
+</code></pre></figure>
+</div>
+
+<p>Pressing <em>Back to lobby</em> publishes <code>LOBBY</code>, which every peer already knows how to handle: <code>Main._on_state_changed</code> clears the world and the level, <code>refresh_screen</code> falls through to the lobby, and <code>start_match()</code> resets every score to zero. A rematch needed no new code.</p>
+
+<div class="test">
+  <span class="lbl">Run three copies</span>
+  <p>Play both levels through. Everyone lands on the results screen with identical standings; only the host has the button. Press it and all three windows return to the lobby with the player list intact. Start again and the scores are back to zero.</p>
+</div>
+
+<h2 id="p12"><span class="pnum">PART 12</span>Smoothing, failure cases, and shipping it</h2>
+
+<h3>Interpolating remote players</h3>
+<p>Right now a remote character teleports to each replicated position — smooth on a LAN, visibly steppy over the internet. The fix is to stop replicating the transform directly and replicate a <em>target</em> instead, then chase it.</p>
+
+<div class="edit-block">
+  <p class="where">Edit <code>res://player/player.gd</code> — add near the other variables</p>
+  <figure class="code"><figcaption><span class="fname">res://player/player.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">const SMOOTHING := 18.0
+
+## Written by the owner, replicated, read by everyone else.
+@export var sync_position := Vector3.ZERO
+@export var sync_rotation := 0.0
+</code></pre></figure>
+
+  <p class="where">…tell remote copies to run <code>_process</code></p>
+  <p>Add to the end of <code>_ready()</code>.</p>
+  <figure class="code"><figcaption><span class="fname">res://player/player.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">	set_process(not mine)
+	sync_position = global_position
+	sync_rotation = body.rotation.y
+</code></pre></figure>
+
+  <p class="where">…publish the target at the end of <code>_physics_process()</code></p>
+  <figure class="code"><figcaption><span class="fname">res://player/player.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">	sync_position = global_position
+	sync_rotation = body.rotation.y
+</code></pre></figure>
+
+  <p class="where">…and chase it on every other peer</p>
+  <figure class="code"><figcaption><span class="fname">res://player/player.gd</span><span class="kind edit">EDIT</span><button class="copy">copy</button></figcaption><pre><code class="gd">## Remote copies only — the owner never runs this.
+func _process(delta: float) -&gt; void:
+	var weight := 1.0 - exp(-SMOOTHING * delta)
+	global_position = global_position.lerp(sync_position, weight)
+	body.rotation.y = lerp_angle(body.rotation.y, sync_rotation, weight)
+</code></pre></figure>
+</div>
+
+<p>Then open <code>player.tscn</code>, select the <strong>MultiplayerSynchronizer</strong>, and change the replicated properties from <code>.:position</code> and <code>Body:rotation</code> to <code>.:sync_position</code> and <code>.:sync_rotation</code>.</p>
+
+<div class="note">
+  <span class="lbl">Why <code>1.0 - exp(-k * delta)</code></span>
+  <p>The usual <code>lerp(a, b, 0.2)</code> converges at a rate that depends on frame rate, so the same game looks different at 60 and 144 fps. This form is frame-rate independent: <code>k</code> is a speed in units of "per second" and the result is identical however often you sample it. It's worth using everywhere you smooth something.</p>
+  <p>Junk can get the same treatment with the same three lines — it matters less because thrown crates move on predictable arcs, but a carried crate held by a laggy player is noticeably nicer with it.</p>
+</div>
+
+<h3>The failure cases worth handling</h3>
+
+<table>
+  <tr><th>What happens</th><th>What the game does now</th></tr>
+  <tr><td>Host quits mid-match</td><td><code>server_disconnected</code> → main menu with a message. Handled in Part 4.</td></tr>
+  <tr><td>Client quits mid-match</td><td>Character despawns, held crate drops, score entry removed. Parts 8 and 9.</td></tr>
+  <tr><td>Client quits while everyone waits on them to load</td><td><code>_check_everyone_ready()</code> re-runs on <code>peer_left</code>, so the match proceeds. Part 8.</td></tr>
+  <tr><td>Wrong IP typed</td><td><code>connection_failed</code> → main menu, "Could not reach that host."</td></tr>
+  <tr><td>Port already in use</td><td><code>host()</code> returns an error, menu explains it.</td></tr>
+  <tr><td>Last crate rolls somewhere unreachable</td><td><strong>Not handled.</strong> The level can never be cleared.</td></tr>
+</table>
+
+<p>That last row is the one real gap. The cheapest fix is a kill plane: an <code>Area3D</code> under the level with its mask set to <code>junk</code>, whose <code>body_entered</code> respawns the crate at a random <code>JunkSpawns</code> marker on the host. You now have everything needed to write it — it's the same shape as <code>chute.gd</code>, calling <code>global_position = ...</code> instead of <code>queue_free()</code>.</p>
+
+<p>Two more worth adding once the core is solid:</p>
+<ul>
+  <li><strong>A join timeout.</strong> <code>connection_failed</code> can take a long while on an unroutable address. Start a <code>SceneTreeTimer</code> when <code>join()</code> is called and give up after five seconds if <code>in_session()</code> is still false.</li>
+  <li><strong>A crate limit per level.</strong> Right now the level is over when the crates run out, which means the last one decides the pace. A par time or a target score per level from the <code>Levels</code> registry gives you more control — and it's the reason that registry has a dictionary per level rather than a bare path.</li>
+</ul>
+
+<h3>Playing with actual friends</h3>
+<p>ENet uses UDP. Everything in this tutorial works over LAN with no configuration — the host reads its local address (something like <code>192.168.1.x</code>) and everyone types it into the address field.</p>
+<p>Over the internet, the host needs UDP port <code>24565</code> forwarded to their machine, or you all need to be on the same virtual LAN. Godot ships a <code>UPNP</code> class that can ask a router to open the port automatically; it works often enough to be worth trying and never often enough to rely on. Do it on a thread — <code>UPNP.discover()</code> blocks for seconds.</p>
+
+<div class="warn">
+  <span class="lbl">Before you share a build</span>
+  <p>Everything here trusts the host completely and the clients partially. That's correct for playing with friends and wrong for a public game. If you ever open this to strangers, the movement authority in Part 7 is the first thing to move to the host, and <code>_request_join</code> in Part 4 needs a check that the same peer can't register twice.</p>
+</div>
+
+<h3>Where you ended up</h3>
+<p>Three autoloads with one job each, a persistent scene that owns the tree, and gameplay nodes that never reach across the codebase to find each other. Adding a level is one line in <code>Levels.LIST</code>. Adding a new prop type is a scene, a script with <code>_enter_tree</code> setting authority to 1, and a spawn function. Adding a new match state is an enum value and a branch in <code>refresh_screen</code>.</p>
+<p>The parts that took real thought — the two-step level handshake, spawning through a function instead of a scene list, one persistent root — were all about the same thing: making sure that when a message arrives, there is somewhere for it to land.</p>
+
+<hr>
+<p class="dim-note">Written for Godot 4.4. Godot's own <em>High-level multiplayer</em> documentation is the reference for anything here you want to go deeper on, particularly <code>MultiplayerSynchronizer</code> visibility filters, which are how you'd stop sending a peer things it can't see.</p>
+
+</main>
+</div>
+
+<script>
+(function(){
+  var KW = "func|var|const|extends|class_name|signal|enum|static|if|elif|else|for|while|return|match|break|continue|pass|and|or|not|in|is|as|await|super|preload|load|true|false|null|self|range|emit|void|print";
+  var RE = new RegExp("(#[^\\n]*)|(\"(?:[^\"\\\\]|\\\\.)*\")|(@[A-Za-z_]\\w*)|(\\b(?:"+KW+")\\b)|(\\b\\d+(?:\\.\\d+)?\\b)|(\\b[A-Z][A-Za-z0-9_]*\\b)","g");
+  function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+  function hl(src){
+    var out="",last=0,m; RE.lastIndex=0;
+    while((m=RE.exec(src))!==null){
+      out+=esc(src.slice(last,m.index));
+      var cls = m[1]?"c-com":m[2]?"c-str":m[3]?"c-ann":m[4]?"c-kw":m[5]?"c-num":"c-type";
+      out+='<span class="'+cls+'">'+esc(m[0])+"</span>";
+      last=m.index+m[0].length;
+    }
+    return out+esc(src.slice(last));
+  }
+  document.querySelectorAll("figure.code code.gd").forEach(function(el){
+    el.innerHTML = hl(el.textContent);
+  });
+
+  document.querySelectorAll("main table").forEach(function(t){
+    if (t.parentNode.classList.contains("tablewrap")) return;
+    var w = document.createElement("div");
+    w.className = "tablewrap";
+    t.parentNode.insertBefore(w, t);
+    w.appendChild(t);
+  });
+
+  document.querySelectorAll("button.copy").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var code = btn.closest("figure").querySelector("code");
+      var done = function(){
+        var old = btn.textContent; btn.textContent = "copied";
+        setTimeout(function(){ btn.textContent = old; }, 1200);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(code.textContent).then(done, function(){});
+      } else {
+        var r = document.createRange(); r.selectNodeContents(code);
+        var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+        try { document.execCommand("copy"); done(); } catch(e){}
+      }
+    });
+  });
+
+  var root = document.documentElement;
+  var themeBtn = document.getElementById("themebtn");
+  var meta = document.getElementById("tc");
+  function paint(){
+    var dark = root.getAttribute("data-theme") === "dark";
+    themeBtn.innerHTML = dark ? "\u2600" : "\u263D";
+    themeBtn.setAttribute("aria-label", dark ? "Switch to light theme" : "Switch to dark theme");
+    if (meta) meta.setAttribute("content", dark ? "#1c2026" : "#f7f6f2");
+  }
+  themeBtn.addEventListener("click", function(){
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    try { localStorage.setItem("cb-theme", next); } catch(e) {}
+    paint();
+  });
+  paint();
+
+  var toc = document.getElementById("toc");
+  var tocBtn = document.getElementById("tocbtn");
+  function setOpen(open){
+    toc.classList.toggle("open", open);
+    tocBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    tocBtn.textContent = open ? "Close" : "Contents";
+    document.body.style.overflow = open ? "hidden" : "";
+  }
+  tocBtn.addEventListener("click", function(){ setOpen(!toc.classList.contains("open")); });
+  toc.addEventListener("click", function(e){ if (e.target.tagName === "A") setOpen(false); });
+  document.addEventListener("keydown", function(e){ if (e.key === "Escape") setOpen(false); });
+
+  var links = Array.prototype.slice.call(document.querySelectorAll("#toclist a"));
+  var targets = links.map(function(a){ return document.querySelector(a.getAttribute("href")); });
+  var ticking = false;
+  function spy(){
+    ticking = false;
+    var best = 0;
+    for (var i=0;i<targets.length;i++){
+      if (targets[i] && targets[i].getBoundingClientRect().top <= 140) best = i;
+    }
+    links.forEach(function(a,i){ a.classList.toggle("on", i===best); });
+  }
+  window.addEventListener("scroll", function(){
+    if (!ticking){ ticking = true; requestAnimationFrame(spy); }
+  }, {passive:true});
+  spy();
+})();
+</script>
+</body>
+</html>
